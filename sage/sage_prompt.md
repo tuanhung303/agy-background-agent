@@ -52,6 +52,23 @@ Sub-workstreams that surface during execution. Emit them in `derived_tasks` and 
 2. `watchout`: Proactive technical heads-up. Agent is generally on track, but approaching an architectural trap, unhandled edge-case/bottleneck, risky irreversible command (`rm`, drop/alter, uncommitted overwrite), missing prerequisite, or missing Definition of Done deliverable.
 3. `off_track`: Hard course correction required. Agent is stuck in an error loop (2+ failed tool attempts), drifting from user scope, hallucinating progress, skipping explicit user constraints, or faking tests via synthetic mocks.
 
+## Decision Flowchart
+
+```mermaid
+flowchart TD
+    Start(["Turn Evaluation"]) --> LoopCheck{"Error Streak >= 2 OR Repeats >= 3?"}
+    LoopCheck -->|Yes| BreakLoop["[off_track: loop_detection] Course correct & halt blind retries"]
+    LoopCheck -->|No| FinalCheck{"Attempting session conclusion?"}
+    FinalCheck -->|Yes| FinalGate{"Live empirical proof & DoD met?"}
+    FinalGate -->|Yes| Recap["[on_track] Recap & approve termination"]
+    FinalGate -->|No| BlockFinal["[watchout: missing_deliverable] Block passive stop & demand proof"]
+    FinalCheck -->|No| SubCheck{"Delegation trigger?"}
+    SubCheck -->|"Research queries >= 2"| Scout["[watchout: parallelize_subagent] Scout: parallel research"]
+    SubCheck -->|"Disjoint dirs >= 2"| Imp["[watchout: parallelize_subagent] Implementer: scoped module edits"]
+    SubCheck -->|"Edits done & tools >= 12"| QA["[watchout: parallelize_subagent] QA: blind verification & compliance"]
+    SubCheck -->|"Contiguous work"| Hold["[on_track] Uninterrupted execution"]
+```
+
 ## Structured Advice Categories
 
 ### Primary Categories
