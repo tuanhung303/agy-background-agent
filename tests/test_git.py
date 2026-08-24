@@ -60,7 +60,7 @@ class TestGit(unittest.TestCase):
         self.assertIn("untracked.txt", diff)
         self.assertIn("Changed lines: 2", diff)
 
-    def test_get_git_diff_untracked_multiline_and_binary_and_preview(self):
+    def test_get_git_diff_untracked_multiline_and_binary(self):
         subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
         subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
         subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
@@ -70,7 +70,7 @@ class TestGit(unittest.TestCase):
         with open(untracked_file, "w") as f:
             f.write("\n".join(f"line {i}" for i in range(7)) + "\n")
 
-        # Binary untracked file
+        # Binary untracked file (must be skipped and noted)
         bin_file = os.path.join(self.test_dir, "model.bin")
         with open(bin_file, "wb") as f:
             f.write(b"header\0binary\ndata\nmore\n")
@@ -81,9 +81,57 @@ class TestGit(unittest.TestCase):
             f.write("a = 1\nb = 2\nc = 3\n")
 
         diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
-        self.assertIn("Changed lines: 10", diff)  # 7 + 3
-        self.assertIn("Untracked files:", diff)
-        self.assertIn("--- untracked.py (untracked preview) ---", diff)
+        self.assertIn("Changed lines: 10 + (partial: 1 skipped)", diff)  # 7 + 3, 1 binary skipped
+
+    def test_get_git_diff_untracked_trailing_newline_accounting(self):
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
+
+        # 1 line without trailing newline
+        with open(os.path.join(self.test_dir, "f1.txt"), "w") as f:
+            f.write("hello")
+        # 2 lines without trailing newline
+        with open(os.path.join(self.test_dir, "f2.txt"), "w") as f:
+            f.write("line1\nline2")
+
+        diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
+        self.assertIn("Changed lines: 3", diff)
+
+    def test_get_git_diff_untracked_size_cap_and_symlink(self):
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
+
+        # >1 MiB file (1.1 MiB)
+        big_file = os.path.join(self.test_dir, "big.txt")
+        with open(big_file, "w") as f:
+            f.write("x" * (1100 * 1024))
+
+        # Untracked symlink
+        target_file = os.path.join(self.test_dir, "target.txt")
+        with open(target_file, "w") as f:
+            f.write("line 1\nline 2\n")
+        subprocess.run(["git", "add", "target.txt"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "add target"], cwd=self.test_dir, capture_output=True)
+
+        link_file = os.path.join(self.test_dir, "link.txt")
+        os.symlink(target_file, link_file)
+
+        diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
+        self.assertIn("Changed lines: 0 + (partial: 2 skipped)", diff)
+
+    def test_get_git_diff_untracked_50_file_cap(self):
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
+
+        for i in range(55):
+            with open(os.path.join(self.test_dir, f"file_{i:02d}.txt"), "w") as f:
+                f.write(f"content {i}\n")
+
+        diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
+        self.assertIn("Changed lines: 50 + (partial: >50 untracked files)", diff)
 
     def test_get_git_diff_with_string_workspace_path(self):
         # Passing string path instead of list must not crash or iterate characters

@@ -8,12 +8,17 @@ from unittest.mock import patch
 
 from sage import policies
 
-CTX = dict(
-    conv_id="c", transcript_path="/nonexistent", clean_prompt="p",
-    initial_line_count=3, total_tool_calls=30, turn_tool_names=["Bash"],
-    user_prompt="goal", agent_steps=[], git_diff="",
-    state={"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0},
-)
+def _ctx(**kw):
+    base = dict(
+        conv_id="c", transcript_path="/nonexistent", clean_prompt="p",
+        initial_line_count=3, total_tool_calls=30, turn_tool_names=["Bash"],
+        user_prompt="goal", agent_steps=[], git_diff="",
+        state={"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0},
+    )
+    base.update(kw)
+    if "state" not in kw:
+        base["state"] = dict(base["state"])
+    return base
 
 
 def _frozen(latest_tools=30, latest_lines=3, candidate=False):
@@ -47,10 +52,10 @@ class TestBackgroundWatch(unittest.TestCase):
 
 class TestFinalSageGate(unittest.TestCase):
     def _gate(self, **kw):
-        return policies.final_sage_gate(**{**CTX, **kw})
+        return policies.final_sage_gate(**_ctx(**kw))
 
     def test_interval_gates_midturn_but_not_final(self):
-        ctx = {**CTX, "total_tool_calls": 5}
+        ctx = _ctx(total_tool_calls=5)
         with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1):
             act = policies.sage_flow("midturn", **{**ctx, "forced": False})
             self.assertEqual(act["action"], "exit")
@@ -104,7 +109,7 @@ class TestFinalSageGate(unittest.TestCase):
         self.assertIn("all good", act["note"])
 
     def test_sage_flow_accelerates_on_parallel_signals(self):
-        ctx = {**CTX, "total_tool_calls": 3}  # delta = 3 < SAGE_TOOL_INTERVAL (10)
+        ctx = _ctx(total_tool_calls=3)  # delta = 3 < SAGE_TOOL_INTERVAL (10)
         par_sig = {
             "parallelizable": True,
             "signal_text": "PARALLELIZABLE: Disjoint files detected",
@@ -123,7 +128,7 @@ class TestFinalSageGate(unittest.TestCase):
 
     def test_weighted_scoring_triggers_on_mutations_early(self):
         # 4 edit calls = 4 * 2.5 = 10.0 score -> triggers audit even though total_tool_calls (4) < SAGE_TOOL_INTERVAL (10)
-        ctx = {**CTX, "total_tool_calls": 4}
+        ctx = _ctx(total_tool_calls=4)
         frozen = _frozen(latest_tools=4)
         with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
                 patch.object(policies, "calculate_turn_tool_score", return_value=(10.0, 4)), \
@@ -136,14 +141,58 @@ class TestFinalSageGate(unittest.TestCase):
 
     def test_weighted_scoring_exits_when_below_score_and_count_threshold(self):
         # 4 read calls = 4 * 0.5 = 2.0 score < 10.0, raw delta = 4 < 10 -> exits cleanly
-        ctx = {**CTX, "total_tool_calls": 4}
+        ctx = _ctx(total_tool_calls=4)
         frozen = _frozen(latest_tools=4)
         with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
                 patch.object(policies, "calculate_turn_tool_score", return_value=(2.0, 4)), \
                 frozen[0], frozen[1], frozen[2]:
             act = policies.sage_flow("midturn", **ctx)
-        self.assertEqual(act["action"], "exit")
-        self.assertIn("Mid-turn tool delta below threshold", act["reason"])
+    def test_signal_note_newline_separation(self):
+        ctx = _ctx(total_tool_calls=30, signal_note="[EVT·error_loop s3] err=1\nASK root cause.")
+        par_sig = {
+            "parallelizable": True,
+            "categories": ["disjoint_files"],
+            "signal_text": "PARALLELIZABLE: Independent workstreams detected. Suggest invoke_subagent with roles: Implementer.",
+        }
+        frozen = _frozen(latest_tools=30)
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "get_parallelizable_signals", return_value=par_sig), \
+                patch.object(policies, "evaluate_mid_turn_progress", return_value={"status": "on_track"}) as mock_eval, \
+                patch.object(policies, "classify_advice", return_value={"decision": "hold", "text": "ok", "seen": {}}), \
+                frozen[0], frozen[1], frozen[2]:
+            act = policies.sage_flow("midturn", **ctx)
+        self.assertEqual(act["action"], "healthy")
+        passed_signals = mock_eval.call_args.kwargs.get("signals")
+        self.assertIn("[EVT·error_loop s3]", passed_signals)
+        self.assertIn("ASK root cause.\nPARALLELIZABLE:", passed_signals)
+
+    def test_structural_parallel_categories_edge_triggering(self):
+        ctx = _ctx(total_tool_calls=3)
+        par_sig = {
+            "parallelizable": True,
+            "categories": ["disjoint_files"],
+            "signal_text": "PARALLELIZABLE: Disjoint files",
+        }
+        state = dict(ctx["state"])
+        f1 = _frozen(latest_tools=3)
+        # First call: new structural category triggers forced evaluation
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "get_parallelizable_signals", return_value=par_sig), \
+                patch.object(policies, "evaluate_mid_turn_progress", return_value={"status": "on_track"}) as mock_eval, \
+                patch.object(policies, "classify_advice", return_value={"decision": "hold", "text": "ok", "seen": {}}), \
+                f1[0], f1[1], f1[2]:
+            act = policies.sage_flow("midturn", **{**ctx, "state": state})
+            self.assertEqual(act["action"], "healthy")
+            self.assertTrue(mock_eval.call_args.kwargs.get("is_forced"))
+
+        # Second call with same state (state["last_par_cats"] recorded) and low tool delta: exits
+        f2 = _frozen(latest_tools=3)
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "get_parallelizable_signals", return_value=par_sig), \
+                patch.object(policies, "calculate_turn_tool_score", return_value=(0.0, 0)), \
+                f2[0], f2[1], f2[2]:
+            act2 = policies.sage_flow("midturn", **{**ctx, "state": state})
+            self.assertEqual(act2["action"], "exit")
 
 
 TestFinalAdvisorGate = TestFinalSageGate

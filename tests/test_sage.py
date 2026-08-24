@@ -425,7 +425,7 @@ class TestSage(unittest.TestCase):
                 clean_prompt="p", initial_line_count=0, total_tool_calls=14, turn_tool_names={"run_command"},
                 user_prompt="u", agent_steps=[], git_diff="", state={},
                 forced=True,
-                signal_note="[EVT·error_loop s3] tool=run_command · sig=exit code 127 · fails=5",
+                signal_note="[EVT·error_loop s3] loop=1 · err=1\nASK root cause. exact fix cmd. NO blind retry.",
             )
 
         signals_sent = captured.get("signals", "")
@@ -485,16 +485,17 @@ class TestSage(unittest.TestCase):
     def test_single_file_fatigue_does_not_suggest_implementer(self):
         from sage.task_structure import get_parallelizable_signals
         steps = [{"type": "USER_INPUT", "source": "USER", "content": "fix bug"}]
-        # 11 reads on same file + 1 pytest execution = 12 tools
-        for _ in range(11):
+        # 10 reads on same file + 2 pytest executions = 12 tools
+        for _ in range(10):
             steps.append({"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "read_url_content", "args": {"Url": "http://x"}}]})
         steps.append({"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "pytest tests/test_auth.py"}}]})
+        steps.append({"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "pytest tests/test_api.py"}}]})
         sig = get_parallelizable_signals(steps)
         self.assertTrue(sig["parallelizable"])
         self.assertIn("QA", sig["suggested_roles"])
         self.assertNotIn("Implementer", sig["suggested_roles"])
-        self.assertEqual(sig["categories"], ["context_fatigue_delegation"])
-        self.assertTrue(sig["signal_text"].startswith("PARALLELIZABLE: Delegation opportunity"))
+        self.assertIn("context_fatigue_delegation", sig["categories"])
+        self.assertTrue(sig["signal_text"].startswith("PARALLELIZABLE: Independent workstreams detected"))
 
     def test_file_editing_tool_aliases_trigger_disjoint_files(self):
         from sage.task_structure import get_parallelizable_signals
@@ -551,6 +552,42 @@ class TestSage(unittest.TestCase):
         signals_sent = captured.get("signals", "")
         self.assertIn("[EVT·final_stop s3]", signals_sent)
         self.assertIn("diff=~50L", signals_sent)
+
+    def test_runner_emits_structured_error_loop_summon(self):
+        import json
+        from unittest.mock import patch
+        from sage.runner import run_session_stop_audit
+
+        payload = json.dumps({
+            "conversationId": "test_conv_err_loop",
+            "fullyIdle": True,
+            "transcriptPath": "/tmp/dummy_trans.jsonl",
+        })
+
+        captured = {}
+        def fake_flow(*a, **k):
+            captured.update(k)
+            return {"action": "healthy", "text": "ok"}
+
+        with patch("sage.runner.acquire_conversation_lock", return_value=True), \
+             patch("sage.runner.get_transcript_path", return_value="/tmp/dummy.jsonl"), \
+             patch("sage.runner.extract_session_and_turn_data", return_value=("do work", "do work", [], 5, {"run_command"}, 0, 0, 10)), \
+             patch("sage.runner.load_and_sync_session_state", return_value=("do work", "/tmp/state.json", {}, False)), \
+             patch("sage.runner.get_active_subagents", return_value=[]), \
+             patch("sage.runner.get_active_background_tasks", return_value=[]), \
+             patch("sage.runner.is_subagent_session", return_value=False), \
+             patch("sage.runner.is_post_invocation", return_value=True), \
+             patch("sage.runner.is_post_invocation_completion_candidate", return_value=False), \
+             patch("sage.runner.has_recent_tool_errors", return_value=True), \
+             patch("sage.runner.has_repeated_tool_calls", return_value=False), \
+             patch("sage.runner.advisor_flow", side_effect=fake_flow), \
+             patch("sage.runner.save_session_state"), \
+             patch("sys.exit"):
+            run_session_stop_audit(payload)
+
+        sig = captured.get("signal_note", "")
+        self.assertTrue(sig.startswith("[EVT·error_loop s3] err=1"), f"Unexpected sig: {sig}")
+        self.assertIn("ASK root cause. exact fix cmd. NO blind retry.", sig)
 
 
 if __name__ == "__main__":

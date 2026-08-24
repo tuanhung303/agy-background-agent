@@ -2,6 +2,7 @@
 sage.events - Dynamic context-aware event summon formatting for the strategic sage.
 """
 
+import math
 import re
 
 EVENT_FINAL_STOP = "final_stop"
@@ -91,9 +92,14 @@ def bucket_seconds(value):
 
 
 def bucket_lines(value):
+    if value is None or isinstance(value, bool):
+        return "?"
     try:
-        num = int(value)
-    except (TypeError, ValueError):
+        val = float(value)
+        if not math.isfinite(val):
+            return ">1kL" if val > 0 else "?"
+        num = int(val)
+    except (TypeError, ValueError, OverflowError):
         return "?"
     for edge, label in ((1, "0L"), (11, "~10L"), (51, "~50L"),
                         (151, "~100L"), (501, "~500L"), (1001, "~1kL")):

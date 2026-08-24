@@ -147,7 +147,7 @@ def get_parallelizable_signals(steps_or_path):
         suggested_roles.append("QA")
 
     total_tools_in_turn = len(t_calls)
-    if total_tools_in_turn >= 12 and (len(distinct_dirs) >= 2 or len(test_commands) >= 1):
+    if total_tools_in_turn >= 12 and (len(distinct_dirs) >= 2 or len(test_commands) >= 2):
         categories.append("context_fatigue_delegation")
         details.append(f"mid-task tool accumulation ({total_tools_in_turn} tools)")
         if "QA" not in suggested_roles:

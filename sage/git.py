@@ -72,19 +72,25 @@ def get_git_diff(workspace_paths, turn_tool_names=None):
             )
             untracked_files = [f for f in untracked_res.stdout.split("\0") if f] if untracked_res.returncode == 0 else []
             capped = len(untracked_files) > MAX_UNTRACKED_FILES
+            skipped = 0
             for uf in untracked_files[:MAX_UNTRACKED_FILES]:
                 uf_path = os.path.join(ws, uf)
-                if os.path.isfile(uf_path) and not os.path.islink(uf_path):
+                if os.path.islink(uf_path):
+                    skipped += 1
+                    continue
+                if os.path.isfile(uf_path):
                     try:
                         if os.path.getsize(uf_path) > MAX_UNTRACKED_BYTES:
+                            skipped += 1
                             continue
                         with open(uf_path, "rb") as f:
                             blob = f.read(MAX_UNTRACKED_BYTES)
                         if b"\0" in blob[:8192]:
+                            skipped += 1
                             continue
-                        changed += blob.count(b"\n")
+                        changed += blob.count(b"\n") + (1 if blob and not blob.endswith(b"\n") else 0)
                     except Exception:
-                        pass
+                        skipped += 1
 
             status_lines = [l.strip() for l in status_res.stdout.splitlines() if l.strip()][:12]
             diff_unstaged = diff_unstaged_res.stdout.strip()
@@ -95,24 +101,14 @@ def get_git_diff(workspace_paths, turn_tool_names=None):
                 combined_diff_parts.append(f"Staged changes:\n{diff_staged}")
             if diff_unstaged:
                 combined_diff_parts.append(f"Unstaged changes:\n{diff_unstaged}")
-            if not combined_diff_parts and untracked_files:
-                previews = []
-                for uf in untracked_files[:3]:
-                    uf_path = os.path.join(ws, uf)
-                    if os.path.isfile(uf_path) and not os.path.islink(uf_path):
-                        try:
-                            if os.path.getsize(uf_path) <= MAX_UNTRACKED_BYTES:
-                                with open(uf_path, "r", encoding="utf-8", errors="replace") as f:
-                                    head_lines = "".join(f.readlines()[:10])
-                                    if head_lines.strip():
-                                        previews.append(f"--- {uf} (untracked preview) ---\n{head_lines}")
-                        except Exception:
-                            pass
-                if previews:
-                    combined_diff_parts.append("Untracked files:\n" + "\n".join(previews))
 
             combined_diff = "\n".join(combined_diff_parts).strip()
-            count_suffix = " + (partial: >50 untracked files)" if capped else ""
+            parts = []
+            if capped:
+                parts.append(f">{MAX_UNTRACKED_FILES} untracked files")
+            if skipped:
+                parts.append(f"{skipped} skipped")
+            count_suffix = f" + (partial: {', '.join(parts)})" if parts else ""
 
             if status_lines or combined_diff:
                 truncated_diff = combined_diff[:1500] if len(combined_diff) > 1500 else combined_diff

@@ -75,7 +75,12 @@ def run_session_stop_audit(raw_payload=None):
     ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths") or []
     if is_post_invocation() and not is_post_invocation_completion_candidate(transcript_path, conv_id):
         has_err, has_loop = has_recent_tool_errors(transcript_path), has_repeated_tool_calls(transcript_path)
-        sig = format_summon_message(EVENT_ERROR_LOOP, err=has_err, loop=has_loop) if (has_err or has_loop) else ""
+        sig_kwargs = {}
+        if has_err:
+            sig_kwargs["err"] = True
+        if has_loop:
+            sig_kwargs["loop"] = True
+        sig = format_summon_message(EVENT_ERROR_LOOP, **sig_kwargs) if sig_kwargs else ""
         save_session_state(state_file, state, sage_status="evaluating", last_audited_line_count=initial_line_count)
         _flow_fn = advisor_flow if advisor_flow != sage_flow else sage_flow
         act = _flow_fn(

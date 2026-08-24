@@ -23,11 +23,10 @@ from sage.config import (
     SAGE_MAX_ERROR_STREAK, SAGE_STEER_MIN_CONFIDENCE, SAGE_TOOL_INTERVAL,
     SAGE_TOOL_SCORE_THRESHOLD, ADVISOR_TOOL_SCORE_THRESHOLD,
 )
-MID_TURN_ADVISOR_ENABLED = MID_TURN_SAGE_ENABLED
-ADVISOR_TOOL_INTERVAL = SAGE_TOOL_INTERVAL
-ADVISOR_STEER_MIN_CONFIDENCE = SAGE_STEER_MIN_CONFIDENCE
-ADVISOR_ESCALATE_MIN_CONFIDENCE = SAGE_ESCALATE_MIN_CONFIDENCE
-ADVISOR_MAX_ERROR_STREAK = SAGE_MAX_ERROR_STREAK
+MID_TURN_ADVISOR_ENABLED, ADVISOR_TOOL_INTERVAL = MID_TURN_SAGE_ENABLED, SAGE_TOOL_INTERVAL
+ADVISOR_STEER_MIN_CONFIDENCE, ADVISOR_ESCALATE_MIN_CONFIDENCE, ADVISOR_MAX_ERROR_STREAK = (
+    SAGE_STEER_MIN_CONFIDENCE, SAGE_ESCALATE_MIN_CONFIDENCE, SAGE_MAX_ERROR_STREAK
+)
 from sage.events import EVENT_FINAL_STOP, EVENT_PARALLEL_OPP, EVENT_TOOL_THRESHOLD, format_summon_message
 from sage.task_structure import get_parallelizable_signals
 from sage.transcript import (
@@ -96,10 +95,13 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     lv = int(state.get("last_verified_tools", 0))
     par_sig = get_parallelizable_signals(transcript_path) if not final else {}
     if par_sig.get("parallelizable"):
-        forced = forced or par_sig.get("categories") != ["context_fatigue_delegation"]
+        cats = par_sig.get("categories", [])
+        if cats != ["context_fatigue_delegation"] and cats != state.get("last_par_cats"):
+            forced = True
+            state["last_par_cats"] = list(cats)
         stext = par_sig.get("signal_text", "")
         if signal_note and stext and stext not in signal_note:
-            signal_note = f"{signal_note} {stext}".strip()
+            signal_note = f"{signal_note}\n{stext}".strip()
     effective_thresh = min(SAGE_TOOL_SCORE_THRESHOLD, ADVISOR_TOOL_SCORE_THRESHOLD)
     effective_interval = min(SAGE_TOOL_INTERVAL, ADVISOR_TOOL_INTERVAL)
     delta_score, _ = calculate_turn_tool_score(transcript_path, lv) if transcript_path else (0.0, 0)

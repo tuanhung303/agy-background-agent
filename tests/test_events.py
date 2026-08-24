@@ -110,6 +110,18 @@ class TestAdvisorEvents(unittest.TestCase):
         self.assertEqual(bucket_lines(1000), "~1kL")
         self.assertEqual(bucket_lines(1001), ">1kL")
         self.assertEqual(bucket_lines(3000), ">1kL")
+        self.assertEqual(bucket_lines(float("inf")), ">1kL")
+        self.assertEqual(bucket_lines(float("-inf")), "?")
+        self.assertEqual(bucket_lines(float("nan")), "?")
+        self.assertEqual(bucket_lines(None), "?")
+        self.assertEqual(bucket_lines(True), "?")
+        self.assertEqual(bucket_lines(False), "?")
+
+    def test_format_error_loop_boolean_facts(self):
+        msg = format_summon_message(EVENT_ERROR_LOOP, err=True)
+        self.assertIn("[EVT·error_loop s3] err=1", msg)
+        self.assertNotIn("loop=", msg)
+        self.assertIn("ASK root cause. exact fix cmd. NO blind retry.", msg)
 
 
 if __name__ == "__main__":
