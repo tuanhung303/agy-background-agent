@@ -1,6 +1,8 @@
 """
-sage.events - Human-readable event summon context formatting for the strategic sage.
+sage.events - Dynamic context-aware event summon formatting for the strategic sage.
 """
+
+import re
 
 EVENT_FINAL_STOP = "final_stop"
 EVENT_HEARTBEAT = "heartbeat"
@@ -10,70 +12,172 @@ EVENT_SENSITIVE_TOOL = "sensitive_tool"
 EVENT_STALE_TASK = "stale_task"
 EVENT_PARALLEL_OPP = "parallel_opportunity"
 
+STYLE_FULL = "full"
+STYLE_BALANCED = "balanced"
+STYLE_VERBOSE = "verbose"
 
-def format_summon_message(event_type, **kwargs):
-    """Formats a clear, human-readable summon message for the strategic sage."""
+SEVERITY = {
+    EVENT_TOOL_THRESHOLD: 1, EVENT_PARALLEL_OPP: 1,
+    EVENT_HEARTBEAT: 2, EVENT_STALE_TASK: 2,
+    EVENT_ERROR_LOOP: 3, EVENT_SENSITIVE_TOOL: 3, EVENT_FINAL_STOP: 3,
+}
+
+FACT_RANK = (
+    "why", "sig", "cmd", "kw", "tool", "fails", "loop", "err", "bg", "age", "task",
+    "sub", "exec_after_edit", "test_cmd", "tools", "mix",
+    "diff", "steers", "rep", "dur",
+)
+
+FILLER_RE = re.compile(
+    r"\b(?:the|a|an|is|are|was|were|be|been|being|that|which|there|"
+    r"please|kindly|simply|just|really|very|currently|also)\b",
+    re.IGNORECASE,
+)
+POLARITY_TOKENS = ("NOT", "NO", "ONLY", "UNLESS", "BEFORE", "MUST")
+_WS_RE = re.compile(r"\s{2,}")
+_SECRET_RE = re.compile(r"(?i)\b(?:token|secret|password|api[_-]?key|bearer)\b\s*[:=]?\s*\S+")
+
+FINAL_STOP_DIRECTIVE = (
+    "Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate and live empirical evidence: "
+    "You are being summoned because the agent is attempting to conclude the session. "
+    "Your objective is to enforce the Final Stop Gate: verify that all user requirements are satisfied with live empirical proof, "
+    "reject passive stops on trivial questions, and ask yourself before permitting completion: "
+    "'Can the user confidently ship this code to production, or distribute this to the customer right now without hidden regressions or unhandled defects?' "
+    "If the agent stopped on a passive question ('Shall I apply...'), or if unaddressed review findings/defects remain, do NOT recap; steer the agent to fix them."
+)
+
+ASK = {
+    EVENT_TOOL_THRESHOLD: "",
+    EVENT_PARALLEL_OPP: "",
+    EVENT_HEARTBEAT: "waiting on bg task, hung, or progressing? unblock cmd if hung.",
+    EVENT_STALE_TASK: "producing output or hung? keep watch or kill.",
+    EVENT_ERROR_LOOP: "root cause. exact fix cmd. NO blind retry.",
+    EVENT_SENSITIVE_TOOL: "target env + preconditions + rollback verified BEFORE mutation.",
+    EVENT_FINAL_STOP: FINAL_STOP_DIRECTIVE,
+}
+
+ESCALATED_ASK = {
+    EVENT_ERROR_LOOP: "prior steer ignored. change approach, NOT retry count.",
+    EVENT_HEARTBEAT: "prior steer ignored. kill or escalate, NOT wait longer.",
+    EVENT_STALE_TASK: "prior steer ignored. kill task or report blocker.",
+}
+
+
+def _redact(text):
+    return _SECRET_RE.sub("[redacted]", "" if text is None else str(text))
+
+
+def caveman(text, style=STYLE_BALANCED):
+    raw = str(text or "").strip()
+    if not raw or style == STYLE_VERBOSE:
+        return raw
+    parts = raw.split("`")
+    for i in range(0, len(parts), 2):
+        parts[i] = FILLER_RE.sub(" ", parts[i])
+    out = _WS_RE.sub(" ", "`".join(parts)).strip()
+    return re.sub(r"\s+([,.;:])", r"\1", out)
+
+
+def bucket_seconds(value):
+    try:
+        secs = float(value)
+    except (TypeError, ValueError):
+        return "?"
+    for edge, label in ((60, "<1m"), (120, "~1m"), (300, "~2m"), (600, "~5m"),
+                        (900, "~10m"), (1800, "~15m"), (3600, "~30m")):
+        if secs < edge:
+            return label
+    return ">1h"
+
+
+def bucket_lines(value):
+    try:
+        num = int(value)
+    except (TypeError, ValueError):
+        return "?"
+    for edge, label in ((1, "0L"), (11, "~10L"), (51, "~50L"),
+                        (151, "~100L"), (501, "~500L")):
+        if num < edge:
+            return label
+    return ">1kL"
+
+
+def _fmt_value(val):
+    if isinstance(val, bool):
+        return "1" if val else "0"
+    if isinstance(val, float):
+        return f"{val:.1f}" if val % 1 else f"{val:.0f}"
+    if isinstance(val, (list, tuple, set)):
+        return "/".join(sorted(str(v) for v in val))
+    return _redact(val).strip()
+
+
+def render_facts(facts, style=STYLE_BALANCED, max_facts=9):
+    ranked = [k for k in FACT_RANK if facts.get(k) not in (None, "", [], ())]
+    extra = sorted(k for k in facts if k not in FACT_RANK and facts.get(k) not in (None, "", [], ()))
+    kept = (ranked + extra)[:max_facts]
+    chunks = []
+    for key in kept:
+        val = _fmt_value(facts[key])
+        if not val:
+            continue
+        chunks.append(val if key == "why" else f"{key}={val}")
+    joined = " · ".join(chunks)
+    return caveman(joined, style) if style == STYLE_FULL else joined
+
+
+def _normalize_kwargs(kwargs):
+    norm = dict(kwargs.get("facts") or {})
+    mapping = {
+        "total_tools": "tools",
+        "error_streak": "fails", "tool_name": "tool", "error_sig": "sig",
+        "command_snippet": "cmd", "keyword": "kw", "task_id": "task",
+        "task_desc": "bg", "age_seconds": "age", "duration": "dur",
+        "signal_text": "why",
+    }
+    for old_k, new_k in mapping.items():
+        if old_k in kwargs and new_k not in norm:
+            v = kwargs[old_k]
+            if old_k in ("age_seconds", "duration") and isinstance(v, (int, float)):
+                v = bucket_seconds(v)
+            norm[new_k] = v
+    ignored = ("facts", "style", "fallback_signal", "score", "delta", "delta_tools", "pinned_goal", "anchor_goal", "goal", "revised_goal")
+    for k, v in kwargs.items():
+        if k not in mapping and k not in ignored:
+            norm.setdefault(k, v)
+    return norm
+
+
+def format_summon_message(event_type, style=STYLE_BALANCED, **kwargs):
+    """Formats dynamic, context-aware fact-ranked summon messages."""
     if event_type == EVENT_FINAL_STOP:
-        return (
-            "Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate and live empirical evidence: "
-            "You are being summoned because the agent is attempting to conclude the session. "
-            "Your objective is to enforce the Final Stop Gate: verify that all user requirements are satisfied with live empirical proof, "
-            "reject passive stops on trivial questions, and ask yourself before permitting completion: "
-            "'Can the user confidently ship this code to production, or distribute this to the customer right now without hidden regressions or unhandled defects?' "
-            "If the agent stopped on a passive question ('Shall I apply...'), or if unaddressed review findings/defects remain, do NOT recap; steer the agent to fix them."
-        )
+        return FINAL_STOP_DIRECTIVE
+    if event_type not in SEVERITY:
+        return caveman(kwargs.get("fallback_signal") or "eval agent trajectory vs goal.", style)
+    sev = SEVERITY[event_type]
+    merged = _normalize_kwargs(kwargs)
+    rep = merged.get("rep")
+    try:
+        rep_val = int(rep) if rep is not None else 0
+    except (TypeError, ValueError):
+        rep_val = 0
+    ask = ""
+    if sev >= 2:
+        escalated = ESCALATED_ASK.get(event_type) if rep_val > 1 else ""
+        ask = escalated or ASK.get(event_type, "")
+    head = f"[EVT·{event_type} s{sev}] {render_facts(merged, style)}".rstrip()
+    if not ask:
+        return head
+    return f"{head}\nASK {ask}"
 
-    if event_type == EVENT_HEARTBEAT:
-        dur = kwargs.get("duration", 180.0)
-        return (
-            f"You are being summoned because the executing agent has been running tools for {dur:.0f} seconds without reporting user progress. "
-            "Your objective is to inspect whether the agent is waiting on an active background task, caught in a hang or deadlock, or making healthy progress. "
-            "If the agent is stuck, provide concrete steering to unblock it; otherwise, provide a brief status update."
-        )
 
-    if event_type == EVENT_TOOL_THRESHOLD:
-        tools = kwargs.get("total_tools", 10)
-        delta = kwargs.get("delta_tools", 10)
-        goal = kwargs.get("pinned_goal") or kwargs.get("goal") or "the active user request"
-        return (
-            f"You are being summoned because the agent has completed a heavy sequence of {tools} tool calls (delta: {delta}). "
-            f"Your objective is to evaluate the agent's trajectory against the target goal ('{goal}'), "
-            "verify that the work has not drifted into unnecessary refactoring, and catch potential architectural traps early."
-        )
-
-    if event_type == EVENT_ERROR_LOOP:
-        streak = kwargs.get("error_streak", 5)
-        tool = kwargs.get("tool_name", "the last tool")
-        sig = kwargs.get("error_sig", "repeated failure")
-        return (
-            f"You are being summoned because the agent has encountered {streak} consecutive tool failures while executing `{tool}`. "
-            f"Error signature: '{sig}'. "
-            "Your objective is to diagnose the underlying root cause, stop the agent from guessing blindly, and provide an exact, actionable fix."
-        )
-
-    if event_type == EVENT_SENSITIVE_TOOL:
-        kw = kwargs.get("keyword", "sensitive command")
-        cmd = kwargs.get("command_snippet", "")
-        cmd_info = f" (`{cmd}`)" if cmd else ""
-        return (
-            f"You are being summoned because the agent invoked a sensitive command matching keyword '{kw}'{cmd_info}. "
-            "Your objective is to verify that target environments, preconditions, and safety guardrails are satisfied before irreversible mutations proceed."
-        )
-
-    if event_type == EVENT_STALE_TASK:
-        tid = kwargs.get("task_id", "background task")
-        desc = kwargs.get("task_desc", "unnamed task")
-        age = kwargs.get("age_seconds", 300.0)
-        return (
-            f"You are being summoned because background task '{tid}' ('{desc}') has been running for {age:.0f}s without concluding. "
-            "Your objective is to determine if the task is actively producing output or confirmed hung, and advise the agent whether to keep watching or terminate it."
-        )
-
-    if event_type == EVENT_PARALLEL_OPP:
-        sig_text = kwargs.get("signal_text", "multiple independent workstreams detected")
-        return (
-            f"You are being summoned because an opportunity for parallel execution was detected ({sig_text}). "
-            "Your objective is to evaluate whether these independent workstreams can be dispatched concurrently via `invoke_subagent` to accelerate execution."
-        )
-
-    return kwargs.get("fallback_signal", "Evaluate agent trajectory and progress against the target goal.")
+def assert_polarity_intact(rendered):
+    """Guards that critical negation and constraint operators remain explicit."""
+    for line in str(rendered or "").splitlines():
+        if not line.startswith("ASK "):
+            continue
+        lowered = line.lower()
+        risky = any(word in lowered for word in ("not ", "no ", "only", "unless", "before"))
+        if risky and not any(tok in line for tok in POLARITY_TOKENS):
+            return False
+    return True

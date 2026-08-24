@@ -115,8 +115,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         active_signal = format_summon_message(
             EVENT_TOOL_THRESHOLD,
             total_tools=total_tool_calls,
-            delta_tools=total_tool_calls - lv,
-            pinned_goal=state.get("pinned_goal") or state.get("anchor_goal"),
+            mix=list(turn_tool_names)[-5:] if turn_tool_names else None,
         )
     verdict = evaluate_mid_turn_progress(
         conv_id, transcript_path, total_tool_calls, turn_tool_names,
