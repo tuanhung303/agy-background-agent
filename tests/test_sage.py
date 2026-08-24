@@ -604,8 +604,11 @@ class TestSage(unittest.TestCase):
              patch("sage.runner.has_repeated_tool_calls", return_value=False), \
              patch("sage.runner.advisor_flow", side_effect=fake_flow), \
              patch("sage.runner.save_session_state"), \
-             patch("sys.exit"):
-            run_session_stop_audit(payload)
+             patch("sys.exit", side_effect=SystemExit):
+            try:
+                run_session_stop_audit(payload)
+            except SystemExit:
+                pass
 
         sig = captured.get("signal_note", "")
         self.assertTrue(sig.startswith("[EVT·error_loop s3] err=1"), f"Unexpected sig: {sig}")
