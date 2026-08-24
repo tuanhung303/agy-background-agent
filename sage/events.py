@@ -144,14 +144,14 @@ def _normalize_kwargs(kwargs):
     ignored = ("facts", "style", "fallback_signal", "score", "delta", "delta_tools", "pinned_goal", "anchor_goal", "goal", "revised_goal")
     for k, v in kwargs.items():
         if k not in mapping and k not in ignored:
+            if k == "diff" and isinstance(v, int):
+                v = bucket_lines(v)
             norm.setdefault(k, v)
     return norm
 
 
 def format_summon_message(event_type, style=STYLE_BALANCED, **kwargs):
     """Formats dynamic, context-aware fact-ranked summon messages."""
-    if event_type == EVENT_FINAL_STOP:
-        return FINAL_STOP_DIRECTIVE
     if event_type not in SEVERITY:
         return caveman(kwargs.get("fallback_signal") or "eval agent trajectory vs goal.", style)
     sev = SEVERITY[event_type]
@@ -165,16 +165,18 @@ def format_summon_message(event_type, style=STYLE_BALANCED, **kwargs):
     if sev >= 2:
         escalated = ESCALATED_ASK.get(event_type) if rep_val > 1 else ""
         ask = escalated or ASK.get(event_type, "")
-    head = f"[EVT·{event_type} s{sev}] {render_facts(merged, style)}".rstrip()
+    facts_str = render_facts(merged, style)
+    head = f"[EVT·{event_type} s{sev}] {facts_str}".rstrip() if facts_str else f"[EVT·{event_type} s{sev}]"
     if not ask:
         return head
-    return f"{head}\nASK {ask}"
+    sep = "\n\n" if event_type == EVENT_FINAL_STOP else "\nASK "
+    return f"{head}{sep}{ask}"
 
 
 def assert_polarity_intact(rendered):
     """Guards that critical negation and constraint operators remain explicit."""
     for line in str(rendered or "").splitlines():
-        if not line.startswith("ASK "):
+        if not line.startswith("ASK ") and not line.startswith("Final stop:"):
             continue
         lowered = line.lower()
         risky = any(word in lowered for word in ("not ", "no ", "only", "unless", "before"))

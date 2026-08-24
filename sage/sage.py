@@ -85,7 +85,7 @@ def build_sage_prompt(conv_id, user_prompt, agent_steps_summary, is_update=False
     goal_block = format_goal_context(base_goal, revised_goal, derived_tasks)
     if is_update:
         goal_txt = f"{goal_block}\n\n" if goal_block else (f"TARGET GOAL (unchanged): {extract_target_goal(user_prompt)}\n\n" if extract_target_goal(user_prompt) else "")
-        return f"SAGE UPDATE (Follow-up Check for conversation {conv_id or 'default'}):\n{goal_txt}Evaluate recent agent actions against TARGET GOAL. If this is your first check in this conversation, evaluate the actions as-is.\n\nAGENT ACTIONS (RECENT):\n{steps_txt}\n\nGIT DIFF / MODIFICATIONS:\n{diff_txt}{sig_txt}\n\n{STATUS_LEGEND}"
+        return f"SAGE UPDATE (Follow-up Check for conversation {conv_id or 'default'}):\n{goal_txt}Evaluate recent agent actions against TARGET GOAL. If this is your first check in this conversation, evaluate the actions as-is.\n\nAGENT ACTIONS (RECENT):\n{steps_txt}\n\nGIT DIFF / MODIFICATIONS:\n{diff_txt}\n\n{STATUS_LEGEND}{sig_txt}"
     tpl = load_sage_template().replace("{update_marker}", "")
     goal = extract_target_goal(user_prompt, limit=2000)
     prompt_txt = f"{user_prompt[:2000]}\n\n{goal_block}" if goal_block else (user_prompt[:2000] if goal in user_prompt[:2000] else f"[TARGET GOAL]:\n{goal}")

@@ -23,11 +23,18 @@ class TestAdvisorEvents(unittest.TestCase):
 
     def test_format_final_stop_event(self):
         msg = format_summon_message(EVENT_FINAL_STOP)
+        self.assertIn("[EVT·final_stop s3]", msg)
         self.assertIn("Final stop:", msg)
         self.assertIn("Final Stop Gate", msg)
         self.assertIn("live empirical evidence", msg)
         self.assertIn("ship this code to production", msg)
         self.assertIn("distribute this to the customer", msg)
+
+    def test_format_final_stop_event_with_facts(self):
+        msg = format_summon_message(EVENT_FINAL_STOP, total_tools=24, diff=150)
+        self.assertIn("[EVT·final_stop s3] tools=24 · diff=~100L", msg)
+        self.assertIn("Final stop:", msg)
+        self.assertIn("Final Stop Gate", msg)
 
     def test_format_heartbeat_event(self):
         msg = format_summon_message(EVENT_HEARTBEAT, duration=180.0, total_tools=18)

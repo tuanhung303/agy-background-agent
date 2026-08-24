@@ -106,7 +106,11 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         return {"action": "exit", "reason": f"Mid-turn tool delta below threshold (score={delta_score:.1f}<{effective_thresh:.1f}, count={total_tool_calls - lv}<{effective_interval})"}
 
     if final:
-        active_signal = format_summon_message(EVENT_FINAL_STOP)
+        real_diff = git_diff and not git_diff.startswith("No git changes")
+        diff_cnt = sum(1 for ln in git_diff.splitlines() if ln.startswith(("+", "-")) and not ln.startswith(("+++", "---"))) if real_diff else 0
+        active_signal = format_summon_message(
+            EVENT_FINAL_STOP, total_tools=total_tool_calls, diff=diff_cnt if diff_cnt else None,
+        )
     elif par_sig.get("parallelizable"):
         active_signal = format_summon_message(EVENT_PARALLEL_OPP, signal_text=par_sig.get("signal_text", ""))
     elif signal_note:
