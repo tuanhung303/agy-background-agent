@@ -1,0 +1,470 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="diagram-title diagram-desc">
+  <title id="diagram-title">agy-background-agent architecture</title>
+  <desc id="diagram-desc">A live animated solution architecture showing AGY runtime signals entering a background assurance control plane, then producing lifecycle decisions, command timing guidance, and statusline telemetry.</desc>
+  <defs>
+    <marker id="arrow-accent" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L7 4 L1 7" fill="none" stroke="#4185F4" stroke-width="1.25"/>
+    </marker>
+    <marker id="arrow-ink" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L7 4 L1 7" fill="none" stroke="#756f66" stroke-width="1.25"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L7 4 L1 7" fill="none" stroke="#15803D" stroke-width="1.25"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L7 4 L1 7" fill="none" stroke="#B45309" stroke-width="1.25"/>
+    </marker>
+
+    <style>
+      :root {
+        --bg: #FAFBF8;
+        --ink: #211f1c;
+        --soft: #5b564e;
+        --muted: #756f66;
+        --faint: #a39d92;
+        --line: #e8e6e0;
+        --layer: #ffffff;
+        --accent: #4185F4;
+        --accent-ink: #1d4ed8;
+        --accent-bg: #eef4fe;
+        --accent-border: #dbeafe;
+        --green: #15803D;
+        --green-bg: #f0fdf4;
+        --amber: #B45309;
+        --amber-bg: #fffbeb;
+        --tooltip-bg: #FFFDF0;
+        --tooltip-border: #CA8A04;
+      }
+      text { fill: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; text-rendering: geometricPrecision; }
+      .display { font-family: Georgia, "Times New Roman", serif; font-size: 28px; font-weight: 400; letter-spacing: -0.25px; }
+      .kicker, .band-title, .rail-title { font-size: 10.5px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; }
+      .kicker, .meta, .sub, .caption, .rail-copy { fill: var(--muted); }
+      .sub { font-size: 13px; }
+      .punchline { font-family: Georgia, serif; font-style: italic; font-size: 13.5px; fill: var(--accent-ink); }
+      .meta, .caption { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 9.5px; }
+      .band { fill: var(--layer); stroke: var(--ink); stroke-width: 1; }
+      .band-title-bg { fill: var(--bg); }
+      .module rect.shell { fill: var(--layer); stroke: #b8b2a8; stroke-width: 1; transition: stroke .15s ease, fill .15s ease; }
+      .module.focus rect.shell { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.25; }
+      .module-title { font-size: 12.5px; font-weight: 600; }
+      .module-sub { fill: var(--soft); font-size: 10.5px; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+      .chip { fill: var(--bg); stroke: var(--line); stroke-width: 1; }
+      .chip-text { fill: var(--muted); font-family: ui-monospace, Menlo, monospace; font-size: 8.5px; letter-spacing: .5px; }
+      .focus .chip { fill: #fff; stroke: var(--accent-border); }
+      .focus .chip-text { fill: var(--accent-ink); }
+      .rail-rule, .rule { stroke: var(--line); stroke-width: 1; }
+      .rail-num { font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 600; fill: var(--accent-ink); }
+      .rail-head { font-size: 12px; font-weight: 600; }
+      .rail-copy { font-size: 10.5px; }
+      .callout { fill: var(--accent-bg); stroke: var(--accent-border); stroke-width: 1; }
+      .callout-line { fill: var(--accent); }
+      .tech-tooltip { opacity: 0; pointer-events: none; transition: opacity .12s ease-out; }
+      .tech-tooltip.visible { opacity: .95; }
+      .tooltip-shell { fill: var(--tooltip-bg); stroke: var(--tooltip-border); stroke-width: 1; }
+      .tooltip-title { font-size: 12px; font-weight: 600; }
+      .tooltip-copy { fill: var(--soft); font-size: 10px; }
+
+      /* Active Flow Animations */
+      .edge-control {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 1.5;
+        stroke-dasharray: 6 4;
+        animation: flow-control 1.4s linear infinite;
+        marker-end: url(#arrow-accent);
+      }
+      .edge-secondary {
+        fill: none;
+        stroke: var(--faint);
+        stroke-width: 1.2;
+        stroke-dasharray: 5 5;
+        animation: flow-secondary 2.2s linear infinite;
+        marker-end: url(#arrow-ink);
+      }
+      .edge-ink {
+        fill: none;
+        stroke: var(--muted);
+        stroke-width: 1.2;
+        stroke-dasharray: 5 3;
+        animation: flow-ink 1.8s linear infinite;
+        marker-end: url(#arrow-ink);
+      }
+      .pulse-beacon {
+        animation: beacon-glow 2s ease-in-out infinite;
+      }
+      .beacon-ring {
+        animation: ring-expand 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+        transform-origin: center;
+      }
+      .pulse-card {
+        animation: card-breathe 4s ease-in-out infinite;
+      }
+
+      @keyframes flow-control {
+        from { stroke-dashoffset: 20; }
+        to { stroke-dashoffset: 0; }
+      }
+      @keyframes flow-secondary {
+        from { stroke-dashoffset: 20; }
+        to { stroke-dashoffset: 0; }
+      }
+      @keyframes flow-ink {
+        from { stroke-dashoffset: 16; }
+        to { stroke-dashoffset: 0; }
+      }
+      @keyframes beacon-glow {
+        0%, 100% { fill: #4185F4; fill-opacity: 1; }
+        50% { fill: #1d4ed8; fill-opacity: 0.65; }
+      }
+      @keyframes ring-expand {
+        0% { r: 3.5; opacity: 0.9; }
+        70% { r: 10; opacity: 0; }
+        100% { r: 10; opacity: 0; }
+      }
+      @keyframes card-breathe {
+        0%, 100% { stroke: #4185F4; fill: #eef4fe; }
+        50% { stroke: #2563eb; fill: #e0ecfd; }
+      }
+
+      .module:hover rect.shell, .module:focus rect.shell, .module.is-source rect.shell {
+        stroke: var(--accent);
+        stroke-width: 2;
+        fill: #dbeafe;
+      }
+      .module.is-dependency rect.shell {
+        stroke: var(--accent);
+        stroke-width: 1.5;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .edge-control, .edge-secondary, .edge-ink, .pulse-beacon, .beacon-ring, .pulse-card {
+          animation: none;
+          stroke-dasharray: none;
+        }
+      }
+    </style>
+  </defs>
+
+  <rect width="1280" height="720" fill="#FAFBF8"/>
+
+  <!-- Header -->
+  <g id="header" aria-label="Diagram header">
+    <text class="kicker" x="40" y="32">01 // SYSTEM ARCHITECTURE</text>
+    <text class="meta" x="1240" y="32" text-anchor="end">LIVE FLOW · DUAL INTELLIGENCE</text>
+    <text id="diagram-heading" class="display" x="40" y="72">A background assurance layer for every AGY turn</text>
+    <text class="punchline" x="40" y="98">"Because two is better than one."</text>
+    <text class="sub" x="270" y="98">Autonomous strategist advising in-flight, guarding goals, and auditing termination.</text>
+    <line class="rule" x1="40" y1="116" x2="1240" y2="116"/>
+  </g>
+
+  <!-- Signal Plane -->
+  <g id="signal-plane" aria-label="Runtime signal plane">
+    <rect class="band" x="40" y="136" width="880" height="88"/>
+    <rect class="band-title-bg" x="56" y="130" width="170" height="14"/>
+    <text class="band-title" x="64" y="141">RUNTIME SIGNAL PLANE</text>
+
+    <g class="module" id="mod_post" tabindex="0" data-title="PostInvocation Hook" data-notes="Fires after every agent turn to check execution telemetry and evaluate mid-turn advisor advice." data-attributes="Hook: PostInvocation | Timeout: 45s" data-deps="mod_hook">
+      <title>PostInvocation: mid-turn lifecycle event</title>
+      <rect class="shell" x="56" y="160" width="152" height="48"/>
+      <rect class="chip" x="68" y="170" width="36" height="16"/>
+      <text class="chip-text" x="86" y="181" text-anchor="middle">HOOK</text>
+      <text class="module-title" x="116" y="180">PostInvocation</text>
+      <text class="module-sub mono" x="116" y="196">mid-turn signal</text>
+    </g>
+
+    <g class="module" id="mod_stop" tabindex="0" data-title="Stop Hook" data-notes="Invokes the terminal advisor gate before AGY completes its task." data-attributes="Hook: Stop | Fail-open: yes" data-deps="mod_hook">
+      <title>Stop: finishing lifecycle event</title>
+      <rect class="shell" x="224" y="160" width="152" height="48"/>
+      <rect class="chip" x="236" y="170" width="36" height="16"/>
+      <text class="chip-text" x="254" y="181" text-anchor="middle">HOOK</text>
+      <text class="module-title" x="284" y="180">Stop</text>
+      <text class="module-sub mono" x="284" y="196">final gate trigger</text>
+    </g>
+
+    <g class="module" id="mod_tool" tabindex="0" data-title="run_command Timing" data-notes="PreToolUse and PostToolUse measure execution latency and coach agent toward async patterns." data-attributes="Matcher: run_command | Hook: Pre/PostToolUse" data-deps="mod_timer">
+      <title>run_command: timing telemetry</title>
+      <rect class="shell" x="392" y="160" width="152" height="48"/>
+      <rect class="chip" x="404" y="170" width="36" height="16"/>
+      <text class="chip-text" x="422" y="181" text-anchor="middle">TOOL</text>
+      <text class="module-title mono" x="452" y="180">run_command</text>
+      <text class="module-sub" x="452" y="196">pre · post timing</text>
+    </g>
+
+    <g class="module" id="mod_transcript" tabindex="0" data-title="transcript.jsonl" data-notes="Append-only JSONL log analyzed for tool counts, repetitive error loops, and subagent dispatches." data-attributes="Format: JSONL | Scope: session log" data-deps="mod_evidence mod_guards">
+      <title>transcript.jsonl: ground truth history</title>
+      <rect class="shell" x="560" y="160" width="152" height="48"/>
+      <rect class="chip" x="572" y="170" width="36" height="16"/>
+      <text class="chip-text" x="590" y="181" text-anchor="middle">LOG</text>
+      <text class="module-title mono" x="620" y="180">transcript</text>
+      <text class="module-sub mono" x="620" y="196">JSONL evidence</text>
+    </g>
+
+    <g class="module" id="mod_workspace" tabindex="0" data-title="Workspace and Git" data-notes="Captures changed files, status, staged diff, and unstaged diff to verify real modifications." data-attributes="Scope: workspace | Diff: bounded" data-deps="mod_evidence">
+      <title>Workspace &amp; Git: diff evidence</title>
+      <rect class="shell" x="728" y="160" width="176" height="48"/>
+      <rect class="chip" x="740" y="170" width="36" height="16"/>
+      <text class="chip-text" x="758" y="181" text-anchor="middle">GIT</text>
+      <text class="module-title" x="788" y="180">Workspace / Git</text>
+      <text class="module-sub" x="788" y="196">status · live diff</text>
+    </g>
+  </g>
+
+  <!-- Assurance Plane -->
+  <g id="assurance-plane" aria-label="Background assurance control plane">
+    <rect class="band" x="40" y="240" width="880" height="268"/>
+    <rect class="band-title-bg" x="56" y="234" width="270" height="14"/>
+    <text class="band-title" x="64" y="245">BACKGROUND ASSURANCE CONTROL PLANE</text>
+
+    <!-- Connections from Signal to Assurance Plane -->
+    <path class="edge-ink" data-from="mod_post" data-to="mod_hook" d="M132 208 V232 H128 V280"/>
+    <path class="edge-ink" data-from="mod_stop" data-to="mod_hook" d="M300 208 V232 H128 V280"/>
+    <path class="edge-secondary" data-from="mod_transcript" data-to="mod_evidence" d="M636 208 V264 H568 V280"/>
+    <path class="edge-secondary" data-from="mod_workspace" data-to="mod_evidence" d="M816 208 V264 H568 V280"/>
+
+    <!-- Hook Entry -->
+    <g class="module" id="mod_hook" tabindex="0" data-title="Hook Entry" data-notes="Normalizes stdin payloads, resolves module imports, and catches exceptions to fail open safely." data-attributes="File: hooks/session-advisor.py" data-deps="mod_post mod_stop mod_runner">
+      <title>Hook entry: session-advisor.py</title>
+      <rect class="shell" x="56" y="280" width="144" height="64"/>
+      <rect class="chip" x="68" y="292" width="36" height="16"/>
+      <text class="chip-text" x="86" y="303" text-anchor="middle">EDGE</text>
+      <text class="module-title" x="68" y="324">Hook entry</text>
+      <text class="module-sub mono" x="68" y="338">stdin → JSON</text>
+    </g>
+
+    <!-- Lifecycle Coordinator -->
+    <g class="module focus" id="mod_runner" tabindex="0" data-title="Lifecycle Coordinator" data-notes="Coordinates mid-turn cadence, concurrency guards, background task grace periods, and sole final gate." data-attributes="File: advisor/runner.py | Role: Central I/O" data-deps="mod_hook mod_evidence mod_guards mod_goals mod_advisor mod_triage mod_state">
+      <title>Lifecycle Coordinator: advisor.runner</title>
+      <rect class="shell pulse-card" x="240" y="280" width="200" height="64"/>
+      <rect class="chip" x="252" y="292" width="44" height="16"/>
+      <text class="chip-text" x="274" y="303" text-anchor="middle">CORE</text>
+      <text class="module-title" x="308" y="305">Lifecycle Coordinator</text>
+      <text class="module-sub" x="252" y="327">cadence · gates · emit</text>
+      <text class="module-sub mono" x="252" y="340">advisor.runner</text>
+    </g>
+
+    <!-- Evidence Context -->
+    <g class="module" id="mod_evidence" tabindex="0" data-title="Evidence Context" data-notes="Extracts sanitized prompt, bounded agent-step history, tool counts, and git diffs for the strategist." data-attributes="Files: transcript.py | git.py | sanitizer.py" data-deps="mod_transcript mod_workspace mod_runner mod_advisor">
+      <title>Evidence context: transcript and git</title>
+      <rect class="shell" x="480" y="280" width="176" height="64"/>
+      <rect class="chip" x="492" y="292" width="40" height="16"/>
+      <text class="chip-text" x="512" y="303" text-anchor="middle">DATA</text>
+      <text class="module-title" x="544" y="305">Evidence Context</text>
+      <text class="module-sub" x="492" y="327">prompt · steps · diff</text>
+      <text class="module-sub mono" x="492" y="340">sanitized context</text>
+    </g>
+
+    <!-- Wise Advisor -->
+    <g class="module focus" id="mod_advisor" tabindex="0" data-title="Wise Advisor" data-notes="Invokes background strategist with high reasoning effort to evaluate trajectory against goals." data-attributes="Files: advisor.py | executor.py | models.py" data-deps="mod_evidence mod_goals mod_triage mod_state">
+      <title>Wise Advisor: Strategic AI Copilot</title>
+      <rect class="shell pulse-card" x="696" y="280" width="200" height="64"/>
+      <rect class="chip" x="708" y="292" width="48" height="16"/>
+      <text class="chip-text" x="732" y="303" text-anchor="middle">MODEL</text>
+      <text class="module-title" x="768" y="305">Wise Advisor</text>
+      <text class="module-sub" x="708" y="327">strategist cascade</text>
+      <text class="module-sub mono" x="708" y="340">agy -p … --model …</text>
+
+      <!-- Live beacon animation -->
+      <circle class="beacon-ring" cx="876" cy="296" r="4" fill="none" stroke="#4185F4" stroke-width="1.5"/>
+      <circle class="pulse-beacon" cx="876" cy="296" r="3.5"/>
+    </g>
+
+    <!-- Core Spine Control Edges -->
+    <path class="edge-control" data-from="mod_hook" data-to="mod_runner" d="M200 312 H240"/>
+    <path class="edge-control" data-from="mod_runner" data-to="mod_evidence" d="M440 312 H480"/>
+    <path class="edge-control" data-from="mod_evidence" data-to="mod_advisor" d="M656 312 H696"/>
+
+    <!-- Runtime Guards -->
+    <g class="module" id="mod_guards" tabindex="0" data-title="Runtime Guards" data-notes="Guards against race conditions, skips worker subagent sessions, and prevents early stop with active jobs." data-attributes="Files: guards.py | watchers.py" data-deps="mod_transcript mod_runner mod_goals">
+      <title>Runtime guards: safety &amp; race filters</title>
+      <rect class="shell" x="56" y="396" width="160" height="64"/>
+      <rect class="chip" x="68" y="408" width="44" height="16"/>
+      <text class="chip-text" x="90" y="419" text-anchor="middle">GUARD</text>
+      <text class="module-title" x="124" y="421">Runtime Guards</text>
+      <text class="module-sub" x="68" y="443">subagents · grace</text>
+      <text class="module-sub mono" x="68" y="456">fail-safe bypass</text>
+    </g>
+
+    <!-- Goal Governance -->
+    <g class="module" id="mod_goals" tabindex="0" data-title="Goal Governance" data-notes="Tracks baseline pinned goals, in-flight revised goals, and secondary derived tasks across turns." data-attributes="File: advisor/goals.py" data-deps="mod_runner mod_guards mod_advisor mod_triage">
+      <title>Goal Governance: pinned, revised, derived</title>
+      <rect class="shell" x="240" y="396" width="176" height="64"/>
+      <rect class="chip" x="252" y="408" width="40" height="16"/>
+      <text class="chip-text" x="272" y="419" text-anchor="middle">GOAL</text>
+      <text class="module-title" x="304" y="421">Goal Governance</text>
+      <text class="module-sub" x="252" y="443">pinned · revised · task</text>
+      <text class="module-sub mono" x="252" y="456">cross-turn memory</text>
+    </g>
+
+    <!-- Triage & Policies -->
+    <g class="module focus" id="mod_triage" tabindex="0" data-title="Triage Engine" data-notes="Confidence thresholding, category promotion/demotion, SHA-1 keyed deduplication, and policy routing." data-attributes="Files: triage.py | policies.py" data-deps="mod_advisor mod_goals mod_state mod_continue mod_terminate">
+      <title>Triage &amp; Policies: confidence &amp; dedup</title>
+      <rect class="shell" x="456" y="396" width="176" height="64"/>
+      <rect class="chip" x="468" y="408" width="48" height="16"/>
+      <text class="chip-text" x="492" y="419" text-anchor="middle">POLICY</text>
+      <text class="module-title" x="528" y="421">Triage &amp; Policies</text>
+      <text class="module-sub" x="468" y="443">confidence · SHA-1 dedup</text>
+      <text class="module-sub mono" x="468" y="456">steer | hold | recap</text>
+    </g>
+
+    <!-- Atomic State & Locks -->
+    <g class="module" id="mod_state" tabindex="0" data-title="Atomic Session State" data-notes="Atomic JSON persistence and flock file locks in /tmp to guarantee multi-process integrity." data-attributes="Files: session_state.py | locking.py" data-deps="mod_runner mod_advisor mod_triage mod_status">
+      <title>Atomic session state and locks</title>
+      <rect class="shell" x="672" y="396" width="224" height="64"/>
+      <rect class="chip" x="684" y="408" width="44" height="16"/>
+      <text class="chip-text" x="706" y="419" text-anchor="middle">STATE</text>
+      <text class="module-title" x="740" y="421">Atomic State &amp; Locks</text>
+      <text class="module-sub mono" x="684" y="443">/tmp/agy_advisor_*</text>
+      <text class="module-sub" x="684" y="456">flock · atomic write</text>
+    </g>
+
+    <!-- Lower Flow Edges -->
+    <path class="edge-secondary" data-from="mod_hook" data-to="mod_guards" d="M128 344 V396"/>
+    <path class="edge-secondary" data-from="mod_runner" data-to="mod_goals" d="M340 344 V370 H328 V396"/>
+    <path class="edge-control" data-from="mod_advisor" data-to="mod_triage" d="M796 344 V370 H544 V396"/>
+    <path class="edge-secondary" data-from="mod_guards" data-to="mod_goals" d="M216 428 H240"/>
+    <path class="edge-secondary" data-from="mod_goals" data-to="mod_triage" d="M416 428 H456"/>
+    <path class="edge-secondary" data-from="mod_triage" data-to="mod_state" d="M632 428 H672"/>
+  </g>
+
+  <!-- Outcome Plane -->
+  <g id="outcome-plane" aria-label="Agent outcomes and telemetry">
+    <rect class="band" x="40" y="524" width="880" height="96"/>
+    <rect class="band-title-bg" x="56" y="518" width="216" height="14"/>
+    <text class="band-title" x="64" y="529">AGENT OUTCOMES &amp; TELEMETRY</text>
+
+    <!-- Outgoing Dispatch Edges -->
+    <path class="edge-control" data-from="mod_triage" data-to="mod_continue" d="M520 460 V504 H152 V548"/>
+    <path class="edge-control" data-from="mod_triage" data-to="mod_terminate" d="M568 460 V512 H360 V548"/>
+    <path class="edge-secondary" data-from="mod_state" data-to="mod_status" d="M784 460 V548"/>
+
+    <!-- Force Continue -->
+    <g class="module focus" id="mod_continue" tabindex="0" data-title="force_continue: Strategic Steer" data-notes="Injects one actionable advisor steer or watchout and keeps the agent working." data-attributes="Directive: force_continue | Tag: [STEER·cat]" data-deps="mod_triage">
+      <title>force_continue: course correction</title>
+      <rect class="shell" x="56" y="548" width="192" height="56"/>
+      <rect class="chip" x="68" y="560" width="48" height="16"/>
+      <text class="chip-text" x="92" y="571" text-anchor="middle">STEER</text>
+      <text class="module-title mono" x="128" y="573">force_continue</text>
+      <text class="module-sub" x="68" y="592">actionable guidance</text>
+    </g>
+
+    <!-- Terminate & Recap -->
+    <g class="module focus" id="mod_terminate" tabindex="0" data-title="terminate: Final Recap" data-notes="Emits [RECAP·cat] summary and allows clean exit only when prompt coverage and empirical evidence pass." data-attributes="Directive: terminate | Tag: [RECAP·cat]" data-deps="mod_triage">
+      <title>terminate: approved final recap</title>
+      <rect class="shell" x="264" y="548" width="192" height="56"/>
+      <rect class="chip" x="276" y="560" width="48" height="16"/>
+      <text class="chip-text" x="300" y="571" text-anchor="middle">RECAP</text>
+      <text class="module-title mono" x="336" y="573">terminate</text>
+      <text class="module-sub" x="276" y="592">verified deliverables</text>
+    </g>
+
+    <!-- Timing Guidance -->
+    <g class="module" id="mod_timer" tabindex="0" data-title="Command Timer Telemetry" data-notes="Classifies shell latency into 5 performance buckets to prevent slow blocking commands." data-attributes="File: hooks/command-timer.py | Tiers: 5" data-deps="mod_tool">
+      <title>Command timing guidance</title>
+      <rect class="shell" x="472" y="548" width="192" height="56"/>
+      <rect class="chip" x="484" y="560" width="48" height="16"/>
+      <text class="chip-text" x="508" y="571" text-anchor="middle">TIMER</text>
+      <text class="module-title" x="544" y="573">Timing Guidance</text>
+      <text class="module-sub" x="484" y="592">5 latency tiers · next turn</text>
+    </g>
+
+    <!-- Real-time Statusline -->
+    <g class="module" id="mod_status" tabindex="0" data-title="Real-time Statusline" data-notes="Renders model, active subagents, advisor counters, context burn against ceiling, and weekly quotas." data-attributes="File: statusline/statusline.py | Input: JSON" data-deps="mod_state">
+      <title>Real-time statusline telemetry</title>
+      <rect class="shell" x="680" y="548" width="216" height="56"/>
+      <rect class="chip" x="692" y="560" width="48" height="16"/>
+      <text class="chip-text" x="716" y="571" text-anchor="middle">TUI</text>
+      <text class="module-title" x="752" y="573">Live Statusline</text>
+      <text class="module-sub mono" x="692" y="592">adv · ctx · quota · agents</text>
+    </g>
+  </g>
+
+  <!-- Annotation Rail -->
+  <g id="annotation-rail" aria-label="Control contract annotations">
+    <rect class="band" x="944" y="136" width="296" height="484"/>
+    <text class="rail-title" x="964" y="161">CONTROL CONTRACT</text>
+    <line class="rail-rule" x1="964" y1="176" x2="1220" y2="176"/>
+
+    <text class="rail-num" x="964" y="203">01</text>
+    <text class="rail-head" x="996" y="203">Observe continuously</text>
+    <text class="rail-copy" x="996" y="221">Cadence plus forced error, loop,</text>
+    <text class="rail-copy" x="996" y="236">and parallel-work signals.</text>
+    <line class="rail-rule" x1="964" y1="252" x2="1220" y2="252"/>
+
+    <text class="rail-num" x="964" y="279">02</text>
+    <text class="rail-head" x="996" y="279">Guard concurrent work</text>
+    <text class="rail-copy" x="996" y="297">Subagents, background tasks, user</text>
+    <text class="rail-copy" x="996" y="312">races, and per-conversation locks.</text>
+    <line class="rail-rule" x1="964" y1="328" x2="1220" y2="328"/>
+
+    <text class="rail-num" x="964" y="355">03</text>
+    <text class="rail-head" x="996" y="355">Prove completion</text>
+    <text class="rail-copy" x="996" y="373">Prompt coverage, live evidence, and</text>
+    <text class="rail-copy" x="996" y="388">knowledge-system hygiene at stop.</text>
+    <line class="rail-rule" x1="964" y1="404" x2="1220" y2="404"/>
+
+    <text class="rail-num" x="964" y="431">04</text>
+    <text class="rail-head" x="996" y="431">Fail open safely</text>
+    <text class="rail-copy" x="996" y="449">Malformed input, model failure, or an</text>
+    <text class="rail-copy" x="996" y="464">open circuit never deadlocks AGY.</text>
+
+    <!-- Callout Box -->
+    <rect class="callout" x="964" y="496" width="256" height="104"/>
+    <rect class="callout-line" x="964" y="496" width="4" height="104"/>
+    <text class="kicker" x="980" y="518" fill="#1d4ed8">SINGLE TERMINAL GATE</text>
+    <text class="rail-head" x="980" y="542">The Advisor owns the finish.</text>
+    <text class="rail-copy" x="980" y="562">Healthy: recap + clean terminate</text>
+    <text class="rail-copy" x="980" y="578">Risk: steer + force_continue</text>
+  </g>
+
+  <!-- Footer -->
+  <g id="footer" aria-label="Legend and source">
+    <line class="rule" x1="40" y1="648" x2="1240" y2="648"/>
+    <line x1="40" y1="672" x2="72" y2="672" stroke="#4185F4" stroke-width="1.5" stroke-dasharray="6 4"/>
+    <text class="caption" x="80" y="676">live assurance flow (animated)</text>
+    <line x1="268" y1="672" x2="300" y2="672" stroke="#a39d92" stroke-width="1.2" stroke-dasharray="5 5"/>
+    <text class="caption" x="308" y="676">evidence &amp; telemetry</text>
+    <rect x="476" y="666" width="12" height="12" fill="#eef4fe" stroke="#4185F4"/>
+    <text class="caption" x="496" y="676">dual-intelligence focus</text>
+    <text class="caption" x="1240" y="676" text-anchor="end">agy-background-agent · live SVG flow · 2026-08-24</text>
+  </g>
+
+  <!-- Tooltip overlay -->
+  <g id="tooltip" class="tech-tooltip" transform="translate(592 520)" aria-hidden="true">
+    <rect class="tooltip-shell" width="360" height="88"/>
+    <text id="tooltip-title" class="tooltip-title" x="12" y="22">Module</text>
+    <text id="tooltip-notes" class="tooltip-copy" x="12" y="43">Select a module to inspect its role.</text>
+    <text id="tooltip-attrs" class="tooltip-copy mono" x="12" y="67">metadata</text>
+  </g>
+
+  <script><![CDATA[
+    (function(){
+      const modules = Array.from(document.querySelectorAll('.module'));
+      const tooltip = document.getElementById('tooltip');
+      const title = document.getElementById('tooltip-title');
+      const notes = document.getElementById('tooltip-notes');
+      const attrs = document.getElementById('tooltip-attrs');
+      function clear(){modules.forEach((node)=>node.classList.remove('is-source','is-dependency'));}
+      function activate(node){
+        clear();
+        node.classList.add('is-source');
+        String(node.dataset.deps||'').split(/\s+/).filter(Boolean).forEach((id)=>{const dep=document.getElementById(id);if(dep)dep.classList.add('is-dependency');});
+      }
+      modules.forEach((node)=>{
+        node.addEventListener('mouseenter',()=>activate(node));
+        node.addEventListener('focus',()=>activate(node));
+        node.addEventListener('mouseleave',clear);
+        node.addEventListener('blur',clear);
+        node.addEventListener('click',(event)=>{
+          event.stopPropagation();
+          title.textContent=node.dataset.title||'Module';
+          notes.textContent=node.dataset.notes||'';
+          attrs.textContent=node.dataset.attributes||'';
+          tooltip.classList.add('visible');
+          tooltip.setAttribute('aria-hidden','false');
+        });
+      });
+      document.addEventListener('click',()=>{tooltip.classList.remove('visible');tooltip.setAttribute('aria-hidden','true');clear();});
+    }());
+  ]]></script>
+</svg>

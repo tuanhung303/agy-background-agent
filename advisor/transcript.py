@@ -1,0 +1,190 @@
+"""
+advisor.transcript - Parsing, sanitization, and turn extraction from transcript.jsonl.
+"""
+
+from datetime import datetime, timezone
+import itertools
+import json
+import os
+
+from advisor.guards import is_steering_message
+from advisor.locking import log_audit
+from advisor.sanitizer import clean_user_prompt, sanitize_tool_output
+from advisor.task_structure import get_parallelizable_signals
+from advisor.watchers import get_active_background_tasks as _get_tasks, get_active_subagents as _get_subs
+
+
+def get_transcript_path(payload, conv_id):
+    tp = payload.get("transcriptPath") or payload.get("transcript_path")
+    if tp and os.path.exists(tp):
+        return tp
+    for base in ("~/.gemini/antigravity-cli/brain", "~/.gemini/antigravity/brain"):
+        fb = os.path.expanduser(f"{base}/{conv_id}/.system_generated/logs/transcript.jsonl")
+        if os.path.exists(fb):
+            return fb
+    return None
+
+
+def _parse_ts(ts_str):
+    if not ts_str:
+        return None
+    try:
+        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        return dt if not dt or dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+
+def _read_transcript_steps(transcript_path):
+    if not transcript_path or not os.path.exists(transcript_path):
+        return []
+    steps = []
+    try:
+        with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
+            for lno, line in enumerate(f, start=1):
+                if line.strip():
+                    try:
+                        s = json.loads(line)
+                        s["_line_no"] = lno
+                        steps.append(s)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+    return steps
+
+
+def extract_session_and_turn_data(transcript_path):
+    steps = _read_transcript_steps(transcript_path)
+    if not steps:
+        return "", "", [], 0, set(), None, None, 0
+    user_prompt, raw_user_prompt, agent_steps, total_tools, tool_names = "", "", [], 0, set()
+    first_ts, user_ts, all_prompts, last_user_idx = None, None, [], -1
+    for i, s in enumerate(steps):
+        ts = _parse_ts(s.get("created_at"))
+        first_ts = first_ts or ts
+        src_u = str(s.get("source") or "").upper()
+        if s.get("type") == "USER_INPUT" and (not src_u or src_u in ("USER_EXPLICIT", "USER")) and not is_steering_message(str(s.get("content") or "")):
+            last_user_idx, raw_user_prompt, user_ts = i, str(s.get("content") or ""), ts or user_ts
+            cleaned = clean_user_prompt(raw_user_prompt)
+            if cleaned:
+                all_prompts.append(cleaned)
+    if all_prompts:
+        hist = "\n".join(f"- Prior request {idx+1}: {p[:200]}" for idx, p in enumerate(all_prompts[:-1]))
+        user_prompt = f"[LATEST ACTIVE USER REQUEST]:\n{all_prompts[-1]}" if len(all_prompts) == 1 else f"SESSION HISTORY:\n{hist}\n\n[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\n{all_prompts[-1]}"
+    if last_user_idx == -1:
+        return user_prompt, raw_user_prompt, agent_steps, 0, tool_names, first_ts, user_ts, len(steps)
+    for s in steps[last_user_idx + 1:]:
+        stype, scontent = s.get("type"), str(s.get("content") or "")
+        stools = [t for t in s.get("tool_calls", []) if isinstance(t, dict)]
+        total_tools += len(stools)
+        tool_names.update(t.get("name") for t in stools if t.get("name"))
+        if stype == "PLANNER_RESPONSE":
+            tnames = [t.get("name") for t in stools]
+            snip = scontent if len(scontent) <= 1000 else f"{scontent[:500]}\n...\n{scontent[-500:]}"
+            agent_steps.append(f"Response: {snip} | Tools: {tnames}")
+        elif stype == "GENERIC":
+            agent_steps.append(f"Tool output: {sanitize_tool_output(scontent)}")
+        elif scontent and not is_steering_message(scontent):
+            agent_steps.append(f"{stype}: {sanitize_tool_output(scontent, max_chars=400)}")
+    return user_prompt, raw_user_prompt, agent_steps, total_tools, tool_names, first_ts, user_ts, len(steps)
+
+
+def has_new_user_activity(transcript_path, original_user_prompt, original_line_count=0):
+    if not transcript_path or not os.path.exists(transcript_path):
+        return True
+    try:
+        steps = _read_transcript_steps(transcript_path)
+        if len(steps) < original_line_count:
+            return True
+        latest = [clean_user_prompt(str(s.get("content") or "")) for s in steps if s.get("type") == "USER_INPUT" and str(s.get("source") or "").upper() in ("USER_EXPLICIT", "USER", "") and not is_steering_message(str(s.get("content") or ""))]
+        if latest and latest[-1] and latest[-1] != original_user_prompt:
+            return True
+        if len(steps) > original_line_count:
+            return any(s.get("type") == "USER_INPUT" and str(s.get("source") or "").upper() in ("USER_EXPLICIT", "USER", "") and not is_steering_message(str(s.get("content") or "")) for s in steps[original_line_count:])
+        return False
+    except Exception as e:
+        log_audit(f"Error checking new user activity: {e}")
+        return False
+
+
+def get_active_turn_identity(transcript_path):
+    for s in reversed(_read_transcript_steps(transcript_path)):
+        if s.get("type") == "USER_INPUT" and str(s.get("source") or "").upper() in ("USER_EXPLICIT", "USER") and not is_steering_message(str(s.get("content") or "")):
+            if s.get("step_index") is not None:
+                return f"step:{s.get('step_index')}"
+            return f"created:{s.get('created_at')}" if s.get("created_at") else f"line:{s.get('_line_no', 1)}"
+    return "missing"
+
+
+def extract_turn_tool_calls(transcript_path):
+    steps = _read_transcript_steps(transcript_path)
+    turn_idxs = [i for i, s in enumerate(steps) if s.get("type") == "USER_INPUT" and str(s.get("source") or "").upper() in ("USER_EXPLICIT", "USER") and not is_steering_message(str(s.get("content") or ""))]
+    t_steps = steps[turn_idxs[-1] + 1:] if turn_idxs else steps
+    return [t for s in t_steps for t in (s.get("tool_calls") or []) if isinstance(t, dict)]
+
+
+def has_repeated_tool_calls(transcript_path, lookback=12, min_repeats=3, min_dominance=0.6):
+    calls = extract_turn_tool_calls(transcript_path)[-lookback:]
+    if len(calls) < min_repeats:
+        return False
+    sigs = []
+    for t in calls:
+        name = str(t.get("name") or "")
+        if any(m in name.lower() for m in ("manage_task", "status", "list_dir", "get_window")):
+            continue
+        args = t.get("args") or t.get("arguments") or {}
+        try:
+            sigs.append(f"{name}|{json.dumps(args, sort_keys=True, default=str)[:120]}")
+        except Exception:
+            sigs.append(f"{name}|?")
+    total = len(sigs)
+    if total < min_repeats:
+        return False
+    counts = {}
+    for s in sigs:
+        counts[s] = counts.get(s, 0) + 1
+    for sig, cnt in counts.items():
+        if cnt >= min_repeats:
+            best = max(sum(1 for _ in group) for match, group in itertools.groupby(sigs) if match == sig) if sig in sigs else 0
+            if best >= 2 or cnt / total >= min_dominance:
+                return True
+    return False
+
+
+def get_active_subagents(transcript_path, conv_id=None):
+    return _get_subs(_read_transcript_steps(transcript_path), conv_id)
+
+
+def has_active_subagents(transcript_path, conv_id=None):
+    return bool(get_active_subagents(transcript_path, conv_id))
+
+
+def get_active_background_tasks(transcript_path, conv_id=None):
+    return _get_tasks(_read_transcript_steps(transcript_path), conv_id, _parse_ts)
+
+
+def has_active_background_tasks(transcript_path, conv_id=None):
+    return bool(get_active_background_tasks(transcript_path, conv_id))
+
+
+def is_post_invocation_completion_candidate(transcript_path, conv_id=None):
+    if has_active_subagents(transcript_path, conv_id) or has_active_background_tasks(transcript_path, conv_id):
+        return False
+    steps = _read_transcript_steps(transcript_path)
+    if not steps:
+        return False
+    latest_idx = next((i for i in range(len(steps) - 1, -1, -1) if steps[i].get("type") == "PLANNER_RESPONSE"), -1)
+    if latest_idx == -1 or any(s.get("type") not in ("CHECKPOINT", "SYSTEM_MESSAGE") for s in steps[latest_idx + 1:]):
+        return False
+    latest = steps[latest_idx]
+    return bool(str(latest.get("content") or "").strip() and not latest.get("tool_calls"))
+
+
+def has_recent_tool_errors(transcript_path, max_lookback=6):
+    steps = _read_transcript_steps(transcript_path)
+    if not steps:
+        return False
+    recent = [s for s in steps if s.get("type") in ("GENERIC", "PLANNER_RESPONSE")][-max_lookback:]
+    err_patterns = ("error:", "exit code 1", "exit code 2", "exit code 127", "command not found", "traceback (most recent call last)")
+    return sum(1 for s in recent if any(p in str(s.get("content") or "").lower() for p in err_patterns)) >= 2

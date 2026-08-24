@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agy-background-agent Architecture · Live Animated Solution View</title>
+<style>
+  :root {
+    --bg: #FAFBF8;
+    --ink: #211f1c;
+    --line: #e8e6e0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .stage {
+    max-width: 1280px;
+    width: 100%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    background: #FAFBF8;
+    border: 1px solid var(--line);
+  }
+  object, svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <object type="image/svg+xml" data="architecture.svg" aria-label="agy-background-agent architecture diagram"></object>
+  </div>
+</body>
+</html>

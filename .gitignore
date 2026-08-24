@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.log
+/tmp/
+.DS_Store
+.agents/
+ORIGINAL_REQUEST.md
+.venv/
+.ruff_cache/

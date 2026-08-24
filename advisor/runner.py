@@ -1,0 +1,138 @@
+"""
+advisor.runner - Main execution flow for the session stop audit hook.
+"""
+
+import json
+
+from advisor.git import get_git_diff
+from advisor.goals import sync_goal_state
+from advisor.guards import (
+    check_payload_and_lifecycle, emit_continue_response, emit_recap_response,
+    fail_safe_exit, format_hook_message,
+    handle_background_watch_action, is_post_invocation, is_subagent_session,
+)
+from advisor.locking import acquire_conversation_lock, cleanup_stale_tmp_files, log_audit
+from advisor.policies import advisor_flow, background_watch, final_advisor_gate
+from advisor.session_state import (
+    load_and_sync_session_state, record_advisor_emit, record_advisor_hold,
+    record_advisor_recap,
+    record_background_grace, record_background_steer, save_session_state,
+)
+from advisor.transcript import (
+    extract_session_and_turn_data,
+    get_active_background_tasks, get_active_subagents, get_transcript_path,
+    has_recent_tool_errors, has_repeated_tool_calls,
+    is_post_invocation_completion_candidate,
+)
+
+# Backwards compatibility alias for external imports/patches
+_save_state = save_session_state
+
+
+def run_session_stop_audit(raw_payload=None):
+    payload = json.loads(raw_payload) if raw_payload else check_payload_and_lifecycle()
+    conv_id = payload.get("conversationId") or payload.get("conversation_id") or "default"
+    cleanup_stale_tmp_files()
+    if not acquire_conversation_lock(conv_id):
+        fail_safe_exit(f"Concurrent audit in progress for {conv_id}")
+
+    transcript_path = get_transcript_path(payload, conv_id)
+    (
+        user_prompt, raw_user_prompt, agent_steps, total_tool_calls,
+        turn_tool_names, first_ts, user_ts, initial_line_count,
+    ) = extract_session_and_turn_data(transcript_path)
+
+    clean_prompt, state_file, state, is_same = load_and_sync_session_state(conv_id, transcript_path, raw_user_prompt)
+    sync_goal_state(state, user_prompt, total_tool_calls, turn_tool_names)
+
+    active_subagents = get_active_subagents(transcript_path, conv_id)
+    if active_subagents:
+        if not is_post_invocation():
+            log_audit("Active subagents detected during Stop event -> Blocking stop")
+            emit_continue_response("Subagent work in progress; waiting for subagents", is_post=False)
+        fail_safe_exit("Subagent work in progress; waiting for subagents")
+
+    active_tasks = get_active_background_tasks(transcript_path, conv_id)
+    bgp = background_watch(active_tasks, state.get("background_steered_tasks", []))
+    handle_background_watch_action(bgp, state, state_file, initial_line_count, record_background_steer, record_background_grace)
+
+    if total_tool_calls == 0:
+        fail_safe_exit("Conversational turn (0 tool calls)")
+    if is_subagent_session(payload, transcript_path, user_prompt, raw_user_prompt):
+        fail_safe_exit("Subagent session detected; skipping audit")
+    if not user_prompt.strip() or payload.get("fullyIdle") is False or payload.get("fully_idle") is False:
+        fail_safe_exit("No user prompt or runtime reports active background work")
+
+    last_lines = state.get("last_audited_line_count", 0)
+    if state.get("recap_emitted") or (last_lines > 0 and last_lines == initial_line_count):
+        fail_safe_exit("Recap already emitted or transcript unchanged")
+
+    ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths") or []
+    if is_post_invocation() and not is_post_invocation_completion_candidate(transcript_path, conv_id):
+        has_err, has_loop = has_recent_tool_errors(transcript_path), has_repeated_tool_calls(transcript_path)
+        sig = ("Recent tool errors detected. " if has_err else "") + ("Repeated tool calls detected (potential loop)." if has_loop else "")
+        save_session_state(state_file, state, advisor_status="evaluating", last_audited_line_count=initial_line_count)
+        act = advisor_flow(
+            "midturn", conv_id=conv_id, transcript_path=transcript_path, clean_prompt=clean_prompt,
+            initial_line_count=initial_line_count, total_tool_calls=total_tool_calls, turn_tool_names=turn_tool_names,
+            user_prompt=user_prompt, agent_steps=agent_steps, git_diff=get_git_diff(ws_paths, turn_tool_names),
+            state=state, forced=(has_err or has_loop), signal_note=sig.strip(),
+        )
+        aact = act.get("action")
+        if aact in ("exit", "yield"):
+            fail_safe_exit(act["reason"])
+        elif aact == "progressed":
+            save_session_state(state_file, state, last_verified_tools=act["tools"], last_audited_line_count=act["lines"])
+            fail_safe_exit("Agent progressed during advisor evaluation; discarding stale advice")
+        elif aact == "error":
+            err_streak = state.get("advisor_error_streak", 0) + 1
+            save_session_state(state_file, state, advisor_status="error", advisor_error_streak=err_streak, last_audited_line_count=initial_line_count)
+            fail_safe_exit("Mid-turn advisor unavailable (empty or model cascade failed); window preserved")
+        elif aact == "hold_dedup":
+            record_advisor_hold(state_file, state, total_tool_calls, initial_line_count, act.get("seen"))
+            fail_safe_exit("Advisor advice deduplicated")
+        elif aact == "emit":
+            fdec, ftext = act["decision"], act["text"]
+            gu = {k: act[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in act and act[k] is not None}
+            record_advisor_emit(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, act.get("seen", state.get("advisor_advice_counts", {})), **gu)
+            log_audit(f"Mid-turn advisor {('triggered steer' if fdec == 'steer' else 'watchout emitted')}: {ftext}")
+            emit_continue_response(format_hook_message("advisor", ftext), is_post=True)
+        else:
+            record_advisor_hold(state_file, state, total_tool_calls, initial_line_count)
+            fail_safe_exit("Mid-turn advisor passed (healthy)")
+
+    git_diff = get_git_diff(ws_paths, turn_tool_names)
+    gate = final_advisor_gate(conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state)
+    gact = gate.get("action")
+    log_audit(f"Final advisor gate: {gact}" + (f" ({gate.get('reason', '')})" if gate.get("reason") else ""))
+    if gact == "yield":
+        fail_safe_exit(gate["reason"])
+    elif gact == "progressed":
+        save_session_state(state_file, state, last_verified_tools=gate["tools"], last_audited_line_count=gate["lines"])
+        fail_safe_exit("Agent progressed during final advisor; discarding stale advice")
+    elif gact == "emit":
+        fdec, ftext = gate["decision"], gate["text"]
+        gu = {k: gate[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in gate and gate[k] is not None}
+        record_advisor_emit(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, gate.get("seen", state.get("advisor_advice_counts", {})), **gu)
+        log_audit(f"Final advisor-first {fdec}: {ftext}")
+        emit_continue_response(format_hook_message("advisor", ftext), is_post=True)
+    elif gact == "hold_dedup":
+        record_advisor_hold(state_file, state, total_tool_calls, initial_line_count, gate.get("seen"))
+        fail_safe_exit("Final advisor advice deduplicated")
+    elif gact in ("hold", "healthy"):
+        recap = gate.get("recap") or "Work completed and verified successfully."
+        cat = gate.get("category", "on_track")
+        advisor_recap = f"[RECAP·{cat}] {recap}" if not recap.startswith("[RECAP") else recap
+        gu = {k: gate[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in gate and gate[k] is not None}
+        record_advisor_recap(state_file, state, total_tool_calls, initial_line_count, recap_text=advisor_recap, **gu)
+        log_audit(f"Advisor passed cleanly. Advisor recap recorded: {advisor_recap}")
+        emit_recap_response(advisor_recap, kind="advisor")
+    elif gact == "error":
+        err_streak = state.get("advisor_error_streak", 0) + 1
+        save_session_state(state_file, state, advisor_status="error", advisor_error_streak=err_streak, last_audited_line_count=initial_line_count)
+        fail_safe_exit("Final advisor unavailable (empty or model cascade failed); allowing clean termination")
+    else:  # skip — advisor disabled, max steers reached, or circuit breaker open
+        fail_safe_exit(f"Final advisor gate skipped: {gate.get('reason', 'no reason')}")
+
+
+main = run_session_stop_audit
