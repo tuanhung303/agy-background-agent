@@ -108,8 +108,8 @@ _SECRET_RE = re.compile(
     r"[a-z0-9_.-]*(?:token|secret|passwd|password|api[_-]?key|apikey|bearer|private[_-]?key"
     r"|access[_-]?key|auth[_-]?token|client[_-]?secret)[a-z0-9_.-]*"
     r"[^\S\r\n]*[:=][^\S\r\n]*(?:'[^'\r\n]*'|\"[^\"\r\n]*\"|[^\s'\"\r\n]+)"
-    r"|Authorization[^\S\r\n]*:[^\S\r\n]*(?:Bearer|Basic)[^\S\r\n]+[^\s\r\n]+"
-    r"|-----BEGIN[ A-Z]*PRIVATE KEY-----[\s\S]*?(?:-----END[ A-Z]*PRIVATE KEY-----|$)"
+    r"|Authorization[^\S\r\n]*:[^\S\r\n]*(?:Bearer|Basic|Digest|Negotiate|Token)[^\S\r\n]+[^\s\r\n]+"
+    r"|-----BEGIN[ A-Z]*PRIVATE KEY-----(?:[\s\S]{0,4000}?-----END[ A-Z]*PRIVATE KEY-----|(?:[\r\n]+[+ \t]*[A-Za-z0-9+/=]{10,}[^\r\n]*)*)"
     r")"
 )
 

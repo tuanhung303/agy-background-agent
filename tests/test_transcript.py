@@ -122,8 +122,10 @@ class TestTranscript(unittest.TestCase):
         self.assertTrue(has_new_user_activity(self.transcript_path, "Initial prompt", original_line_count=2))
 
         # Exception handling fails closed (returns False and logs audit)
-        with patch("sage.transcript._read_transcript_steps", side_effect=RuntimeError("Disk failure")):
+        with patch("sage.transcript.log_audit") as mock_log, \
+                patch("sage.transcript._read_transcript_steps", side_effect=RuntimeError("Disk failure")):
             self.assertFalse(has_new_user_activity(self.transcript_path, "Initial prompt", original_line_count=2))
+            mock_log.assert_called_once()
 
     def test_has_new_user_activity_ignores_reviewer_steering(self):
         initial_lines = [

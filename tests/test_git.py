@@ -219,6 +219,13 @@ class TestGit(unittest.TestCase):
         self.assertIn("def compute():", redacted_diff)
         self.assertEqual(len(normal_diff.splitlines()), len(redacted_diff.splitlines()))
 
+        # Multi-file diff with unterminated PEM redacts key body without destroying subsequent files
+        multi_diff = "--- a/key.pem\n+++ b/key.pem\n+-----BEGIN PRIVATE KEY-----\n+MIIEowIBAAKCAQEA1234567890abcdef\n--- a/main.py\n+++ b/main.py\n+def compute():\n+    return 42\n"
+        redacted_multi = redact_secrets(multi_diff)
+        self.assertNotIn("MIIEowIBAAKCAQEA1234567890abcdef", redacted_multi)
+        self.assertIn("--- a/main.py", redacted_multi)
+        self.assertIn("def compute():", redacted_multi)
+
 
 if __name__ == "__main__":
     unittest.main()
