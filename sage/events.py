@@ -145,7 +145,9 @@ def _normalize_kwargs(kwargs):
     for k, v in kwargs.items():
         if k not in mapping and k not in ignored:
             norm.setdefault(k, v)
-    if isinstance(norm.get("diff"), int) and not isinstance(norm["diff"], bool):
+    if isinstance(norm.get("diff"), bool):
+        norm.pop("diff", None)
+    elif isinstance(norm.get("diff"), int):
         norm["diff"] = bucket_lines(norm["diff"])
     return norm
 

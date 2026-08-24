@@ -98,7 +98,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     if par_sig.get("parallelizable"):
         forced = forced or par_sig.get("categories") != ["context_fatigue_delegation"]
         stext = par_sig.get("signal_text", "")
-        if stext and stext not in signal_note:
+        if signal_note and stext and stext not in signal_note:
             signal_note = f"{signal_note} {stext}".strip()
     effective_thresh = min(SAGE_TOOL_SCORE_THRESHOLD, ADVISOR_TOOL_SCORE_THRESHOLD)
     effective_interval = min(SAGE_TOOL_INTERVAL, ADVISOR_TOOL_INTERVAL)
@@ -107,8 +107,8 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         return {"action": "exit", "reason": f"Mid-turn tool delta below threshold (score={delta_score:.1f}<{effective_thresh:.1f}, count={total_tool_calls - lv}<{effective_interval})"}
 
     if final:
-        diff_cnt = sum(int(m) for m in re.findall(r"^Changed lines: (\d+)$", git_diff or "", re.M))
-        if not diff_cnt and git_diff and not git_diff.startswith("No git changes"):
+        diff_cnt = sum(int(m) for m in re.findall(r"^Changed lines: (\d+)", git_diff or "", re.M))
+        if not diff_cnt and git_diff:
             diff_cnt = sum(1 for ln in git_diff.splitlines() if ln.startswith(("+", "-")) and not ln.startswith(("+++", "---")))
         active_signal = format_summon_message(
             EVENT_FINAL_STOP, total_tools=total_tool_calls, diff=diff_cnt if diff_cnt else None,

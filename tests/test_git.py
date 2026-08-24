@@ -58,6 +58,7 @@ class TestGit(unittest.TestCase):
         self.assertIn("Staged changes", diff)
         self.assertIn("staged.txt", diff)
         self.assertIn("untracked.txt", diff)
+        self.assertIn("Changed lines: 2", diff)
 
     def test_get_git_diff_with_string_workspace_path(self):
         # Passing string path instead of list must not crash or iterate characters

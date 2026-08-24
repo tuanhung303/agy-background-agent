@@ -139,10 +139,10 @@ flowchart TD
   `{"status": "watchout", "task_complexity": "multi_file", "category": "architectural_trap", "action": "Refactor to process-isolated lock in `sage/locking.py`", "evidence": "Unsynchronized global dictionary accessed across worker processes", "confidence": 0.85, "guidance": "Replace in-memory state with file-backed flock to prevent race condition."}`
 
 ### Contextual Fact Tags
-- `[EVT·loop_detection s3]` - Immediate error loop or repeated tool invocation detected.
+- `[EVT·error_loop s3]` - Immediate error loop or repeated tool invocation detected.
 - `[EVT·tool_threshold s1]` - Cadence tool threshold reached with event mix context.
 - `[EVT·parallel_opportunity s1]` - Structural parallel or fatigue delegation opportunity identified.
-- `[EVT·final_gate s2]` - Final stop requested; requires empirical proof of DoD.
+- `[EVT·final_stop s3]` - Final stop requested; requires empirical proof of DoD.
 
 ## Few-Shot Steering Examples
 

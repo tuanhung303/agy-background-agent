@@ -9,8 +9,9 @@ import re
 from sage.guards import is_steering_message
 
 FILE_TOOLS = {
-    "replace_file_content", "write_to_file",
-    "edit_file", "create_file", "notebook_edit",
+    "replace_file_content", "write_to_file", "write_file",
+    "edit_file", "create_file", "notebook_edit", "patch", "apply_diff",
+    "modify_file", "multi_replace_file_content",
 }
 RESEARCH_TOOLS = {"search_web", "read_url_content", "grep_search"}
 TEST_RUNNERS = ("pytest", "unittest", "cargo test", "npm test", "go test", "vitest", "jest")
@@ -82,14 +83,18 @@ def get_parallelizable_signals(steps_or_path):
     steps = _read_steps(steps_or_path)
     turn_idxs = [
         i for i, s in enumerate(steps)
-        if s.get("type") == "USER_INPUT"
+        if isinstance(s, dict) and s.get("type") == "USER_INPUT"
         and str(s.get("source") or "").upper() in ("USER_EXPLICIT", "USER", "")
         and not is_steering_message(str(s.get("content") or ""))
     ]
     t_steps = steps[turn_idxs[-1] + 1:] if turn_idxs else steps
+    t_calls = [
+        t for s in t_steps if isinstance(s, dict)
+        for t in (s.get("tool_calls") or []) if isinstance(t, dict)
+    ]
 
     # If subagents were already dispatched in this turn, suppress parallelizable signal
-    if any(str(t.get("name") or "") == "invoke_subagent" for s in t_steps for t in s.get("tool_calls", [])):
+    if any(str(t.get("name") or "") == "invoke_subagent" for t in t_calls):
         return {"parallelizable": False, "categories": [], "details": [], "suggested_roles": [], "signal_text": ""}
 
     categories = []
@@ -100,28 +105,26 @@ def get_parallelizable_signals(steps_or_path):
     research_queries = set()
     test_commands = set()
 
-    for s in t_steps:
-        stools = [t for t in s.get("tool_calls", []) if isinstance(t, dict)]
-        for t in stools:
-            name = str(t.get("name") or "")
-            args = t.get("args") or t.get("arguments") or {}
+    for t in t_calls:
+        name = str(t.get("name") or "")
+        args = t.get("args") or t.get("arguments") or {}
 
-            if name in FILE_TOOLS:
-                fpath = _extract_file_path(args)
-                if fpath:
-                    norm = os.path.normpath(fpath)
-                    dname = os.path.dirname(norm)
-                    files_by_dir.setdefault(dname, set()).add(norm)
+        if name in FILE_TOOLS:
+            fpath = _extract_file_path(args)
+            if fpath:
+                norm = os.path.normpath(fpath)
+                dname = os.path.dirname(norm)
+                files_by_dir.setdefault(dname, set()).add(norm)
 
-            if name in RESEARCH_TOOLS:
-                rtarget = _extract_research_target(name, args)
-                if rtarget:
-                    research_queries.add(rtarget)
+        if name in RESEARCH_TOOLS:
+            rtarget = _extract_research_target(name, args)
+            if rtarget:
+                research_queries.add(rtarget)
 
-            if name == "run_command":
-                ttarget = _extract_test_target(args)
-                if ttarget:
-                    test_commands.add(ttarget)
+        if name == "run_command":
+            ttarget = _extract_test_target(args)
+            if ttarget:
+                test_commands.add(ttarget)
 
     distinct_dirs = [d for d, fs in files_by_dir.items() if d]
     total_files = sum(len(fs) for fs in files_by_dir.values())
@@ -141,15 +144,14 @@ def get_parallelizable_signals(steps_or_path):
         details.append(f"{len(test_commands)} independent test suites")
         suggested_roles.append("QA")
 
-    total_tools_in_turn = sum(len(s.get("tool_calls") or []) for s in t_steps)
+    total_tools_in_turn = len(t_calls)
     if total_tools_in_turn >= 12 and (len(distinct_dirs) >= 2 or len(test_commands) >= 1):
-        if "context_fatigue_delegation" not in categories:
-            categories.append("context_fatigue_delegation")
-            details.append(f"mid-task tool accumulation ({total_tools_in_turn} tools)")
-            if "Implementer" not in suggested_roles:
-                suggested_roles.append("Implementer")
-            if "QA" not in suggested_roles:
-                suggested_roles.append("QA")
+        categories.append("context_fatigue_delegation")
+        details.append(f"mid-task tool accumulation ({total_tools_in_turn} tools)")
+        if len(distinct_dirs) >= 2 and "Implementer" not in suggested_roles:
+            suggested_roles.append("Implementer")
+        if "QA" not in suggested_roles:
+            suggested_roles.append("QA")
 
     parallelizable = len(categories) > 0
     signal_text = ""

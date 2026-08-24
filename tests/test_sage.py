@@ -432,6 +432,80 @@ class TestSage(unittest.TestCase):
         self.assertIn("error_loop", signals_sent)
         self.assertIn("PARALLELIZABLE", signals_sent)
 
+    def test_pure_parallel_signal_formatting_with_fact_tag(self):
+        from unittest.mock import patch
+        import sage.policies as policies
+
+        captured = {}
+        def fake_eval(*a, **k):
+            captured.update(k)
+            return {"status": "on_track"}
+
+        par = {
+            "parallelizable": True,
+            "categories": ["disjoint_files"],
+            "signal_text": "PARALLELIZABLE: Independent workstreams detected (2 disjoint directories: api, core). Suggest invoke_subagent with roles: Implementer.",
+        }
+
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+             patch.object(policies, "get_parallelizable_signals", return_value=par), \
+             patch.object(policies, "calculate_turn_tool_score", return_value=(0.0, 0)), \
+             patch.object(policies, "evaluate_mid_turn_progress", side_effect=fake_eval), \
+             patch.object(policies, "has_new_user_activity", return_value=False), \
+             patch.object(policies, "extract_session_and_turn_data", return_value=("", "", [], 5, set(), 0, 0, 0)), \
+             patch.object(policies, "is_post_invocation_completion_candidate", return_value=False), \
+             patch.object(policies, "classify_advice", return_value={"decision": "hold", "text": "ok", "seen": {}}):
+            policies.sage_flow(
+                "midturn", conv_id="c", transcript_path="/tmp/x.jsonl",
+                clean_prompt="p", initial_line_count=0, total_tool_calls=5, turn_tool_names={"write_to_file"},
+                user_prompt="u", agent_steps=[], git_diff="", state={},
+                forced=True,
+                signal_note="",
+            )
+
+        signals_sent = captured.get("signals", "")
+        self.assertIn("[EVT·parallel_opportunity s1]", signals_sent)
+        self.assertIn("PARALLELIZABLE:", signals_sent)
+
+    def test_get_parallelizable_signals_handles_malformed_tool_calls(self):
+        from sage.task_structure import get_parallelizable_signals
+        steps = [
+            {"type": "USER_INPUT", "source": "USER", "content": "test"},
+            None,
+            "invalid_step",
+            {"type": "PLANNER_RESPONSE", "tool_calls": None},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [None, 123, "string", {}, {"name": "write_to_file", "args": {"TargetFile": "/tmp/a/b.py"}}]},
+        ]
+        sig = get_parallelizable_signals(steps)
+        self.assertIsInstance(sig, dict)
+        self.assertIn("parallelizable", sig)
+
+    def test_final_gate_diff_cnt_regex_extraction(self):
+        from unittest.mock import patch
+        import sage.policies as policies
+
+        captured = {}
+        def fake_eval(*a, **k):
+            captured.update(k)
+            return {"status": "healthy"}
+
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+             patch.object(policies, "evaluate_mid_turn_progress", side_effect=fake_eval), \
+             patch.object(policies, "has_new_user_activity", return_value=False), \
+             patch.object(policies, "extract_session_and_turn_data", return_value=("", "", [], 5, set(), 0, 0, 0)), \
+             patch.object(policies, "classify_advice", return_value={"decision": "healthy", "text": "ok", "seen": {}}):
+            policies.final_sage_gate(
+                conv_id="c", transcript_path="/tmp/x.jsonl",
+                clean_prompt="p", initial_line_count=0, total_tool_calls=5, turn_tool_names={"write_to_file"},
+                user_prompt="u", agent_steps=[],
+                git_diff="Workspace (/tmp/ws):\nStatus:\nM file.py\nChanged lines: 42\nDiff:\n+hello",
+                state={},
+            )
+
+        signals_sent = captured.get("signals", "")
+        self.assertIn("[EVT·final_stop s3]", signals_sent)
+        self.assertIn("diff=~50L", signals_sent)
+
 
 if __name__ == "__main__":
     unittest.main()

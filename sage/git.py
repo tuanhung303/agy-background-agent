@@ -60,6 +60,20 @@ def get_git_diff(workspace_paths, turn_tool_names=None):
                     if len(cols) >= 2:
                         changed += sum(int(c) for c in cols[:2] if c.isdigit())
 
+            untracked_res = subprocess.run(
+                ["git", "-C", ws, "ls-files", "--others", "--exclude-standard"],
+                capture_output=True, text=True, timeout=2,
+            )
+            if untracked_res.returncode == 0:
+                for uf in untracked_res.stdout.splitlines()[:10]:
+                    uf_path = os.path.join(ws, uf.strip())
+                    if os.path.isfile(uf_path):
+                        try:
+                            with open(uf_path, "rb") as f:
+                                changed += sum(1 for _ in f)
+                        except Exception:
+                            pass
+
             status_lines = [l.strip() for l in status_res.stdout.splitlines() if l.strip()][:12]
             diff_unstaged = diff_unstaged_res.stdout.strip()
             diff_staged = diff_staged_res.stdout.strip()
