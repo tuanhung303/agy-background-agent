@@ -385,17 +385,52 @@ class TestSage(unittest.TestCase):
         steps = [
             {"type": "USER_INPUT", "source": "USER", "content": "Refactor module and run test suites"},
         ]
-        # 13 tool calls in the turn modifying files
+        # 13 tool calls in the turn modifying files across disjoint directories
         for i in range(13):
             steps.append({
                 "type": "PLANNER_RESPONSE",
-                "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": f"/tmp/pkg/file_{i}.py"}}],
+                "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": f"/tmp/pkg/{'api' if i % 2 else 'core'}/file_{i}.py"}}],
             })
         sig = get_parallelizable_signals(steps)
         self.assertTrue(sig.get("parallelizable"))
         self.assertIn("context_fatigue_delegation", sig.get("categories", []))
         self.assertIn("Implementer", sig.get("suggested_roles", []))
         self.assertIn("QA", sig.get("suggested_roles", []))
+
+    def test_signal_priority_preserves_error_loop_over_fatigue(self):
+        from unittest.mock import patch
+        import sage.policies as policies
+
+        captured = {}
+        def fake_eval(*a, **k):
+            captured.update(k)
+            return {"status": "on_track"}
+
+        par = {
+            "parallelizable": True,
+            "categories": ["context_fatigue_delegation"],
+            "signal_text": "PARALLELIZABLE: Delegation opportunity (mid-task tool accumulation (14 tools)). Suggest invoke_subagent with roles: Implementer, QA.",
+        }
+
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+             patch.object(policies, "get_parallelizable_signals", return_value=par), \
+             patch.object(policies, "calculate_turn_tool_score", return_value=(0.0, 0)), \
+             patch.object(policies, "evaluate_mid_turn_progress", side_effect=fake_eval), \
+             patch.object(policies, "has_new_user_activity", return_value=False), \
+             patch.object(policies, "extract_session_and_turn_data", return_value=("", "", [], 14, set(), 0, 0, 0)), \
+             patch.object(policies, "is_post_invocation_completion_candidate", return_value=False), \
+             patch.object(policies, "classify_advice", return_value={"decision": "hold", "text": "ok", "seen": {}}):
+            policies.sage_flow(
+                "midturn", conv_id="c", transcript_path="/tmp/x.jsonl",
+                clean_prompt="p", initial_line_count=0, total_tool_calls=14, turn_tool_names={"run_command"},
+                user_prompt="u", agent_steps=[], git_diff="", state={},
+                forced=True,
+                signal_note="[EVT·error_loop s3] tool=run_command · sig=exit code 127 · fails=5",
+            )
+
+        signals_sent = captured.get("signals", "")
+        self.assertIn("error_loop", signals_sent)
+        self.assertIn("PARALLELIZABLE", signals_sent)
 
 
 if __name__ == "__main__":

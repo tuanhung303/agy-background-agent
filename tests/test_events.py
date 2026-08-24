@@ -99,6 +99,18 @@ class TestAdvisorEvents(unittest.TestCase):
         self.assertNotIn("sec12345", msg)
         self.assertIn("[redacted]", msg)
 
+    def test_bucket_lines(self):
+        from sage.events import bucket_lines
+        self.assertEqual(bucket_lines(0), "0L")
+        self.assertEqual(bucket_lines(10), "~10L")
+        self.assertEqual(bucket_lines(50), "~50L")
+        self.assertEqual(bucket_lines(100), "~100L")
+        self.assertEqual(bucket_lines(500), "~500L")
+        self.assertEqual(bucket_lines(750), "~1kL")
+        self.assertEqual(bucket_lines(1000), "~1kL")
+        self.assertEqual(bucket_lines(1001), ">1kL")
+        self.assertEqual(bucket_lines(3000), ">1kL")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,6 +16,7 @@ Two policies live here:
 Both return plain action dicts; the runner owns persistence and I/O.
 """
 
+import re
 from sage.sage import evaluate_mid_turn_progress
 from sage.config import (
     MAX_MID_TURN_STEERS, MID_TURN_SAGE_ENABLED, SAGE_ESCALATE_MIN_CONFIDENCE,
@@ -95,7 +96,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     lv = int(state.get("last_verified_tools", 0))
     par_sig = get_parallelizable_signals(transcript_path) if not final else {}
     if par_sig.get("parallelizable"):
-        forced = True
+        forced = forced or par_sig.get("categories") != ["context_fatigue_delegation"]
         stext = par_sig.get("signal_text", "")
         if stext and stext not in signal_note:
             signal_note = f"{signal_note} {stext}".strip()
@@ -106,15 +107,16 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         return {"action": "exit", "reason": f"Mid-turn tool delta below threshold (score={delta_score:.1f}<{effective_thresh:.1f}, count={total_tool_calls - lv}<{effective_interval})"}
 
     if final:
-        real_diff = git_diff and not git_diff.startswith("No git changes")
-        diff_cnt = sum(1 for ln in git_diff.splitlines() if ln.startswith(("+", "-")) and not ln.startswith(("+++", "---"))) if real_diff else 0
+        diff_cnt = sum(int(m) for m in re.findall(r"^Changed lines: (\d+)$", git_diff or "", re.M))
+        if not diff_cnt and git_diff and not git_diff.startswith("No git changes"):
+            diff_cnt = sum(1 for ln in git_diff.splitlines() if ln.startswith(("+", "-")) and not ln.startswith(("+++", "---")))
         active_signal = format_summon_message(
             EVENT_FINAL_STOP, total_tools=total_tool_calls, diff=diff_cnt if diff_cnt else None,
         )
-    elif par_sig.get("parallelizable"):
-        active_signal = format_summon_message(EVENT_PARALLEL_OPP, signal_text=par_sig.get("signal_text", ""))
     elif signal_note:
         active_signal = signal_note
+    elif par_sig.get("parallelizable"):
+        active_signal = format_summon_message(EVENT_PARALLEL_OPP, signal_text=par_sig.get("signal_text", ""))
     else:
         active_signal = format_summon_message(
             EVENT_TOOL_THRESHOLD,
@@ -192,4 +194,3 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
 # Backward-compatibility aliases
 advisor_flow = sage_flow
 final_advisor_gate = final_sage_gate
-

@@ -40,6 +40,26 @@ def get_git_diff(workspace_paths, turn_tool_names=None):
                 capture_output=True, text=True, timeout=3,
             )
 
+            numstat_res = subprocess.run(
+                ["git", "-C", ws, "diff", "HEAD", "--numstat"],
+                capture_output=True, text=True, timeout=3,
+            )
+            changed = 0
+            if numstat_res.returncode == 0:
+                for nl in numstat_res.stdout.splitlines():
+                    cols = nl.split("\t")
+                    if len(cols) >= 2:
+                        changed += sum(int(c) for c in cols[:2] if c.isdigit())
+            else:
+                numstat_res = subprocess.run(
+                    ["git", "-C", ws, "diff", "--cached", "--numstat"],
+                    capture_output=True, text=True, timeout=3,
+                )
+                for nl in numstat_res.stdout.splitlines():
+                    cols = nl.split("\t")
+                    if len(cols) >= 2:
+                        changed += sum(int(c) for c in cols[:2] if c.isdigit())
+
             status_lines = [l.strip() for l in status_res.stdout.splitlines() if l.strip()][:12]
             diff_unstaged = diff_unstaged_res.stdout.strip()
             diff_staged = diff_staged_res.stdout.strip()
@@ -55,7 +75,7 @@ def get_git_diff(workspace_paths, turn_tool_names=None):
                 truncated_diff = combined_diff[:1500] if len(combined_diff) > 1500 else combined_diff
                 status_summary = ", ".join(status_lines)
                 diffs.append(
-                    f"Workspace ({ws}):\nStatus:\n{status_summary}\nDiff:\n{truncated_diff}"
+                    f"Workspace ({ws}):\nStatus:\n{status_summary}\nChanged lines: {changed}\nDiff:\n{truncated_diff}"
                 )
         except Exception:
             continue

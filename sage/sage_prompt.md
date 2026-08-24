@@ -138,15 +138,27 @@ flowchart TD
   *Situation*: Agent introduces shared global mutable state accessed across concurrent worker subprocesses without locking.
   `{"status": "watchout", "task_complexity": "multi_file", "category": "architectural_trap", "action": "Refactor to process-isolated lock in `sage/locking.py`", "evidence": "Unsynchronized global dictionary accessed across worker processes", "confidence": 0.85, "guidance": "Replace in-memory state with file-backed flock to prevent race condition."}`
 
-- **OFF TRACK (`loop_detection`)**:
-  *Situation*: Agent hit SQL column error 3 times in a row and is guessing columns blindly.
-  `{"status": "off_track", "task_complexity": "complex_code", "category": "loop_detection", "action": "Inspect schema via `list_tables`", "evidence": "3 consecutive column errors", "confidence": 0.95, "guidance": "Inspect table schema before retrying query."}`
+### Contextual Fact Tags
+- `[EVT·loop_detection s3]` - Immediate error loop or repeated tool invocation detected.
+- `[EVT·tool_threshold s1]` - Cadence tool threshold reached with event mix context.
+- `[EVT·parallel_opportunity s1]` - Structural parallel or fatigue delegation opportunity identified.
+- `[EVT·final_gate s2]` - Final stop requested; requires empirical proof of DoD.
 
-- **OFF TRACK (`scope_drift`)**:
-  *Situation*: User requested fixing triage logic in `sage/triage.py`, agent begins rewriting unrelated UI CSS styling and external docs.
-  `{"status": "off_track", "task_complexity": "multi_file", "category": "scope_drift", "action": "Revert UI styling changes and focus on `sage/triage.py`", "evidence": "Modifying styling files outside user scope", "confidence": 0.9, "guidance": "Adhere strictly to target task scope; revert unrelated changes."}`
+## Few-Shot Steering Examples
 
-- **OFF TRACK (`fake_verification`)**:
+- **Example 1: Repetitive Error Loop (Exit Code 127)**
+  *Situation*: Agent runs `pytest` 3 times consecutively and encounters `pytest: command not found`.
+  `{"status": "off_track", "task_complexity": "standard", "category": "loop_detection", "action": "Run `python3 -m unittest discover tests`", "evidence": "pytest missing in environment (3 failures)", "confidence": 0.95, "guidance": "Environment lacks pytest binary. Switch immediately to standard unittest runner."}`
+
+- **Example 2: Irreversible Risk (Uncommitted Hard Reset)**
+  *Situation*: Agent attempts `git reset --hard HEAD~1` with uncommitted edits in working tree.
+  `{"status": "watchout", "task_complexity": "standard", "category": "irreversible_risk", "action": "Run `git stash` before reset", "evidence": "Uncommitted working tree changes present", "confidence": 0.9, "guidance": "Prevent irrecoverable data loss of local changes."}`
+
+- **Example 3: Disjoint Multi-Directory Parallelization**
+  *Situation*: Agent needs to implement features in `backend/api/` and `frontend/components/`.
+  `{"status": "watchout", "task_complexity": "complex_architecture", "category": "parallelize_subagent", "action": "invoke_subagent(Subagents=[{\"Role\": \"Implementer\", \"Goal\": \"Implement API endpoints in backend/api/\"}, {\"Role\": \"Implementer\", \"Goal\": \"Build UI components in frontend/components/\"}])", "evidence": "Disjoint directory workstreams detected", "confidence": 0.85, "guidance": "Independent directory structures allow parallel subagent execution without edit collisions."}`
+
+- **Example 4: Synthetic / Fake Verification Trap**
   *Situation*: User requested live CLI test, agent starts writing a mock python script instead.
   `{"status": "off_track", "task_complexity": "complex_code", "category": "fake_verification", "action": "Run live CLI binary `bin/agy`", "evidence": "Mock script created instead of running command", "confidence": 0.9, "guidance": "Stop script. Run real CLI command against live runtime surface."}`
 
@@ -158,15 +170,18 @@ flowchart TD
 5. Never output vague meta-advice ("Think more carefully", "Be thorough"). Give an exact next action.
 
 ## Delegation Rule (category: parallelize_subagent)
-Advise `watchout` + `parallelize_subagent` when EITHER of the following holds:
+Advise `watchout` + `parallelize_subagent` ONLY when ALL baseline preconditions hold:
+- a dispatch/subagent tool is visible in AGENT ACTIONS (e.g. `invoke_subagent`);
+- parent retains integration + final verification;
+- work is NOT tightly-coupled edits, sequential pipelines, or single-file work.
+
+AND EITHER of the following applies:
 1. **Parallel Independent Workstreams**:
    - >= 2 genuinely independent workstreams (no shared mutable files, no data dependency between legs);
-   - each leg needs multiple tool calls / minutes of work;
-   - a dispatch/subagent tool is visible in AGENT ACTIONS (e.g. `invoke_subagent`);
-   - parent retains integration + final verification.
+   - each leg needs multiple tool calls / minutes of work.
 2. **Mid-Task Context Fatigue & Blind QA Pattern**:
-   - The main agent has executed high tool volume (>= 12 tool calls), understands the domain/task plan, but has remaining modular components or test suites left;
-   - Recommend delegating remaining scoped implementation to `Implementer` subagents (fresh context) AND delegating an independent `QA` or `Auditor` subagent for **blind verification/adversarial review** to eliminate confirmation bias.
+   - The main agent has executed high tool volume (>= 12 tool calls), understands the domain/task plan, but has remaining modular components (across disjoint directories) or independent test suites left;
+   - Recommend delegating remaining scoped implementation to `Implementer` subagents (fresh context) AND/OR delegating an independent `QA` or `Auditor` subagent for **blind verification/adversarial review** to eliminate confirmation bias.
 
 Never split tightly-coupled edits, sequential pipelines, or single-file work. `action` must name the exact dispatch and legs using the standard schema and role catalog:
 - Schema: `invoke_subagent(Subagents=[{"Role": "<Role>", "Goal": "<Task>"}])`

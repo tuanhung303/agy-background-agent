@@ -96,7 +96,7 @@ def bucket_lines(value):
     except (TypeError, ValueError):
         return "?"
     for edge, label in ((1, "0L"), (11, "~10L"), (51, "~50L"),
-                        (151, "~100L"), (501, "~500L")):
+                        (151, "~100L"), (501, "~500L"), (1001, "~1kL")):
         if num < edge:
             return label
     return ">1kL"
@@ -144,9 +144,9 @@ def _normalize_kwargs(kwargs):
     ignored = ("facts", "style", "fallback_signal", "score", "delta", "delta_tools", "pinned_goal", "anchor_goal", "goal", "revised_goal")
     for k, v in kwargs.items():
         if k not in mapping and k not in ignored:
-            if k == "diff" and isinstance(v, int):
-                v = bucket_lines(v)
             norm.setdefault(k, v)
+    if isinstance(norm.get("diff"), int) and not isinstance(norm["diff"], bool):
+        norm["diff"] = bucket_lines(norm["diff"])
     return norm
 
 
