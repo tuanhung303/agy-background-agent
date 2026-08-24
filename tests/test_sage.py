@@ -380,6 +380,23 @@ class TestSage(unittest.TestCase):
         self.assertNotIn("rm -rf /", parsed_dest.get("recap"))
         self.assertIn("[Destructive command suppressed]", parsed_dest.get("recap"))
 
+    def test_mid_task_context_fatigue_delegation_signal(self):
+        from sage.task_structure import get_parallelizable_signals
+        steps = [
+            {"type": "USER_INPUT", "source": "USER", "content": "Refactor module and run test suites"},
+        ]
+        # 13 tool calls in the turn modifying files
+        for i in range(13):
+            steps.append({
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": f"/tmp/pkg/file_{i}.py"}}],
+            })
+        sig = get_parallelizable_signals(steps)
+        self.assertTrue(sig.get("parallelizable"))
+        self.assertIn("context_fatigue_delegation", sig.get("categories", []))
+        self.assertIn("Implementer", sig.get("suggested_roles", []))
+        self.assertIn("QA", sig.get("suggested_roles", []))
+
 
 if __name__ == "__main__":
     unittest.main()

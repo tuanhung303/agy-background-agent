@@ -141,10 +141,17 @@ def get_parallelizable_signals(steps_or_path):
         details.append(f"{len(test_commands)} independent test suites")
         suggested_roles.append("QA")
 
+    total_tools_in_turn = sum(len(s.get("tool_calls", [])) for s in t_steps)
+    if total_tools_in_turn >= 12 and (total_files >= 1 or len(test_commands) >= 1):
+        if "Implementer" not in suggested_roles and "QA" not in suggested_roles:
+            categories.append("context_fatigue_delegation")
+            details.append(f"mid-task tool accumulation ({total_tools_in_turn} tools)")
+            suggested_roles.extend(["Implementer", "QA"])
+
     parallelizable = len(categories) > 0
     signal_text = ""
     if parallelizable:
-        roles_str = ", ".join(suggested_roles)
+        roles_str = ", ".join(dict.fromkeys(suggested_roles))
         details_str = "; ".join(details)
         signal_text = f"PARALLELIZABLE: Independent workstreams detected ({details_str}). Suggest invoke_subagent with roles: {roles_str}."
 
@@ -152,6 +159,6 @@ def get_parallelizable_signals(steps_or_path):
         "parallelizable": parallelizable,
         "categories": categories,
         "details": details,
-        "suggested_roles": suggested_roles,
+        "suggested_roles": list(dict.fromkeys(suggested_roles)),
         "signal_text": signal_text,
     }

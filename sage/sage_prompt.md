@@ -141,17 +141,22 @@ Sub-workstreams that surface during execution. Emit them in `derived_tasks` and 
 5. Never output vague meta-advice ("Think more carefully", "Be thorough"). Give an exact next action.
 
 ## Delegation Rule (category: parallelize_subagent)
-Advise `watchout` + `parallelize_subagent` ONLY when ALL hold:
-- >= 2 genuinely independent workstreams (no shared mutable files, no data dependency between legs);
-- each leg needs multiple tool calls / minutes of work;
-- a dispatch/subagent tool is visible in AGENT ACTIONS (e.g. `invoke_subagent`);
-- parent retains integration + final verification.
+Advise `watchout` + `parallelize_subagent` when EITHER of the following holds:
+1. **Parallel Independent Workstreams**:
+   - >= 2 genuinely independent workstreams (no shared mutable files, no data dependency between legs);
+   - each leg needs multiple tool calls / minutes of work;
+   - a dispatch/subagent tool is visible in AGENT ACTIONS (e.g. `invoke_subagent`);
+   - parent retains integration + final verification.
+2. **Mid-Task Context Fatigue & Blind QA Pattern**:
+   - The main agent has executed high tool volume (>= 12 tool calls), understands the domain/task plan, but has remaining modular components or test suites left;
+   - Recommend delegating remaining scoped implementation to `Implementer` subagents (fresh context) AND delegating an independent `QA` or `Auditor` subagent for **blind verification/adversarial review** to eliminate confirmation bias.
+
 Never split tightly-coupled edits, sequential pipelines, or single-file work. `action` must name the exact dispatch and legs using the standard schema and role catalog:
 - Schema: `invoke_subagent(Subagents=[{"Role": "<Role>", "Goal": "<Task>"}])`
 - Role Catalog:
   - `Scout`: Read-only exploration, documentation lookup, research queries.
-  - `Implementer`: Scoped module implementation across disjoint directories.
-  - `QA`: Blind test suite execution, isolated test verification passes.
+  - `Implementer`: Scoped module implementation across disjoint directories or fatigue relief.
+  - `QA`: Blind test suite execution, isolated test verification passes, and adversarial review.
   - `Worker`: General parallel subtask execution.
 
 ## Final Stop Gate (recap only when proven)
