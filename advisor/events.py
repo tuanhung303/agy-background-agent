@@ -42,7 +42,7 @@ def format_summon_message(event_type, **kwargs):
         )
 
     if event_type == EVENT_ERROR_LOOP:
-        streak = kwargs.get("error_streak", 2)
+        streak = kwargs.get("error_streak", 5)
         tool = kwargs.get("tool_name", "the last tool")
         sig = kwargs.get("error_sig", "repeated failure")
         return (

@@ -37,8 +37,8 @@ class TestAdvisorEvents(unittest.TestCase):
         self.assertIn("Fix bug", msg)
 
     def test_format_error_loop_event(self):
-        msg = format_summon_message(EVENT_ERROR_LOOP, error_streak=3, tool_name="run_command", error_sig="exit code 127")
-        self.assertIn("3 consecutive tool failures", msg)
+        msg = format_summon_message(EVENT_ERROR_LOOP, tool_name="run_command", error_sig="exit code 127")
+        self.assertIn("5 consecutive tool failures", msg)
         self.assertIn("run_command", msg)
         self.assertIn("exit code 127", msg)
 
