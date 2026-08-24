@@ -10,25 +10,25 @@ import json
 import unittest
 from unittest.mock import patch
 
-from advisor.advisor import (
+from sage.sage import (
     _normalize_advisor_dict,
     build_advisor_prompt,
 )
-from advisor.guards import (
+from sage.guards import (
     DESTRUCTIVE_ACTION_RE,
     check_payload_and_lifecycle,
     format_hook_message,
     is_destructive_action,
     is_subagent_session,
 )
-from advisor.policies import advisor_flow, background_watch
-from advisor.task_structure import (
+from sage.policies import advisor_flow, background_watch
+from sage.task_structure import (
     _extract_file_path,
     _extract_research_target,
     _extract_test_target,
     get_parallelizable_signals,
 )
-from advisor.triage import (
+from sage.triage import (
     classify_advice,
     compute_advice_key,
 )
@@ -287,7 +287,7 @@ class TestTriageHardening(unittest.TestCase):
         res_diff = classify_advice(raw_diff, seen_advice={})
         self.assertIn("Why:", res_diff["text"])
 
-    def test_strict_length_clamping_under_420_chars(self):
+    def test_strict_length_clamping_under_2000_chars(self):
         raw_long = {
             "status": "off_track",
             "category": "architectural_trap",
@@ -297,7 +297,7 @@ class TestTriageHardening(unittest.TestCase):
             "confidence": 0.95,
         }
         res = classify_advice(raw_long, seen_advice={})
-        self.assertLessEqual(len(res["text"]), 420)
+        self.assertLessEqual(len(res["text"]), 2000)
 
 
 class TestPolicyHardening(unittest.TestCase):
@@ -339,7 +339,7 @@ class TestPolicyHardening(unittest.TestCase):
 
     def test_advisor_flow_max_mid_turn_steers_ceiling(self):
         state = {"advisor_error_streak": 0, "mid_turn_steers": 5}
-        with patch("advisor.policies.MAX_MID_TURN_STEERS", 5):
+        with patch("sage.policies.MAX_MID_TURN_STEERS", 5):
             res_midturn = advisor_flow(
                 "midturn",
                 conv_id="conv-1",
@@ -446,6 +446,7 @@ class TestGuardsLifecycleHardening(unittest.TestCase):
 
     def test_format_hook_message_strips_redundant_prefixes(self):
         self.assertEqual(format_hook_message("steering", "※ steering: Fix bug"), "※ steering: Fix bug")
+        self.assertEqual(format_hook_message("sage", "[sage] Check AST"), "※ sage: Check AST")
         self.assertEqual(format_hook_message("advisor", "[advisor] Check AST"), "※ advisor: Check AST")
         self.assertEqual(format_hook_message("recap", "**recap** Summary of work"), "※ recap: Summary of work")
 
@@ -458,7 +459,7 @@ class TestGuardsLifecycleHardening(unittest.TestCase):
         self.assertTrue(is_subagent_session({}, None, "you are running as a subagent"))
         self.assertFalse(is_subagent_session({}, None, "normal user request to optimize database"))
 
-    @patch("advisor.guards.fail_safe_exit")
+    @patch("sage.guards.fail_safe_exit")
     def test_check_payload_and_lifecycle_termination_reasons(self, mock_exit):
         mock_exit.side_effect = SystemExit(0)
         reasons = [

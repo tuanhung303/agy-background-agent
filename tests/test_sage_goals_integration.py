@@ -5,9 +5,9 @@ Integration tests for Pinned Goal, Revised Goal, and Derived Tasks in the Strate
 import json
 from unittest.mock import patch
 
-from advisor.advisor import build_advisor_prompt, parse_advisor_output
-from advisor.policies import advisor_flow
-from advisor.triage import classify_advice
+from sage.sage import build_advisor_prompt, parse_advisor_output
+from sage.policies import advisor_flow
+from sage.triage import classify_advice
 
 
 def test_advisor_prompt_includes_pinned_and_revised_goal():
@@ -34,7 +34,7 @@ def test_advisor_prompt_update_mode_includes_goal_context():
         pinned_goal="Build core engine",
         revised_goal="Add benchmarks",
     )
-    assert "ADVISOR UPDATE" in prompt
+    assert "SAGE UPDATE" in prompt
     assert "PINNED GOAL (Baseline Objective):\nBuild core engine" in prompt
     assert "REVISED GOAL (Active In-Flight Scope):\nAdd benchmarks" in prompt
 
@@ -81,9 +81,9 @@ def test_classify_advice_propagates_goal_fields():
     assert "[WATCH·scope_drift]" in decision["text"]
 
 
-@patch("advisor.policies.has_new_user_activity", return_value=False)
-@patch("advisor.policies.extract_session_and_turn_data", return_value=(None, None, None, 15, None, None, None, 0))
-@patch("advisor.policies.evaluate_mid_turn_progress")
+@patch("sage.policies.has_new_user_activity", return_value=False)
+@patch("sage.policies.extract_session_and_turn_data", return_value=(None, None, None, 15, None, None, None, 0))
+@patch("sage.policies.evaluate_mid_turn_progress")
 def test_advisor_flow_propagates_goal_state(mock_eval, mock_extract, mock_activity):
     mock_eval.return_value = {
         "status": "watchout",

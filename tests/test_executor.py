@@ -1,5 +1,5 @@
 """
-test_executor.py - Unit tests for advisor.executor module.
+test_executor.py - Unit tests for sage.executor module.
 """
 
 import json
@@ -9,7 +9,7 @@ import time
 import unittest
 from unittest.mock import MagicMock, patch
 
-from advisor.executor import (
+from sage.executor import (
     acquire_spawn_lock,
     clean_resume_history,
     clear_session_id,

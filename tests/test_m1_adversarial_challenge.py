@@ -24,18 +24,18 @@ import unittest
 from collections import defaultdict
 from unittest.mock import patch
 
-from advisor.locking import (
+from sage.locking import (
     acquire_spawn_lock,
     atomic_write_json,
     release_lock,
     release_spawn_lock,
 )
-from advisor.sanitizer import (
+from sage.sanitizer import (
     clamp_diff,
     clean_user_prompt,
     sanitize_tool_output,
 )
-from advisor.session_state import (
+from sage.session_state import (
     get_state_file_path,
     load_and_sync_session_state,
     record_advisor_emit,
@@ -49,7 +49,7 @@ class TestM1StaticInvariantsAdversarial(unittest.TestCase):
 
     def setUp(self):
         self.repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        self.pkg_dir = os.path.join(self.repo_root, "advisor")
+        self.pkg_dir = os.path.join(self.repo_root, "sage")
 
     def test_all_modules_under_199_lines_and_non_empty(self):
         pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
@@ -259,7 +259,7 @@ class TestM1SessionStateAndConcurrencyAdversarial(unittest.TestCase):
     def test_spawn_lock_mutual_exclusion(self):
         """Verifies global spawn lock prevents overlapping critical sections."""
         test_lock_file = os.path.join(self.test_dir, "test_spawn.lock")
-        with patch("advisor.locking.SPAWN_LOCK_FILE", test_lock_file):
+        with patch("sage.locking.SPAWN_LOCK_FILE", test_lock_file):
             fh1 = acquire_spawn_lock(timeout=1.0)
             self.assertIsNotNone(fh1)
 

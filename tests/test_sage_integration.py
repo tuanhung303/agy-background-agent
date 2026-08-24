@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-tests.test_advisor_integration - End-to-end integration tests for Mid-Turn Verifier & Stop Gate Coordination.
+tests.test_sage_integration - End-to-end integration tests for Mid-Turn Verifier & Stop Gate Coordination.
 """
 
 import hashlib
@@ -12,8 +12,8 @@ import time
 import unittest
 from unittest.mock import patch
 
-from advisor.locking import safe_id
-from advisor.runner import main
+from sage.locking import safe_id
+from sage.runner import main
 
 
 class TestAdvisorIntegration(unittest.TestCase):
@@ -51,10 +51,10 @@ class TestAdvisorIntegration(unittest.TestCase):
         self._write_transcript("Build feature", tool_calls_count=6, is_final=False)
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
 
-        with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+        with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
              patch("sys.stdin.read", return_value=json.dumps(payload)), \
-             patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 0), \
-             patch("advisor.advisor.run_advisor_model") as mock_ver, \
+             patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 0), \
+             patch("sage.sage.run_advisor_model") as mock_ver, \
              patch("sys.stdout") as mock_stdout, \
              self.assertRaises(SystemExit):
             main()
@@ -69,10 +69,10 @@ class TestAdvisorIntegration(unittest.TestCase):
         self._write_transcript("Build feature", tool_calls_count=5, is_final=False)
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
 
-        with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+        with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
              patch("sys.stdin.read", return_value=json.dumps(payload)), \
-             patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-             patch("advisor.advisor.run_advisor_model") as mock_ver, \
+             patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+             patch("sage.sage.run_advisor_model") as mock_ver, \
              patch("sys.stdout") as mock_stdout, \
              self.assertRaises(SystemExit):
             main()
@@ -84,16 +84,16 @@ class TestAdvisorIntegration(unittest.TestCase):
 
     def test_mid_turn_healthy_trajectory_persists_state_and_exits_clean(self):
         conv_id = f"test_mid_healthy_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Build feature", tool_calls_count=12, is_final=False)
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
 
         mock_output = {"healthy": True, "blind_spots": [], "guidance": ""}
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.advisor.run_advisor_model", return_value=mock_output) as mock_ver, \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.sage.run_advisor_model", return_value=mock_output) as mock_ver, \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -114,7 +114,7 @@ class TestAdvisorIntegration(unittest.TestCase):
 
     def test_mid_turn_unhealthy_trajectory_injects_adviser_and_force_continue(self):
         conv_id = f"test_mid_unhealthy_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Fix compiler errors", tool_calls_count=12, is_final=False)
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
 
@@ -124,10 +124,10 @@ class TestAdvisorIntegration(unittest.TestCase):
             "guidance": "Fix missing closing bracket",
         }
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.advisor.run_advisor_model", return_value=mock_output) as mock_ver, \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.sage.run_advisor_model", return_value=mock_output) as mock_ver, \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -138,7 +138,7 @@ class TestAdvisorIntegration(unittest.TestCase):
             self.assertEqual(data.get("terminationBehavior"), "force_continue")
             self.assertIn("injectSteps", data)
             msg = data["injectSteps"][0]["userMessage"]
-            self.assertTrue(msg.startswith("※ advisor: "))
+            self.assertTrue(msg.startswith("※ sage: "))
             self.assertIn("Repeated syntax error on line 42", msg)
 
             with open(state_file, "r") as sf:
@@ -153,16 +153,16 @@ class TestAdvisorIntegration(unittest.TestCase):
         """Watchout injects advice and bumps session_mid_turn_steers (statusline f[]),
         but does NOT consume the mid_turn_steers budget (regression: f[0] while watchouts fired)."""
         conv_id = f"test_mid_watchout_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Fix compiler errors", tool_calls_count=12, is_final=False)
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
 
         mock_output = {"healthy": True, "status": "watchout", "guidance": "Deliverable still missing"}
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.advisor.run_advisor_model", return_value=mock_output), \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.sage.run_advisor_model", return_value=mock_output), \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -170,7 +170,7 @@ class TestAdvisorIntegration(unittest.TestCase):
             written = "".join([c.args[0] for c in mock_stdout.write.mock_calls if c.args])
             data = json.loads(written.strip())
             self.assertEqual(data.get("terminationBehavior"), "force_continue")
-            self.assertTrue(data["injectSteps"][0]["userMessage"].startswith("※ advisor: "))
+            self.assertTrue(data["injectSteps"][0]["userMessage"].startswith("※ sage: "))
 
             with open(state_file, "r") as sf:
                 state_data = json.load(sf)
@@ -183,10 +183,10 @@ class TestAdvisorIntegration(unittest.TestCase):
 
     def test_mid_turn_max_steers_ceiling_stops_further_injections(self):
         conv_id = f"test_mid_max_steers_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Fix compiler errors", tool_calls_count=12, is_final=False)
 
-        from advisor.transcript import get_active_turn_identity
+        from sage.transcript import get_active_turn_identity
         turn_identity = get_active_turn_identity(self.transcript_path)
         turn_key = hashlib.sha256(f"{turn_identity}\x00Fix compiler errors".encode("utf-8")).hexdigest()
 
@@ -201,11 +201,11 @@ class TestAdvisorIntegration(unittest.TestCase):
 
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.policies.MAX_MID_TURN_STEERS", 2), \
-                 patch("advisor.advisor.run_advisor_model") as mock_ver, \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.policies.MAX_MID_TURN_STEERS", 2), \
+                 patch("sage.sage.run_advisor_model") as mock_ver, \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -220,17 +220,17 @@ class TestAdvisorIntegration(unittest.TestCase):
 
     def test_mid_turn_coordination_with_final_stop_gate(self):
         conv_id = f"test_mid_then_stop_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
 
         self._write_transcript("Implement feature Z", tool_calls_count=12, is_final=False)
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
         mid_mock = {"healthy": False, "blind_spots": ["drift detected"], "guidance": "stay focused"}
 
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.advisor.run_advisor_model", return_value=mid_mock), \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.sage.run_advisor_model", return_value=mid_mock), \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -242,10 +242,10 @@ class TestAdvisorIntegration(unittest.TestCase):
 
             self._write_transcript("Implement feature Z", tool_calls_count=15, is_final=True)
 
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.advisor.run_advisor_model", return_value={"healthy": True, "blind_spots": [], "guidance": "Final check passed", "recap": "Feature Z fully implemented and verified."}), \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.sage.run_advisor_model", return_value={"healthy": True, "blind_spots": [], "guidance": "Final check passed", "recap": "Feature Z fully implemented and verified."}), \
                  patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
                  patch("sys.stdout") as mock_stdout2, \
                  self.assertRaises(SystemExit):
@@ -255,7 +255,7 @@ class TestAdvisorIntegration(unittest.TestCase):
             data = json.loads(written.strip())
             self.assertEqual(data.get("terminationBehavior"), "terminate")
             self.assertIn("Feature Z fully implemented and verified.", data["injectSteps"][0]["userMessage"])
-            self.assertIn("※ advisor:", data["injectSteps"][0]["userMessage"])
+            self.assertIn("※ sage:", data["injectSteps"][0]["userMessage"])
 
             with open(state_file, "r") as sf:
                 s2 = json.load(sf)
@@ -271,10 +271,10 @@ class TestAdvisorIntegration(unittest.TestCase):
 
     def test_mid_turn_unlimited_steers_allows_continuous_advising(self):
         conv_id = f"test_mid_unlimited_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Fix compiler errors", tool_calls_count=25, is_final=False)
 
-        from advisor.transcript import get_active_turn_identity
+        from sage.transcript import get_active_turn_identity
         turn_identity = get_active_turn_identity(self.transcript_path)
         turn_key = hashlib.sha256((turn_identity + "\x00" + "Fix compiler errors").encode("utf-8")).hexdigest()
 
@@ -291,11 +291,11 @@ class TestAdvisorIntegration(unittest.TestCase):
         mock_output = {"healthy": False, "blind_spots": ["Still looping"], "guidance": "Change strategy"}
 
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.policies.MAX_MID_TURN_STEERS", 0), \
-                 patch("advisor.advisor.run_advisor_model", return_value=mock_output) as mock_adv, \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.policies.MAX_MID_TURN_STEERS", 0), \
+                 patch("sage.sage.run_advisor_model", return_value=mock_output) as mock_adv, \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -313,10 +313,10 @@ class TestAdvisorIntegration(unittest.TestCase):
 
     def test_staleness_gate_detects_transcript_advance_without_tools(self):
         conv_id = f"test_mid_stale_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Fix issue", tool_calls_count=12, is_final=False)
 
-        from advisor.transcript import get_active_turn_identity
+        from sage.transcript import get_active_turn_identity
         turn_identity = get_active_turn_identity(self.transcript_path)
         turn_key = hashlib.sha256((turn_identity + "\x00" + "Fix issue").encode("utf-8")).hexdigest()
 
@@ -338,10 +338,10 @@ class TestAdvisorIntegration(unittest.TestCase):
             return {"healthy": False, "blind_spots": ["Old error"], "guidance": "Stale advice"}
 
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.advisor.run_advisor_model", side_effect=side_effect_advisor), \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.sage.run_advisor_model", side_effect=side_effect_advisor), \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -356,16 +356,16 @@ class TestAdvisorIntegration(unittest.TestCase):
     def test_final_advisor_gate_emits_advisor_recap(self):
         """Verify final advisor gate healthy assessment emits advisor recap directly as the terminal gate."""
         conv_id = f"test_final_healthy_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Build feature X", tool_calls_count=15, is_final=True)
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
 
         mock_adv_output = {"healthy": True, "blind_spots": [], "guidance": "Trajectory is solid and verified.", "recap": "Feature X complete and verified."}
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.advisor.run_advisor_model", return_value=mock_adv_output) as mock_adv, \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.sage.run_advisor_model", return_value=mock_adv_output) as mock_adv, \
                  patch("sys.stdout") as mock_stdout:
                 try: main()
                 except SystemExit: pass
@@ -375,7 +375,7 @@ class TestAdvisorIntegration(unittest.TestCase):
             data = json.loads(written.strip())
             self.assertEqual(data.get("terminationBehavior"), "terminate")
             self.assertIn("Feature X complete and verified.", data["injectSteps"][0]["userMessage"])
-            self.assertIn("※ advisor:", data["injectSteps"][0]["userMessage"])
+            self.assertIn("※ sage:", data["injectSteps"][0]["userMessage"])
             with open(state_file, "r") as sf:
                 st = json.load(sf)
             self.assertEqual(st.get("advisor_status"), "recap")
@@ -388,15 +388,15 @@ class TestAdvisorIntegration(unittest.TestCase):
     def test_advisor_disabled_at_final_gate_allows_clean_stop(self):
         """Verify a skipped final advisor gate (advisor disabled) allows clean termination — no auditor fallback exists."""
         conv_id = f"test_advisor_disabled_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Build feature X without advisor", tool_calls_count=15, is_final=True)
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
 
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 0), \
-                 patch("advisor.advisor.run_advisor_model") as mock_adv, \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 0), \
+                 patch("sage.sage.run_advisor_model") as mock_adv, \
                  patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
                  patch("sys.stdout") as mock_stdout:
                 try: main()
@@ -413,15 +413,15 @@ class TestAdvisorIntegration(unittest.TestCase):
     def test_final_advisor_error_allows_clean_termination(self):
         """Verify an advisor cascade failure at the final gate fails open: stop allowed, error streak recorded."""
         conv_id = f"test_advisor_error_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Build feature X with failing advisor", tool_calls_count=15, is_final=True)
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
 
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.advisor.run_advisor_model", return_value={"status": "error"}), \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.sage.run_advisor_model", return_value={"status": "error"}), \
                  patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
                  patch("sys.stdout") as mock_stdout:
                 try: main()
@@ -441,10 +441,10 @@ class TestAdvisorIntegration(unittest.TestCase):
     def test_final_advisor_gate_forces_model_evaluation_below_interval(self):
         """Verify final advisor gate forces evaluation even when tool delta is below ADVISOR_TOOL_INTERVAL."""
         conv_id = f"test_final_forced_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Build feature Y", tool_calls_count=14, is_final=True)
 
-        from advisor.transcript import get_active_turn_identity
+        from sage.transcript import get_active_turn_identity
         turn_identity = get_active_turn_identity(self.transcript_path)
         turn_key = hashlib.sha256((turn_identity + "\x00" + "Build feature Y").encode("utf-8")).hexdigest()
 
@@ -461,10 +461,10 @@ class TestAdvisorIntegration(unittest.TestCase):
         mock_adv_output = {"healthy": True, "blind_spots": [], "guidance": "Final check passed"}
 
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.advisor.run_advisor_model", return_value=mock_adv_output) as mock_adv, \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.sage.run_advisor_model", return_value=mock_adv_output) as mock_adv, \
                  patch("sys.stdout"):
                 try: main()
                 except SystemExit: pass
@@ -477,7 +477,7 @@ class TestAdvisorIntegration(unittest.TestCase):
     def test_new_turn_state_overlay_resets_advisor_inputs(self):
         """Verify leftover state from previous turn does not leak stale last_verified_tools or advice into advisor_flow."""
         conv_id = f"test_new_turn_overlay_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Brand new turn prompt", tool_calls_count=12, is_final=False)
 
         # Leftover state from different turn
@@ -496,18 +496,18 @@ class TestAdvisorIntegration(unittest.TestCase):
         def spy_advisor_flow(mode, **kw):
             seen_state["last_verified_tools"] = kw["state"].get("last_verified_tools")
             seen_state["advisor_advice_counts"] = kw["state"].get("advisor_advice_counts")
-            from advisor.policies import advisor_flow as real_flow
+            from sage.policies import advisor_flow as real_flow
             return real_flow(mode, **kw)
 
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
         mock_adv_output = {"healthy": True, "blind_spots": [], "guidance": "On track"}
 
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.runner.advisor_flow", side_effect=spy_advisor_flow), \
-                 patch("advisor.advisor.run_advisor_model", return_value=mock_adv_output) as mock_adv, \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.runner.advisor_flow", side_effect=spy_advisor_flow), \
+                 patch("sage.sage.run_advisor_model", return_value=mock_adv_output) as mock_adv, \
                  patch("sys.stdout"):
                 try: main()
                 except SystemExit: pass

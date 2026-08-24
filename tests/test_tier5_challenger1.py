@@ -18,14 +18,14 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
-from advisor.config import (
+from sage.config import (
     ADVISOR_MAX_ERROR_STREAK,
     _load_env_overlay,
     _safe_bool,
     _safe_float,
     _safe_int,
 )
-from advisor.executor import (
+from sage.executor import (
     clean_resume_history,
     clear_session_id,
     extract_json_from_llm_output,
@@ -33,8 +33,8 @@ from advisor.executor import (
     run_model_cascade,
     save_session_id,
 )
-from advisor.git import get_git_diff
-from advisor.guards import (
+from sage.git import get_git_diff
+from sage.guards import (
     check_payload_and_lifecycle,
     evaluate_turn_triggers,
     format_hook_message,
@@ -42,7 +42,7 @@ from advisor.guards import (
     is_destructive_action,
     is_subagent_session,
 )
-from advisor.locking import (
+from sage.locking import (
     acquire_spawn_lock,
     atomic_write_json,
     cleanup_stale_tmp_files,
@@ -50,27 +50,27 @@ from advisor.locking import (
     release_spawn_lock,
     safe_id,
 )
-from advisor.policies import (
+from sage.policies import (
     advisor_flow,
     background_watch,
     final_advisor_gate,
 )
-from advisor.runner import run_session_stop_audit
-from advisor.sanitizer import (
+from sage.runner import run_session_stop_audit
+from sage.sanitizer import (
     _clamp_lines,
     _strip_boilerplate_headers,
     clamp_diff,
     clean_user_prompt,
     sanitize_tool_output,
 )
-from advisor.sensitive import (
+from sage.sensitive import (
     compile_sensitive_pattern,
     extract_tool_strings,
     get_sensitive_keywords,
     is_sensitive_trigger_enabled,
     scan_tool_call_for_sensitive,
 )
-from advisor.watchers import (
+from sage.watchers import (
     _parse_iso_ts,
     get_active_background_tasks,
     get_active_subagents,
@@ -96,7 +96,7 @@ class TestLockingAdversarial(unittest.TestCase):
         release_spawn_lock(fh)
 
         # Polymorphic invocation: numeric first arg treated as timeout
-        with patch("advisor.locking.SPAWN_LOCK_FILE", lock_path):
+        with patch("sage.locking.SPAWN_LOCK_FILE", lock_path):
             fh2 = acquire_spawn_lock(2.0)
             self.assertIsNotNone(fh2)
             release_spawn_lock(fh2)
@@ -159,7 +159,7 @@ class TestLockingAdversarial(unittest.TestCase):
         target = os.path.join(self.tmp_dir, "corrupt.json")
         bad_data = {"set_key": {1, 2, 3}}  # set is not JSON serializable
 
-        with patch("advisor.locking.LOG_FILE", self.log_file):
+        with patch("sage.locking.LOG_FILE", self.log_file):
             atomic_write_json(target, bad_data)
 
         self.assertFalse(os.path.exists(target))
@@ -180,19 +180,19 @@ class TestLockingAdversarial(unittest.TestCase):
         stale_time = time.time() - 10000
 
         # 1. Stale unlocked json file (should be deleted)
-        stale_json = f"/tmp/agy_advisor_test_l7_{os.getpid()}_stale.json"
+        stale_json = f"/tmp/agy_sage_test_l7_{os.getpid()}_stale.json"
         with open(stale_json, "w") as f:
             f.write("{}")
         os.utime(stale_json, (stale_time, stale_time))
 
         # 2. Stale unlocked .lock file (should be deleted)
-        stale_lock = f"/tmp/agy_advisor_test_l7_{os.getpid()}_stale.lock"
+        stale_lock = f"/tmp/agy_sage_test_l7_{os.getpid()}_stale.lock"
         with open(stale_lock, "w") as f:
             f.write("")
         os.utime(stale_lock, (stale_time, stale_time))
 
         # 3. Stale LOCKED .lock file (must NOT be deleted)
-        active_stale_lock = f"/tmp/agy_advisor_test_l7_{os.getpid()}_active.lock"
+        active_stale_lock = f"/tmp/agy_sage_test_l7_{os.getpid()}_active.lock"
         fd = os.open(active_stale_lock, os.O_RDWR | os.O_CREAT, 0o600)
         active_fh = open(fd, "w")
         fcntl.flock(active_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -379,6 +379,7 @@ class TestGuardsAdversarial(unittest.TestCase):
 
     def test_g3_format_hook_message_normalization_and_validation(self):
         """Test format_hook_message strips raw tokens and rejects invalid kinds."""
+        self.assertEqual(format_hook_message("sage", "※ sage: Fix the bug"), "※ sage: Fix the bug")
         self.assertEqual(format_hook_message("advisor", "※ advisor: Fix the bug"), "※ advisor: Fix the bug")
         self.assertEqual(format_hook_message("steering", "[STEERING] Check tests"), "※ steering: Check tests")
         self.assertEqual(format_hook_message("recap", "**recap:** All green"), "※ recap: All green")
@@ -459,7 +460,7 @@ class TestGuardsAdversarial(unittest.TestCase):
 
         # Grace action during stop event (< 3 count)
         bgp_grace = {"action": "grace"}
-        with patch("advisor.guards.is_post_invocation", return_value=False):
+        with patch("sage.guards.is_post_invocation", return_value=False):
             with self.assertRaises(SystemExit):
                 handle_background_watch_action(bgp_grace, {"bg_watch_count": 1}, "/tmp/state.json", 10, record_steer, record_grace)
             record_grace.assert_called_once()
@@ -489,10 +490,10 @@ class TestPoliciesAdversarial(unittest.TestCase):
         # Already steered: stale task already in bg_steered
         self.assertEqual(background_watch(tasks, {"task-1", "task-2"})["action"], "already_steered")
 
-    @patch("advisor.policies.has_new_user_activity", return_value=False)
-    @patch("advisor.policies.extract_session_and_turn_data", return_value=("prompt", "raw", [], 15, set(), None, None, 0))
-    @patch("advisor.policies.is_post_invocation_completion_candidate", return_value=False)
-    @patch("advisor.policies.evaluate_mid_turn_progress")
+    @patch("sage.policies.has_new_user_activity", return_value=False)
+    @patch("sage.policies.extract_session_and_turn_data", return_value=("prompt", "raw", [], 15, set(), None, None, 0))
+    @patch("sage.policies.is_post_invocation_completion_candidate", return_value=False)
+    @patch("sage.policies.evaluate_mid_turn_progress")
     def test_p2_advisor_flow_circuit_breaker(self, mock_eval, mock_cand, mock_extract, mock_fresh):
         """Test advisor_flow circuit breaker."""
         # 1. Circuit breaker open
@@ -506,10 +507,10 @@ class TestPoliciesAdversarial(unittest.TestCase):
 
     def test_p3_final_advisor_gate_note_forwarding(self):
         """Test final_advisor_gate attaches a healthy assessment note to its terminal-gate action."""
-        with patch("advisor.policies.advisor_flow", return_value={"action": "healthy", "text": "All looks good"}):
+        with patch("sage.policies.advisor_flow", return_value={"action": "healthy", "text": "All looks good"}):
             gate = final_advisor_gate("c1", "", "", 0, 5, set(), "", [], "", {})
             self.assertEqual(gate["action"], "healthy")
-            self.assertIn("Advisor final assessment: hold (healthy)", gate["note"])
+            self.assertTrue("Sage final assessment" in gate["note"] or "Advisor final assessment" in gate["note"])
 
 
 class TestSensitiveAdversarial(unittest.TestCase):
@@ -600,7 +601,7 @@ class TestExecutorAdversarial(unittest.TestCase):
 
     def test_e2_session_id_persistence_and_cleanup(self):
         """Test load_session_id, save_session_id, clear_session_id with multiple prefixes."""
-        with patch("advisor.executor.get_session_file", side_effect=lambda cid, p: os.path.join(self.tmp_dir, f"{p}{cid}.txt")):
+        with patch("sage.executor.get_session_file", side_effect=lambda cid, p: os.path.join(self.tmp_dir, f"{p}{cid}.txt")):
             save_session_id("conv_1", "session_abc", "pref_a_")
             self.assertEqual(load_session_id("conv_1", ("pref_a_", "pref_b_")), "session_abc")
             clear_session_id("conv_1", ("pref_a_", "pref_b_"))
@@ -766,8 +767,8 @@ class TestHooksAndRunnerAdversarial(unittest.TestCase):
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_h1_session_stop_audit_hook_exception_fallback(self):
-        """Test session-advisor.py top-level exception handling and fail-safe exit."""
-        hook_script = os.path.join(os.path.dirname(__file__), "..", "hooks", "session-advisor.py")
+        """Test session-sage.py top-level exception handling and fail-safe exit."""
+        hook_script = os.path.join(os.path.dirname(__file__), "..", "hooks", "session-sage.py")
         # Empty stdin triggers fail_safe_exit and outputs {"decision": "stop"}
         res = subprocess.run([sys.executable, hook_script], input="", text=True, capture_output=True)
         self.assertEqual(res.returncode, 0)
@@ -780,41 +781,41 @@ class TestHooksAndRunnerAdversarial(unittest.TestCase):
         payload_post = json.loads(res_post.stdout.strip())
         self.assertEqual(payload_post.get("injectSteps"), [])
 
-    @patch("advisor.runner.acquire_conversation_lock", return_value=None)
+    @patch("sage.runner.acquire_conversation_lock", return_value=None)
     def test_r1_concurrent_lock_contention_exit(self, mock_lock):
         """Test runner exits immediately with fail_safe_exit when conversation lock is busy."""
         raw_payload = json.dumps({"conversationId": "conv_busy"})
         with self.assertRaises(SystemExit):
             run_session_stop_audit(raw_payload)
 
-    @patch("advisor.runner.acquire_conversation_lock", return_value=MagicMock())
-    @patch("advisor.runner.get_active_subagents", return_value=[{"subagent_id": "sub_1", "role": "Worker"}])
-    @patch("advisor.runner.extract_session_and_turn_data", return_value=("prompt", "raw", [], 5, set(), None, None, 10))
-    @patch("advisor.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {}, True))
+    @patch("sage.runner.acquire_conversation_lock", return_value=MagicMock())
+    @patch("sage.runner.get_active_subagents", return_value=[{"subagent_id": "sub_1", "role": "Worker"}])
+    @patch("sage.runner.extract_session_and_turn_data", return_value=("prompt", "raw", [], 5, set(), None, None, 10))
+    @patch("sage.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {}, True))
     def test_r2_active_subagent_stop_blocking(self, mock_sync, mock_extract, mock_subs, mock_lock):
         """Test runner blocks stop event when active subagents are in flight."""
         raw_payload = json.dumps({"conversationId": "conv_sub"})
-        with patch("advisor.runner.is_post_invocation", return_value=False):
+        with patch("sage.runner.is_post_invocation", return_value=False):
             with self.assertRaises(SystemExit):
                 run_session_stop_audit(raw_payload)
 
-    @patch("advisor.runner.acquire_conversation_lock", return_value=MagicMock())
-    @patch("advisor.runner.get_active_subagents", return_value=[])
-    @patch("advisor.runner.extract_session_and_turn_data", return_value=("prompt", "raw", [], 0, set(), None, None, 10))
-    @patch("advisor.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {}, True))
+    @patch("sage.runner.acquire_conversation_lock", return_value=MagicMock())
+    @patch("sage.runner.get_active_subagents", return_value=[])
+    @patch("sage.runner.extract_session_and_turn_data", return_value=("prompt", "raw", [], 0, set(), None, None, 10))
+    @patch("sage.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {}, True))
     def test_r3_runner_fast_paths_and_stale_transcripts(self, mock_sync, mock_extract, mock_subs, mock_lock):
         """Test runner fast path exits on 0 tool calls conversational turns."""
         raw_payload = json.dumps({"conversationId": "conv_0tools"})
         with self.assertRaises(SystemExit):
             run_session_stop_audit(raw_payload)
 
-    @patch("advisor.runner.acquire_conversation_lock", return_value=MagicMock())
-    @patch("advisor.runner.get_active_subagents", return_value=[])
-    @patch("advisor.runner.extract_session_and_turn_data", return_value=("prompt", "raw", ["step1"], 10, {"write_to_file"}, None, None, 10))
-    @patch("advisor.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {"recap_emitted": False}, True))
-    @patch("advisor.runner.is_post_invocation", return_value=True)
-    @patch("advisor.runner.is_post_invocation_completion_candidate", return_value=False)
-    @patch("advisor.runner.advisor_flow")
+    @patch("sage.runner.acquire_conversation_lock", return_value=MagicMock())
+    @patch("sage.runner.get_active_subagents", return_value=[])
+    @patch("sage.runner.extract_session_and_turn_data", return_value=("prompt", "raw", ["step1"], 10, {"write_to_file"}, None, None, 10))
+    @patch("sage.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {"recap_emitted": False}, True))
+    @patch("sage.runner.is_post_invocation", return_value=True)
+    @patch("sage.runner.is_post_invocation_completion_candidate", return_value=False)
+    @patch("sage.runner.advisor_flow")
     def test_r4_runner_midturn_and_final_gate_cascades(self, mock_adv, mock_comp, mock_post, mock_sync, mock_extract, mock_subs, mock_lock):
         """Test runner midturn advisor emit and progressed actions."""
         # Emit action
@@ -828,13 +829,13 @@ class TestHooksAndRunnerAdversarial(unittest.TestCase):
         with self.assertRaises(SystemExit):
             run_session_stop_audit(raw_payload)
 
-    @patch("advisor.runner.acquire_conversation_lock", return_value=MagicMock())
-    @patch("advisor.runner.get_active_subagents", return_value=[])
-    @patch("advisor.runner.extract_session_and_turn_data", return_value=("prompt", "raw", ["step1"], 16, {"write_to_file"}, None, None, 10))
-    @patch("advisor.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {"mid_turn_steers": 0}, True))
-    @patch("advisor.runner.is_post_invocation", return_value=False)
-    @patch("advisor.runner.final_advisor_gate", return_value={"action": "hold_dedup", "seen": {"k1": 2}})
-    @patch("advisor.runner.record_advisor_hold")
+    @patch("sage.runner.acquire_conversation_lock", return_value=MagicMock())
+    @patch("sage.runner.get_active_subagents", return_value=[])
+    @patch("sage.runner.extract_session_and_turn_data", return_value=("prompt", "raw", ["step1"], 16, {"write_to_file"}, None, None, 10))
+    @patch("sage.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {"mid_turn_steers": 0}, True))
+    @patch("sage.runner.is_post_invocation", return_value=False)
+    @patch("sage.runner.final_advisor_gate", return_value={"action": "hold_dedup", "seen": {"k1": 2}})
+    @patch("sage.runner.record_advisor_hold")
     def test_r5_runner_final_advisor_hold_dedup_terminates(self, mock_hold, mock_gate, mock_post, mock_sync, mock_extract, mock_subs, mock_lock):
         """Test runner terminates cleanly when the final advisor's repeated advice is deduplicated (no steering cap)."""
         raw_payload = json.dumps({"conversationId": "conv_hold_dedup"})

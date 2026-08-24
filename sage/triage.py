@@ -1,11 +1,11 @@
 """
-advisor.triage - Confidence-gated classification, deduplication, and message structuring for advisor feedback.
+sage.triage - Confidence-gated classification, deduplication, and message structuring for sage feedback.
 """
 import hashlib
 import math
 import re
 
-from advisor.guards import is_destructive_action
+from sage.guards import is_destructive_action
 
 
 def _safe_emission_text(value):
@@ -33,6 +33,8 @@ def _parse_confidence(val):
 
 def compute_advice_key(category, action, guidance=None):
     cat = re.sub(r"[^a-z0-9]+", "_", str(category or "general").strip().lower()).strip("_")
+    if "parallel" in cat:
+        return hashlib.sha1(b"parallelize_subagent").hexdigest()[:12]
     act = re.sub(r"[^a-z0-9]+", " ", str(action or "").strip().lower()).strip()
     gui = re.sub(r"[^a-z0-9]+", " ", str(guidance or "").strip().lower()).strip()
     raw = f"{cat}|{act}".encode("utf-8", errors="replace") if act else f"{cat}||{gui}".encode("utf-8", errors="replace")
@@ -52,7 +54,7 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     category = re.sub(r"[^a-z0-9]+", "_", str(ver_res.get("category") or "general").strip().lower()).strip("_")
     action = _safe_emission_text(ver_res.get("action"))
     guidance = _safe_emission_text(ver_res.get("guidance"))
-    evidence = _safe_emission_text(ver_res.get("evidence"))[:120]
+    evidence = _safe_emission_text(ver_res.get("evidence"))
     conf = _parse_confidence(ver_res.get("confidence"))
     complexity = str(ver_res.get("task_complexity") or "").strip().lower()
     pinned = _safe_emission_text(ver_res.get("pinned_goal") or ver_res.get("anchor_goal") or "")
@@ -110,11 +112,11 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         if evidence:
             parts.append(f"Ev: {evidence}")
         if guidance and action and guidance != action:
-            parts.append(f"Why: {guidance[:140]}")
+            parts.append(f"Why: {guidance}")
         if pinned and (category == "scope_drift" or "drift" in str(ver_res.get("goal_status") or "").lower()):
-            parts.append(f"Pinned: {pinned[:100]}")
+            parts.append(f"Pinned: {pinned}")
 
-    text = " | ".join(parts)[:420]
+    text = " | ".join(parts)[:2000]
     res = {
         "decision": "steer" if is_steer else "watchout",
         "status": "off_track" if is_steer else "watchout",

@@ -9,13 +9,13 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from advisor.guards import (
+from sage.guards import (
     is_subagent_session,
 )
-from advisor.locking import (
+from sage.locking import (
     release_lock,
 )
-from advisor.runner import run_session_stop_audit
+from sage.runner import run_session_stop_audit
 
 
 class TestAdversarialDeepRunnerSignals(unittest.TestCase):
@@ -56,11 +56,11 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
         })
         return transcript_file, state_file, payload
 
-    @patch("advisor.runner.acquire_conversation_lock", return_value=True)
-    @patch("advisor.runner.get_active_subagents", return_value=[])
-    @patch("advisor.runner.get_active_background_tasks", return_value=[])
-    @patch("advisor.runner.is_subagent_session", return_value=False)
-    @patch("advisor.runner.get_git_diff", return_value="")
+    @patch("sage.runner.acquire_conversation_lock", return_value=True)
+    @patch("sage.runner.get_active_subagents", return_value=[])
+    @patch("sage.runner.get_active_background_tasks", return_value=[])
+    @patch("sage.runner.is_subagent_session", return_value=False)
+    @patch("sage.runner.get_git_diff", return_value="")
     def test_midturn_advisor_all_action_permutations(
         self, mock_diff, mock_sub, mock_bg, mock_subagents, mock_lock
     ):
@@ -79,11 +79,11 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
         for label, act_dict, expected_handler in actions_to_test:
             with self.subTest(action=label):
                 t_file, s_file, payload = self._create_fresh_environment(f"midturn_{label}")
-                with patch("advisor.runner.is_post_invocation", return_value=True), \
-                     patch("advisor.runner.is_post_invocation_completion_candidate", return_value=False), \
-                     patch("advisor.runner.advisor_flow", return_value=act_dict), \
-                     patch("advisor.runner.fail_safe_exit", side_effect=SystemExit(0)) as mock_fail_safe, \
-                     patch("advisor.runner.emit_continue_response", side_effect=SystemExit(0)) as mock_emit_cont:
+                with patch("sage.runner.is_post_invocation", return_value=True), \
+                     patch("sage.runner.is_post_invocation_completion_candidate", return_value=False), \
+                     patch("sage.runner.advisor_flow", return_value=act_dict), \
+                     patch("sage.runner.fail_safe_exit", side_effect=SystemExit(0)) as mock_fail_safe, \
+                     patch("sage.runner.emit_continue_response", side_effect=SystemExit(0)) as mock_emit_cont:
 
                     with self.assertRaises(SystemExit):
                         run_session_stop_audit(payload)
@@ -95,11 +95,11 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
                         emitted_arg = mock_emit_cont.call_args[0][0]
                         self.assertIn(act_dict["text"], emitted_arg)
 
-    @patch("advisor.runner.acquire_conversation_lock", return_value=True)
-    @patch("advisor.runner.get_active_subagents", return_value=[])
-    @patch("advisor.runner.get_active_background_tasks", return_value=[])
-    @patch("advisor.runner.is_subagent_session", return_value=False)
-    @patch("advisor.runner.get_git_diff", return_value="")
+    @patch("sage.runner.acquire_conversation_lock", return_value=True)
+    @patch("sage.runner.get_active_subagents", return_value=[])
+    @patch("sage.runner.get_active_background_tasks", return_value=[])
+    @patch("sage.runner.is_subagent_session", return_value=False)
+    @patch("sage.runner.get_git_diff", return_value="")
     def test_final_advisor_gate_all_outcome_permutations(
         self, mock_diff, mock_sub, mock_bg, mock_subagents, mock_lock
     ):
@@ -140,13 +140,13 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
         for label, gate_return, expected_exit in outcomes:
             with self.subTest(outcome=label):
                 t_file, s_file, payload = self._create_fresh_environment(f"advisor_gate_{label}")
-                with patch("advisor.runner.is_post_invocation", return_value=False), \
-                     patch("advisor.runner.final_advisor_gate", return_value=gate_return), \
-                     patch("advisor.runner.fail_safe_exit", side_effect=SystemExit(0)) as mock_fail_safe, \
-                     patch("advisor.runner.emit_continue_response", side_effect=SystemExit(0)) as mock_cont, \
-                     patch("advisor.runner.emit_recap_response", side_effect=SystemExit(0)) as mock_recap:
+                with patch("sage.runner.is_post_invocation", return_value=False), \
+                     patch("sage.runner.final_advisor_gate", return_value=gate_return), \
+                     patch("sage.runner.fail_safe_exit", side_effect=SystemExit(0)) as mock_fail_safe, \
+                     patch("sage.runner.emit_continue_response", side_effect=SystemExit(0)) as mock_cont, \
+                     patch("sage.runner.emit_recap_response", side_effect=SystemExit(0)) as mock_recap:
 
-                    with patch("advisor.runner.load_and_sync_session_state", return_value=(
+                    with patch("sage.runner.load_and_sync_session_state", return_value=(
                         "Adversarial test prompt", s_file,
                         {"last_audited_line_count": 0},
                         True

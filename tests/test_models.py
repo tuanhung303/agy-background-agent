@@ -6,7 +6,7 @@ tests.test_models - Unit tests for dynamic model discovery, version sorting, and
 import unittest
 from unittest.mock import MagicMock, patch
 
-from advisor.models import (
+from sage.models import (
     DEFAULT_MODEL_FALLBACKS,
     _expand_alias,
     cache_working_model,
@@ -152,7 +152,7 @@ class TestModels(unittest.TestCase):
     def test_cache_working_model_file_persistence(self):
         import os
 
-        from advisor.models import _WORKING_MODEL, _WORKING_MODEL_FILE
+        from sage.models import _WORKING_MODEL, _WORKING_MODEL_FILE
         cache_working_model("Gemini 3.6 Flash (High)")
         self.assertTrue(os.path.exists(_WORKING_MODEL_FILE))
         # Clear in-memory dictionary to test file recovery

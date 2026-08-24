@@ -1,5 +1,5 @@
 """
-advisor.goals - Anchor goal synthesis, in-flight revision tracking, and derived task management.
+sage.goals - Anchor goal synthesis, in-flight revision tracking, and derived task management.
 """
 
 import re

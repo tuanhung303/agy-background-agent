@@ -1,5 +1,5 @@
 """
-advisor.watchers - Subagent and background task tracking from transcript logs.
+sage.watchers - Subagent and background task tracking from transcript logs.
 """
 
 from datetime import datetime, timezone

@@ -10,8 +10,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from advisor.guards import is_post_invocation, is_subagent_session
-from advisor.transcript import has_recent_tool_errors, is_post_invocation_completion_candidate
+from sage.guards import is_post_invocation, is_subagent_session
+from sage.transcript import has_recent_tool_errors, is_post_invocation_completion_candidate
 
 
 class TestAftershockFixes(unittest.TestCase):
@@ -68,13 +68,13 @@ class TestAftershockFixes(unittest.TestCase):
         self.assertTrue(has_recent_tool_errors(self.transcript_path))
 
     def test_is_post_invocation_variants(self):
-        with patch.object(sys, "argv", ["session-advisor.py", "post_invocation"]):
+        with patch.object(sys, "argv", ["session-sage.py", "post_invocation"]):
             self.assertTrue(is_post_invocation())
-        with patch.object(sys, "argv", ["session-advisor.py", "postinvocation"]):
+        with patch.object(sys, "argv", ["session-sage.py", "postinvocation"]):
             self.assertTrue(is_post_invocation())
-        with patch.object(sys, "argv", ["session-advisor.py", "post-invocation"]):
+        with patch.object(sys, "argv", ["session-sage.py", "post-invocation"]):
             self.assertTrue(is_post_invocation())
-        with patch.object(sys, "argv", ["session-advisor.py", "post"]):
+        with patch.object(sys, "argv", ["session-sage.py", "post"]):
             self.assertTrue(is_post_invocation())
     def test_subagent_deep_transcript_marker_detection(self):
         # Marker placed past line 10 must be detected
@@ -93,10 +93,10 @@ class TestAftershockFixes(unittest.TestCase):
     def test_turn_boundary_clears_stale_advisor_text(self):
         import time
 
-        from advisor.locking import safe_id
-        from advisor.runner import main
+        from sage.locking import safe_id
+        from sage.runner import main
         conv_id = f"test_turn_bound_{int(time.time() * 1000)}"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         with open(state_file, "w") as sf:
             json.dump({
                 "turn_key": "OLD_TURN_KEY_123",
@@ -123,11 +123,11 @@ class TestAftershockFixes(unittest.TestCase):
             return {"action": "healthy", "recap": "Done"}
 
         try:
-            with patch("sys.argv", ["session-advisor.py", "post_invocation"]), \
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("advisor.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("advisor.advisor.run_advisor_model", return_value={"healthy": True, "blind_spots": []}), \
-                 patch("advisor.runner.final_advisor_gate", side_effect=fake_gate), \
+                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.sage.run_advisor_model", return_value={"healthy": True, "blind_spots": []}), \
+                 patch("sage.runner.final_advisor_gate", side_effect=fake_gate), \
                  patch("sys.stdout"):
                 try: main()
                 except SystemExit: pass

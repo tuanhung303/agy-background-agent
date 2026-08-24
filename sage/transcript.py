@@ -1,5 +1,5 @@
 """
-advisor.transcript - Parsing, sanitization, and turn extraction from transcript.jsonl.
+sage.transcript - Parsing, sanitization, and turn extraction from transcript.jsonl.
 """
 
 from datetime import datetime, timezone
@@ -7,11 +7,11 @@ import itertools
 import json
 import os
 
-from advisor.guards import is_steering_message
-from advisor.locking import log_audit
-from advisor.sanitizer import clean_user_prompt, sanitize_tool_output
-from advisor.task_structure import get_parallelizable_signals
-from advisor.watchers import get_active_background_tasks as _get_tasks, get_active_subagents as _get_subs
+from sage.guards import is_steering_message
+from sage.locking import log_audit
+from sage.sanitizer import clean_user_prompt, sanitize_tool_output
+from sage.task_structure import get_parallelizable_signals
+from sage.watchers import get_active_background_tasks as _get_tasks, get_active_subagents as _get_subs
 
 
 def get_transcript_path(payload, conv_id):

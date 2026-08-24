@@ -14,15 +14,17 @@ import sys
 import time
 import unittest
 
-from advisor.advisor import (
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+from sage.sage import (
     _normalize_advisor_dict,
     build_advisor_prompt,
     extract_target_goal,
     load_advisor_template,
     parse_advisor_output,
 )
-from advisor.guards import DESTRUCTIVE_ACTION_RE, is_destructive_action
-from advisor.triage import (
+from sage.guards import DESTRUCTIVE_ACTION_RE, is_destructive_action
+from sage.triage import (
     _parse_confidence,
     classify_advice,
     compute_advice_key,
@@ -317,7 +319,7 @@ Refactor triage module to adhere to <= 199 lines
         self.assertIn("step 1", p_init)
 
         p_upd = build_advisor_prompt("conv_1", plain_request, "step 3", is_update=True, git_diff="diff b c", signals="SIGNAL_PARALLEL")
-        self.assertIn("ADVISOR UPDATE", p_upd)
+        self.assertTrue("SAGE UPDATE" in p_upd or "ADVISOR UPDATE" in p_upd)
         self.assertIn("ACTIVE SIGNALS:\nSIGNAL_PARALLEL", p_upd)
         self.assertIn("Status legend:", p_upd)
 

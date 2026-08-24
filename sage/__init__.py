@@ -1,10 +1,10 @@
 """
-stop_audit - Modular Quality & Completeness Auditor Package for Antigravity (AGY).
+sage - Modular Quality & Completeness Auditor Package for Antigravity (AGY).
 """
 
 __version__ = "0.2.0"
 
-from advisor.config import (
+from sage.config import (
     REVIEWER_MODEL,
     REVIEWER_MODEL_SPEC,
     REVIEWER_EFFORT,
@@ -15,12 +15,14 @@ from advisor.config import (
     TOOL_CALL_THRESHOLD,
     MIN_TOOLS_FOR_DURATION_TRIGGER,
     FILE_EDITING_TOOLS,
+    MID_TURN_SAGE_ENABLED,
+    SAGE_TOOL_INTERVAL,
     MID_TURN_ADVISOR_ENABLED,
     ADVISOR_TOOL_INTERVAL,
     MAX_MID_TURN_STEERS,
     GATEWAY_NOTIFY_INTERVAL,
 )
-from advisor.models import (
+from sage.models import (
     parse_model_version,
     model_sort_key,
     get_available_models,
@@ -28,7 +30,7 @@ from advisor.models import (
     cache_working_model,
     get_cached_working_model,
 )
-from advisor.locking import (
+from sage.locking import (
     acquire_conversation_lock,
     release_lock,
     log_audit,
@@ -36,7 +38,7 @@ from advisor.locking import (
     atomic_write_json,
     cleanup_stale_tmp_files,
 )
-from advisor.guards import (
+from sage.guards import (
     check_payload_and_lifecycle,
     evaluate_turn_triggers,
     fail_safe_exit,
@@ -45,7 +47,7 @@ from advisor.guards import (
     is_steering_message,
     is_subagent_session,
 )
-from advisor.events import (
+from sage.events import (
     EVENT_FINAL_STOP,
     EVENT_HEARTBEAT,
     EVENT_TOOL_THRESHOLD,
@@ -55,7 +57,7 @@ from advisor.events import (
     EVENT_PARALLEL_OPP,
     format_summon_message,
 )
-from advisor.transcript import (
+from sage.transcript import (
     clean_user_prompt,
     extract_session_and_turn_data,
     get_active_background_tasks,
@@ -67,19 +69,23 @@ from advisor.transcript import (
     has_new_user_activity,
     is_post_invocation_completion_candidate,
 )
-from advisor.git import get_git_diff
-from advisor.executor import clean_resume_history
-from advisor.advisor import (
+from sage.git import get_git_diff
+from sage.executor import clean_resume_history
+from sage.sage import (
     evaluate_mid_turn_progress,
+    get_or_create_sage_session,
+    run_sage_model,
+    save_sage_session,
     get_or_create_advisor_session,
     run_advisor_model,
     save_advisor_session,
 )
-from advisor.session_state import (
+from sage.session_state import (
+    record_sage_recap,
     record_advisor_recap,
     save_session_state,
 )
-from advisor.runner import main
+from sage.runner import main
 
 __all__ = [
     "REVIEWER_MODEL",
@@ -92,6 +98,8 @@ __all__ = [
     "TOOL_CALL_THRESHOLD",
     "MIN_TOOLS_FOR_DURATION_TRIGGER",
     "FILE_EDITING_TOOLS",
+    "MID_TURN_SAGE_ENABLED",
+    "SAGE_TOOL_INTERVAL",
     "MID_TURN_ADVISOR_ENABLED",
     "ADVISOR_TOOL_INTERVAL",
     "MAX_MID_TURN_STEERS",
@@ -126,11 +134,15 @@ __all__ = [
     "get_git_diff",
     "clean_resume_history",
     "evaluate_mid_turn_progress",
+    "get_or_create_sage_session",
+    "run_sage_model",
+    "save_sage_session",
     "get_or_create_advisor_session",
     "run_advisor_model",
     "save_advisor_session",
     "check_payload_and_lifecycle",
     "evaluate_turn_triggers",
+    "record_sage_recap",
     "record_advisor_recap",
     "save_session_state",
     "format_summon_message",

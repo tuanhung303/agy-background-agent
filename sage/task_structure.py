@@ -1,12 +1,12 @@
 """
-advisor.task_structure - Heuristics for analyzing task structure and parallelizable workstreams.
+sage.task_structure - Heuristics for analyzing task structure and parallelizable workstreams.
 """
 
 import json
 import os
 import re
 
-from advisor.guards import is_steering_message
+from sage.guards import is_steering_message
 
 FILE_TOOLS = {
     "replace_file_content", "write_to_file",
@@ -87,6 +87,10 @@ def get_parallelizable_signals(steps_or_path):
         and not is_steering_message(str(s.get("content") or ""))
     ]
     t_steps = steps[turn_idxs[-1] + 1:] if turn_idxs else steps
+
+    # If subagents were already dispatched in this turn, suppress parallelizable signal
+    if any(str(t.get("name") or "") == "invoke_subagent" for s in t_steps for t in s.get("tool_calls", [])):
+        return {"parallelizable": False, "categories": [], "details": [], "suggested_roles": [], "signal_text": ""}
 
     categories = []
     details = []

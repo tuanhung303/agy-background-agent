@@ -7,7 +7,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from advisor.sensitive import (
+from sage.sensitive import (
     compile_sensitive_pattern,
     extract_tool_strings,
     get_sensitive_keywords,

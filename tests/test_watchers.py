@@ -6,7 +6,7 @@ tests.test_watchers - Unit tests for subagent and background task watchers.
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from advisor.watchers import (
+from sage.watchers import (
     get_active_background_tasks,
     get_active_subagents,
 )

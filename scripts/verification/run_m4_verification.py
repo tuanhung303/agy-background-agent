@@ -32,10 +32,10 @@ def verify_static_invariants(repo_root):
     print("STEP 1: Static Analysis & Architectural Invariant Gates")
     print("=" * 70)
 
-    pkg_dir = os.path.join(repo_root, "advisor")
+    pkg_dir = os.path.join(repo_root, "sage")
     pkg_files = sorted(glob.glob(f"{pkg_dir}/**/*.py", recursive=True))
 
-    print(f"Found {len(pkg_files)} modules in advisor/ (expected: 20)")
+    print(f"Found {len(pkg_files)} modules in sage/ (expected: 20)")
     if len(pkg_files) != 20:
         print(f"[FAIL] Expected 20 modules, found {len(pkg_files)}")
         return False
@@ -57,7 +57,7 @@ def verify_static_invariants(repo_root):
     if line_violations:
         print(f"[FAIL] {len(line_violations)} file(s) exceeded 199 lines: {line_violations}")
         return False
-    print("[PASS] All 19 modules satisfy <= 199 lines constraint.")
+    print("[PASS] All 20 modules satisfy <= 199 lines constraint.")
 
     # 2. Docstrings Check
     print("\n--- 2. Module Docstrings AST Check ---")
@@ -75,7 +75,7 @@ def verify_static_invariants(repo_root):
     if doc_violations:
         print(f"[FAIL] Modules missing docstrings: {doc_violations}")
         return False
-    print("[PASS] All 19 modules contain non-empty docstrings.")
+    print("[PASS] All 20 modules contain non-empty docstrings.")
 
     # 3. Semicolon & Statement Packing Gates
     print("\n--- 3. Semicolon & AST Statement Packing Gates ---")
@@ -242,7 +242,7 @@ def main():
     print("\n" + "#" * 70)
     print("MILESTONE M4 VERIFICATION SUMMARY: 100% PASS")
     print("#" * 70)
-    print(f"  1. 20/20 stop_audit modules <= 199 lines (0 semicolons, 0 packing): PASS")
+    print(f"  1. 20/20 sage modules <= 199 lines (0 semicolons, 0 packing):       PASS")
     print(f"  2. AST Docstrings, Wildcard Import, & Print Gates:                  PASS")
     print(f"  3. Static Analysis Suite (tests/test_static_analysis.py):           {count_static:>3} tests in {dur_static:.3f}s [PASS]")
     print(f"  4. M2 Empirical Suite (scripts/test_m2_empirical_stress.py):       {count_m2:>3} tests in {dur_m2:.3f}s [PASS]")

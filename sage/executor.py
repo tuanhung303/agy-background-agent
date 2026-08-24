@@ -1,5 +1,5 @@
 """
-advisor.executor - Subprocess AGY execution, session persistence, and JSON decoding.
+sage.executor - Subprocess AGY execution, session persistence, and JSON decoding.
 """
 
 import json
@@ -10,9 +10,9 @@ import sqlite3
 import subprocess
 import time
 
-from advisor.config import ADVISOR_EXEC_TIMEOUT, ADVISOR_TIMEOUT_BUDGET
-from advisor.locking import acquire_spawn_lock, log_audit, release_spawn_lock, safe_id
-from advisor.models import cache_working_model, resolve_model_candidates
+from sage.config import ADVISOR_EXEC_TIMEOUT, SAGE_EXEC_TIMEOUT, SAGE_TIMEOUT_BUDGET
+from sage.locking import acquire_spawn_lock, log_audit, release_spawn_lock, safe_id
+from sage.models import cache_working_model, resolve_model_candidates
 
 SPAWN_LOCK_FILE = "/tmp/agy_auditor_spawn.lock"
 CONV_DB_DIR = os.path.expanduser("~/.gemini/antigravity-cli/conversations")
@@ -137,7 +137,7 @@ def _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean
 
 def run_model_cascade(
     parent_conv_id, prompt, prefixes, normalize_func, default_on_failure,
-    label="Advisor", timeout_budget=ADVISOR_TIMEOUT_BUDGET, schema_keys=(),
+    label="Sage", timeout_budget=SAGE_TIMEOUT_BUDGET, schema_keys=(),
     acquire_lock_fn=acquire_spawn_lock, release_lock_fn=release_spawn_lock,
     resolve_candidates_fn=resolve_model_candidates, clean_resume_fn=clean_resume_history,
 ):

@@ -114,7 +114,7 @@ class TestStatusline(unittest.TestCase):
         plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
         self.assertIn("0/250k", plain)
         self.assertIn("0%", plain)
-        self.assertIn("adv:g[0]/a[0]/p[0]/r[0]", plain)
+        self.assertIn("sage:g[0]/a[0]/p[0]/r[0]", plain)
         self.assertNotIn("str[", plain)
         self.assertNotIn("rcp[", plain)
 
@@ -125,7 +125,7 @@ class TestStatusline(unittest.TestCase):
         from statusline.statusline import get_advisor_steer_badges, safe_id
 
         conv_id = "test_conv_status_123"
-        state_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
 
         def clean(s):
             return re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", s)
@@ -143,7 +143,7 @@ class TestStatusline(unittest.TestCase):
 
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertEqual(len(badges), 1)
-            self.assertEqual(clean(badges[0]), "adv:g[0]/a[0]/p[2]/r[1]")
+            self.assertEqual(clean(badges[0]), "sage:g[0]/a[0]/p[2]/r[1]")
             self.assertIn("\033[32m", badges[0])
             self.assertIn("\033[1;34mr[1]\033[0m", badges[0])
 
@@ -156,7 +156,7 @@ class TestStatusline(unittest.TestCase):
                     "recap_count": 0,
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
-            self.assertEqual(clean(badges[0]), "adv:g[0]/a[2]/p[3]/r[0]")
+            self.assertEqual(clean(badges[0]), "sage:g[0]/a[2]/p[3]/r[0]")
             self.assertIn("\033[38;5;209m", badges[0])
 
             # 3. Goal pinned -> g[1] magenta
@@ -169,7 +169,7 @@ class TestStatusline(unittest.TestCase):
                     "recap_count": 0,
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
-            self.assertEqual(clean(badges[0]), "adv:g[1]/a[1]/p[0]/r[0]")
+            self.assertEqual(clean(badges[0]), "sage:g[1]/a[1]/p[0]/r[0]")
             self.assertIn("\033[35mg[1]\033[0m", badges[0])
 
             # 4. Evaluating State (Active Blue label) + error streak suffix
@@ -183,10 +183,10 @@ class TestStatusline(unittest.TestCase):
                     "advisor_error_streak": 3,
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
-            self.assertIn("\033[1;34madv:\033[0m", badges[0])
+            self.assertIn("\033[1;34msage:\033[0m", badges[0])
             self.assertIn("\033[1;34mr[2]\033[0m", badges[0])
             self.assertIn("\033[31m/err[3]\033[0m", badges[0])
-            self.assertEqual(clean(badges[0]), "adv:g[0]/a[0]/p[1]/r[2]/err[3]")
+            self.assertEqual(clean(badges[0]), "sage:g[0]/a[0]/p[1]/r[2]/err[3]")
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)

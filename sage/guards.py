@@ -1,5 +1,5 @@
 """
-advisor.guards - Lifecycle guards, subagent detection, and fail-safe exit helpers.
+sage.guards - Lifecycle guards, subagent detection, and fail-safe exit helpers.
 """
 
 from datetime import datetime, timezone
@@ -8,13 +8,13 @@ import os
 import re
 import sys
 
-from advisor.config import (
+from sage.config import (
     MIN_TOOLS_FOR_DURATION_TRIGGER,
     SENSITIVE_TRIGGER_ENABLED,
     TOOL_CALL_THRESHOLD,
     TURN_DURATION_THRESHOLD,
 )
-from advisor.locking import log_audit, release_lock
+from sage.locking import log_audit, release_lock
 
 
 def is_post_invocation():
@@ -34,7 +34,7 @@ DESTRUCTIVE_ACTION_RE = re.compile(
 
 
 def is_destructive_action(text):
-    """True when proposed advisor action text matches a destructive command pattern."""
+    """True when proposed sage action text matches a destructive command pattern."""
     return bool(text and DESTRUCTIVE_ACTION_RE.search(str(text)))
 
 
@@ -93,25 +93,29 @@ def is_steering_message(content):
     s = content.strip().lower()
     prefixes = (
         "※", "steering:", "steerer:", "recap:", "steering -", "steerer -", "recap -",
-        "adviser:", "advisor:", "adviser -", "advisor -", "*steering:", "*steerer:",
-        "*recap:", "**steering", "**steerer", "**recap", "*adviser:", "*advisor:",
-        "**adviser", "**advisor", "[steering", "[steerer", "[recap", "[adviser", "[advisor", "[verifier",
+        "sage:", "sage -", "adviser:", "advisor:", "adviser -", "advisor -",
+        "*steering:", "*steerer:", "*recap:", "**steering", "**steerer", "**recap",
+        "*sage:", "**sage", "*adviser:", "*advisor:", "**adviser", "**advisor",
+        "[steering", "[steerer", "[recap", "[sage", "[adviser", "[advisor", "[verifier",
     )
     if any(s.startswith(p) for p in prefixes):
         return True
-    markers = ("stop hook blocked termination", "you are a strict, objective", "[reviewer agent", "[reviewer steering", "[reviewer steer", "[verifier", "[advisor")
+    markers = (
+        "stop hook blocked termination", "you are a strict, objective",
+        "[reviewer agent", "[reviewer steering", "[reviewer steer", "[verifier", "[advisor", "[sage",
+    )
     return any(m in s for m in markers)
 
 
 def format_hook_message(kind, content):
     """Formats hook injections with a ※ prefix and natural sentence casing."""
     label = kind.strip().lower()
-    if label not in ("steering", "steerer", "recap", "adviser", "advisor"):
+    if label not in ("steering", "steerer", "recap", "sage", "adviser", "advisor"):
         raise ValueError(f"Unsupported hook message kind: {kind}")
     text = str(content or "").strip()
-    text = re.sub(r"^(?:※\s*)?(?:steering|steerer|recap|adviser|advisor)(?::\w+)?\s*[:\-–—]?\s*", "", text, flags=re.IGNORECASE).strip()
-    text = re.sub(r"^\[(?:steering|steerer|recap|adviser|advisor)(?::\w+)?\]\s*", "", text, flags=re.IGNORECASE).strip()
-    text = re.sub(r"^\*\*(?:steering|steerer|recap|adviser|advisor)(?::\w+)?:?\*\*\s*", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(r"^(?:※\s*)?(?:steering|steerer|recap|sage|adviser|advisor)(?::\w+)?\s*[:\-–—]?\s*", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(r"^\[(?:steering|steerer|recap|sage|adviser|advisor)(?::\w+)?\]\s*", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(r"^\*\*(?:steering|steerer|recap|sage|adviser|advisor)(?::\w+)?:?\*\*\s*", "", text, flags=re.IGNORECASE).strip()
     return f"※ {label}: {text}"
 
 

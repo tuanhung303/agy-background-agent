@@ -7,21 +7,21 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-import advisor
-from advisor.guards import (
+import sage
+from sage.guards import (
     is_subagent_session,
 )
-from advisor.task_structure import (
+from sage.task_structure import (
     get_parallelizable_signals,
 )
-from advisor.watchers import get_active_subagents
+from sage.watchers import get_active_subagents
 
 
 class TestStopAuditLineCaps(unittest.TestCase):
     """Verifies that all stop_audit modules strictly satisfy <= 199 lines."""
 
     def test_all_modules_under_199_lines(self):
-        pkg_dir = os.path.dirname(advisor.__file__)
+        pkg_dir = os.path.dirname(sage.__file__)
         py_files = [f for f in os.listdir(pkg_dir) if f.endswith(".py")]
         self.assertGreaterEqual(len(py_files), 15, "Expected stop_audit modules")
 
@@ -195,7 +195,7 @@ class TestSubagentLifecycleWatchersStress(unittest.TestCase):
             },
         ]
         now = datetime(2026, 8, 24, 3, 5, 0, tzinfo=timezone.utc)
-        with patch("advisor.watchers.datetime") as mock_dt:
+        with patch("sage.watchers.datetime") as mock_dt:
             mock_dt.now.return_value = now
             mock_dt.fromisoformat = datetime.fromisoformat
             active = get_active_subagents(steps)

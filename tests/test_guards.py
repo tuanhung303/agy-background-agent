@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from advisor.guards import (
+from sage.guards import (
     fail_safe_exit,
     format_hook_message,
     is_steering_message,
@@ -35,7 +35,7 @@ class TestGuards(unittest.TestCase):
         self.assertTrue(is_steering_message("adviser - fix loop"))
         self.assertTrue(is_steering_message("※ recap: You asked for tests, and I delivered it."))
         self.assertTrue(is_steering_message("※ steering: The user asked for tests and you skipped them."))
-        self.assertTrue(is_steering_message("※ advisor: Fix loop."))
+        self.assertTrue(is_steering_message("※ sage: Fix loop."))
         self.assertTrue(is_steering_message("[advisor] fix loop"))
         self.assertTrue(is_steering_message("[verifier] fix loop"))
         self.assertTrue(is_steering_message("*Steering: check code"))
@@ -52,26 +52,27 @@ class TestGuards(unittest.TestCase):
         self.assertEqual(format_hook_message("steerer", "Run pytest now."), "※ steerer: Run pytest now.")
         self.assertEqual(format_hook_message("recap", "recap: Tests passed."), "※ recap: Tests passed.")
         self.assertEqual(format_hook_message("recap", "※ recap: You asked for X, and I delivered it."), "※ recap: You asked for X, and I delivered it.")
-        self.assertEqual(format_hook_message("advisor", "advisor: Fix loop."), "※ advisor: Fix loop.")
+        self.assertEqual(format_hook_message("sage", "sage: Fix loop."), "※ sage: Fix loop.")
         self.assertEqual(format_hook_message("adviser", "adviser: Fix loop."), "※ adviser: Fix loop.")
-        self.assertEqual(format_hook_message("advisor", "[advisor] Fix loop."), "※ advisor: Fix loop.")
+        self.assertEqual(format_hook_message("sage", "[sage] Fix loop."), "※ sage: Fix loop.")
+        self.assertEqual(format_hook_message("advisor", "advisor: Fix loop."), "※ advisor: Fix loop.")
         self.assertEqual(format_hook_message("steering", "**steering:** Fix the test"), "※ steering: Fix the test")
 
     def test_is_post_invocation_flag_handling(self):
-        from advisor.guards import is_post_invocation
-        with patch("sys.argv", ["session-advisor.py", "post_invocation"]):
+        from sage.guards import is_post_invocation
+        with patch("sys.argv", ["session-sage.py", "post_invocation"]):
             self.assertTrue(is_post_invocation())
-        with patch("sys.argv", ["session-advisor.py", "--event", "post_invocation"]):
+        with patch("sys.argv", ["session-sage.py", "--event", "post_invocation"]):
             self.assertTrue(is_post_invocation())
-        with patch("sys.argv", ["session-advisor.py", "post-invocation"]):
+        with patch("sys.argv", ["session-sage.py", "post-invocation"]):
             self.assertTrue(is_post_invocation())
-        with patch("sys.argv", ["session-advisor.py"]):
+        with patch("sys.argv", ["session-sage.py"]):
             self.assertFalse(is_post_invocation())
 
     def test_evaluate_turn_triggers_naive_timestamp(self):
         from datetime import datetime
 
-        from advisor.guards import evaluate_turn_triggers
+        from sage.guards import evaluate_turn_triggers
         naive_dt = datetime(2026, 8, 20, 10, 0, 0)
         with patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}):
             duration = evaluate_turn_triggers(5, naive_dt)

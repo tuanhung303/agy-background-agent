@@ -1,11 +1,11 @@
 """
-advisor.git - Git diff and workspace change extraction.
+sage.git - Git diff and workspace change extraction.
 """
 
 import os
 import subprocess
 
-from advisor.config import FILE_EDITING_TOOLS
+from sage.config import FILE_EDITING_TOOLS
 
 
 def get_git_diff(workspace_paths, turn_tool_names=None):

@@ -11,25 +11,25 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from advisor.advisor import (
+from sage.sage import (
     _normalize_advisor_dict,
     extract_target_goal,
 )
-from advisor.guards import (
+from sage.guards import (
     is_destructive_action,
 )
-from advisor.policies import advisor_flow, background_watch
-from advisor.task_structure import (
+from sage.policies import advisor_flow, background_watch
+from sage.task_structure import (
     get_parallelizable_signals,
 )
-from advisor.transcript import (
+from sage.transcript import (
     has_repeated_tool_calls,
 )
-from advisor.triage import (
+from sage.triage import (
     _parse_confidence,
     classify_advice,
 )
-from advisor.watchers import (
+from sage.watchers import (
     get_active_background_tasks,
     get_active_subagents,
 )

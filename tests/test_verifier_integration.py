@@ -5,7 +5,7 @@ tests.test_verifier_integration - Backward-compatible integration tests for lega
 
 import unittest
 
-from tests.test_advisor_integration import TestAdvisorIntegration
+from tests.test_sage_integration import TestAdvisorIntegration
 
 
 class TestVerifierIntegration(TestAdvisorIntegration):

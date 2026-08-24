@@ -1,8 +1,8 @@
 """
-Unit tests for advisor.goals module.
+Unit tests for sage.goals module.
 """
 
-from advisor.goals import (
+from sage.goals import (
     extract_initial_prompt,
     extract_pinned_goal,
     extract_revised_goal,

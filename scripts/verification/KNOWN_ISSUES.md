@@ -8,8 +8,8 @@
 
 2. **Hook env isolation**: hook processes do not inherit a shell's exports when
    agy runs them outside the TUI environment. Profile tuning must use the config
-   overlay file (`~/.config/agy/advisor.env`, or `AGY_ADVISOR_ENV_FILE`);
-   `scripts/bench_env.sh` only works for direct headless runs from that shell.
+   overlay file (`~/.config/agy/sage.env`, `AGY_SAGE_ENV_FILE`, or legacy `~/.config/agy/advisor.env`);
+   `scripts/benchmarks/bench_env.sh` only works for direct headless runs from that shell.
 
 3. **Turn-boundary clear may log repeatedly** (observed 5x) until an early-exit
    path persists the new turn_key. Idempotent and harmless; noise only.

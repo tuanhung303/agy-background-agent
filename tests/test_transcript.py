@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from advisor.transcript import (
+from sage.transcript import (
     clean_user_prompt,
     extract_session_and_turn_data,
     get_active_background_tasks,
@@ -445,48 +445,48 @@ class TestTranscript(unittest.TestCase):
         self.assertFalse(has_active_background_tasks(self.transcript_path, conv_id="conv1"))
 
     def test_sanitize_tool_output_strips_boilerplate(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         raw = "Created At: 2026-08-23T02:00:00Z\nCompleted At: 2026-08-23T02:00:05Z\nThe command exited with code 0.\nOutput:\nHello World\nLine 2"
         res = sanitize_tool_output(raw)
         self.assertEqual(res, "Hello World\nLine 2")
 
     def test_sanitize_tool_output_clamps_long_lines(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         long_line = "A" * 500
         res = sanitize_tool_output(long_line, max_line_len=100)
         self.assertIn("[line truncated]", res)
         self.assertLess(len(res), 300)
 
     def test_sanitize_tool_output_real_agy_blank_lines(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         raw = "Created At: 2026-08-23T02:00:00Z\nCompleted At: 2026-08-23T02:00:05Z\n\nThe command exited with code 0.\nOutput:\nActual Output Here"
         self.assertEqual(sanitize_tool_output(raw), "Actual Output Here")
 
     def test_sanitize_tool_output_non_header_prefix_preserved(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         raw = "build ok\nStep 2\nError:\ndetails here"
         res = sanitize_tool_output(raw)
         self.assertIn("build ok", res)
         self.assertIn("details here", res)
 
     def test_sanitize_tool_output_only_boilerplate_returns_empty(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         raw = "Created At: 2026-08-23T02:00:00Z\nCompleted At: 2026-08-23T02:00:05Z\nThe command exited with code 0."
         self.assertEqual(sanitize_tool_output(raw), "")
 
     def test_sanitize_preserves_nonzero_exit_code_evidence(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         raw = "Created At: X\nCompleted At: Y\nThe command exited with code 1.\nOutput:\nboom"
         res = sanitize_tool_output(raw)
         self.assertIn("exited with code 1", res)
 
     def test_sanitize_strips_zero_exit_code(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         raw = "Created At: X\nCompleted At: Y\nThe command exited with code 0.\nOutput:\nfine"
         self.assertEqual(sanitize_tool_output(raw), "fine")
 
     def test_sanitize_tool_output_strictly_bounds_max_chars(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         lines = [f"Line {i}: " + "x" * 200 for i in range(1, 50)]
         raw = "\n".join(lines)
         res = sanitize_tool_output(raw, max_chars=400)
@@ -557,14 +557,14 @@ class TestSanitizerBudgets(unittest.TestCase):
     }
 
     def test_max_chars_is_never_exceeded(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         for name, text in self.SHAPES.items():
             for budget in (0, 1, 5, 29, 60, 150, 200, 400, 800, 2000):
                 with self.subTest(shape=name, max_chars=budget):
                     self.assertLessEqual(len(sanitize_tool_output(text, max_chars=budget)), budget)
 
     def test_tail_survives_head_tail_slicing(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         res = sanitize_tool_output(self.SHAPES["many_short"], max_chars=150)
         self.assertIn("[Lines 1-", res)
         self.assertIn("L49", res, "tail must survive the max_chars budget")
@@ -572,17 +572,17 @@ class TestSanitizerBudgets(unittest.TestCase):
 
     def test_strips_boilerplate_with_blank_line_separator(self):
         """Production AGY output has a blank line before the exit-code banner."""
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         raw = "Created At: X\nCompleted At: Y\n\nThe command exited with code 0.\nOutput:\ntotal 4\ndrwx 3 u s ."
         res = sanitize_tool_output(raw)
         self.assertEqual(res, "total 4\ndrwx 3 u s .")
 
     def test_pure_boilerplate_yields_empty_not_original(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         self.assertEqual(sanitize_tool_output("Created At: X\nCompleted At: Y"), "")
 
     def test_max_line_len_controls_clamp_width(self):
-        from advisor.transcript import sanitize_tool_output
+        from sage.transcript import sanitize_tool_output
         narrow = sanitize_tool_output("Y" * 2000, max_chars=99999, max_line_len=300)
         wide = sanitize_tool_output("Y" * 2000, max_chars=99999, max_line_len=900)
         self.assertLess(len(narrow), len(wide))
@@ -597,7 +597,7 @@ class TestTaskStructureSignals(unittest.TestCase):
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_get_parallelizable_signals_disjoint_directories(self):
-        from advisor.transcript import get_parallelizable_signals
+        from sage.transcript import get_parallelizable_signals
         steps = [
             {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Refactor app"},
             {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "/repo/frontend/App.tsx"}}]},
@@ -610,7 +610,7 @@ class TestTaskStructureSignals(unittest.TestCase):
         self.assertIn("PARALLELIZABLE", res["signal_text"])
 
     def test_get_parallelizable_signals_coupled_directories_silent(self):
-        from advisor.transcript import get_parallelizable_signals
+        from sage.transcript import get_parallelizable_signals
         steps = [
             {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Refactor package"},
             {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "/repo/advisor/runner.py"}}]},
@@ -621,7 +621,7 @@ class TestTaskStructureSignals(unittest.TestCase):
         self.assertEqual(res["categories"], [])
 
     def test_get_parallelizable_signals_isolated_research(self):
-        from advisor.transcript import get_parallelizable_signals
+        from sage.transcript import get_parallelizable_signals
         steps = [
             {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Research technologies"},
             {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "search_web", "args": {"query": "auth protocol OAuth2"}}]},
@@ -633,7 +633,7 @@ class TestTaskStructureSignals(unittest.TestCase):
         self.assertIn("Scout", res["suggested_roles"])
 
     def test_get_parallelizable_signals_independent_verification(self):
-        from advisor.transcript import get_parallelizable_signals
+        from sage.transcript import get_parallelizable_signals
         steps = [
             {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Run tests"},
             {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "pytest tests/test_unit.py"}}]},
@@ -646,7 +646,7 @@ class TestTaskStructureSignals(unittest.TestCase):
 
 
     def test_get_parallelizable_signals_from_transcript_path(self):
-        from advisor.transcript import get_parallelizable_signals
+        from sage.transcript import get_parallelizable_signals
         lines = [
             {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Build multi-package app"},
             {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "/repo/pkg1/a.py"}}]},

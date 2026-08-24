@@ -4,7 +4,7 @@ tests.test_adversarial_m1 - Empirical challenger adversarial tests for Milestone
 
 Tests:
 1. Static analysis detector stress tests (tokenize semicolon detection & AST single-statement validation).
-2. Hook entry point (hooks/session-advisor.py) crash isolation and fallback guarantees.
+2. Hook entry point (hooks/session-sage.py) crash isolation and fallback guarantees.
 3. Exit signal routing across all exit paths (yield, continue, exit, steer, watchout, grace, hold, etc.).
 4. Lock acquisition/release integrity under simulated faults and concurrent invocations.
 """
@@ -21,17 +21,17 @@ import unittest
 from collections import defaultdict
 from unittest.mock import MagicMock, patch
 
-from advisor.guards import (
+from sage.guards import (
     emit_continue_response,
     emit_recap_response,
     fail_safe_exit,
     handle_background_watch_action,
 )
-from advisor.locking import (
+from sage.locking import (
     acquire_conversation_lock,
     release_lock,
 )
-from advisor.policies import background_watch, final_advisor_gate
+from sage.policies import background_watch, final_advisor_gate
 
 
 def check_tokenize_semicolons(source_text: str):
@@ -176,11 +176,11 @@ class TestAdversarialStaticAnalysis(unittest.TestCase):
 
 
 class TestAdversarialHookExitSignals(unittest.TestCase):
-    """Adversarial challenge for hooks/session-advisor.py and runner exit signals."""
+    """Adversarial challenge for hooks/session-sage.py and runner exit signals."""
 
     def setUp(self):
         self.repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        self.hook_script = os.path.join(self.repo_root, "hooks", "session-advisor.py")
+        self.hook_script = os.path.join(self.repo_root, "hooks", "session-sage.py")
 
     def test_hook_subprocess_invocation_pre_stop_healthy(self):
         """Test invoking hook script in pre-stop mode via subprocess with empty stdin."""
@@ -302,7 +302,7 @@ class TestAdversarialHookExitSignals(unittest.TestCase):
             "description": "long running test",
             "age_seconds": 350.0,
         }
-        with patch("advisor.guards.emit_continue_response") as mock_emit:
+        with patch("sage.guards.emit_continue_response") as mock_emit:
             handle_background_watch_action(
                 steer_bgp, state, state_file, 100, record_steer, record_grace
             )
@@ -311,9 +311,9 @@ class TestAdversarialHookExitSignals(unittest.TestCase):
 
         # 2. Grace action (stop event, watch count < 3)
         grace_bgp = {"action": "grace"}
-        with patch("advisor.guards.is_post_invocation", return_value=False), \
-             patch("advisor.guards.emit_continue_response") as mock_emit, \
-             patch("advisor.guards.fail_safe_exit") as mock_fail_safe:
+        with patch("sage.guards.is_post_invocation", return_value=False), \
+             patch("sage.guards.emit_continue_response") as mock_emit, \
+             patch("sage.guards.fail_safe_exit") as mock_fail_safe:
             handle_background_watch_action(
                 grace_bgp, state, state_file, 100, record_steer, record_grace
             )
@@ -321,8 +321,8 @@ class TestAdversarialHookExitSignals(unittest.TestCase):
             mock_emit.assert_called_once_with("Background tasks in progress; waiting for completion", is_post=False)
 
         # 3. Grace action (post-invocation event -> fail_safe_exit)
-        with patch("advisor.guards.is_post_invocation", return_value=True), \
-             patch("advisor.guards.fail_safe_exit") as mock_exit:
+        with patch("sage.guards.is_post_invocation", return_value=True), \
+             patch("sage.guards.fail_safe_exit") as mock_exit:
             handle_background_watch_action(
                 grace_bgp, state, state_file, 100, record_steer, record_grace
             )
@@ -367,9 +367,9 @@ class TestAdversarialPolicySignals(unittest.TestCase):
             "text": "Code looks clean and verified",
             "confidence": 0.95,
         }
-        with patch("advisor.policies.evaluate_mid_turn_progress", return_value=mock_verdict), \
-             patch("advisor.policies.has_new_user_activity", return_value=False), \
-             patch("advisor.policies.extract_session_and_turn_data", return_value=(None, None, None, 5, None, None, None, 50)):
+        with patch("sage.policies.evaluate_mid_turn_progress", return_value=mock_verdict), \
+             patch("sage.policies.has_new_user_activity", return_value=False), \
+             patch("sage.policies.extract_session_and_turn_data", return_value=(None, None, None, 5, None, None, None, 50)):
             res = final_advisor_gate(
                 conv_id="test_conv",
                 transcript_path="/tmp/fake_transcript.jsonl",
@@ -383,7 +383,7 @@ class TestAdversarialPolicySignals(unittest.TestCase):
                 state={},
             )
             self.assertEqual(res["action"], "healthy")
-            self.assertIn("Advisor final assessment: hold (healthy)", res["note"])
+            self.assertIn("Sage final assessment: hold (healthy)", res["note"])
 
 
 if __name__ == "__main__":

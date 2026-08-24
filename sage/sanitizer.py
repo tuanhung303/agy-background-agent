@@ -1,5 +1,5 @@
 """
-advisor.sanitizer - String cleaning, tool output sanitization, and output budget truncation.
+sage.sanitizer - String cleaning, tool output sanitization, and output budget truncation.
 """
 
 import re

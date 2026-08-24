@@ -1,6 +1,6 @@
 import unittest
 
-from advisor.triage import _parse_confidence, classify_advice, compute_advice_key
+from sage.triage import _parse_confidence, classify_advice, compute_advice_key
 
 
 class TestTriage(unittest.TestCase):

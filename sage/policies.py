@@ -1,14 +1,14 @@
 """
-advisor.policies - Decision policies extracted from the stop runner.
+sage.policies - Decision policies extracted from the stop runner.
 
 Two policies live here:
 
 1. background_watch: decides whether active background tasks require a
    watch-steer, a grace-period block, or free passage. Encapsulated so the
-   mechanical watcher cannot fire before richer context (the advisor) has
+   mechanical watcher cannot fire before richer context (the sage) has
    spoken, and so the policy stays unit-testable in isolation.
 
-2. final_advisor_gate: on a finishing stop, the advisor is the sole final
+2. final_sage_gate: on a finishing stop, the sage is the sole final
    gate — it either emits a steer/watchout (agent continues) or approves
    with an on_track recap (session terminates). There is no separate
    steerer/auditor role.
@@ -16,28 +16,34 @@ Two policies live here:
 Both return plain action dicts; the runner owns persistence and I/O.
 """
 
-from advisor.advisor import evaluate_mid_turn_progress
-from advisor.config import (
-    ADVISOR_ESCALATE_MIN_CONFIDENCE,
-    ADVISOR_MAX_ERROR_STREAK,
-    ADVISOR_STEER_MIN_CONFIDENCE,
-    ADVISOR_TOOL_INTERVAL,
+from sage.sage import evaluate_mid_turn_progress
+from sage.config import (
     MAX_MID_TURN_STEERS,
-    MID_TURN_ADVISOR_ENABLED,
+    MID_TURN_SAGE_ENABLED,
+    SAGE_ESCALATE_MIN_CONFIDENCE,
+    SAGE_MAX_ERROR_STREAK,
+    SAGE_STEER_MIN_CONFIDENCE,
+    SAGE_TOOL_INTERVAL,
 )
-from advisor.events import (
+
+MID_TURN_ADVISOR_ENABLED = MID_TURN_SAGE_ENABLED
+ADVISOR_TOOL_INTERVAL = SAGE_TOOL_INTERVAL
+ADVISOR_STEER_MIN_CONFIDENCE = SAGE_STEER_MIN_CONFIDENCE
+ADVISOR_ESCALATE_MIN_CONFIDENCE = SAGE_ESCALATE_MIN_CONFIDENCE
+ADVISOR_MAX_ERROR_STREAK = SAGE_MAX_ERROR_STREAK
+from sage.events import (
     EVENT_FINAL_STOP,
     EVENT_PARALLEL_OPP,
     EVENT_TOOL_THRESHOLD,
     format_summon_message,
 )
-from advisor.task_structure import get_parallelizable_signals
-from advisor.triage import classify_advice
-from advisor.transcript import (
+from sage.task_structure import get_parallelizable_signals
+from sage.transcript import (
     extract_session_and_turn_data,
     has_new_user_activity,
     is_post_invocation_completion_candidate,
 )
+from sage.triage import classify_advice
 
 BG_STALE_SECONDS = 300.0
 
@@ -67,15 +73,10 @@ def background_watch(active_tasks, bg_steered):
     return {"action": "already_steered"}
 
 
-def advisor_flow(mode, *, conv_id, transcript_path, clean_prompt, initial_line_count,
-                 total_tool_calls, turn_tool_names, user_prompt,
-                 agent_steps, git_diff, state, forced=False, signal_note=""):
-    """Shared advisor evaluation for mid-turn and finishing stops.
-
-    mode="midturn": legacy behavior — every skip condition is a hard exit with
-    its historical reason string; healthy holds also exit.
-    mode="final": the advisor is the terminal gate — skips return "skip" so the
-    runner can allow a clean stop; a healthy hold carries the final recap.
+def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
+              total_tool_calls, turn_tool_names, user_prompt, agent_steps,
+              git_diff, state, forced=False, signal_note=""):
+    """Unified policy flow for sage decisions (mid-turn or final).
 
     Returns an action dict:
       {"action": "exit", "reason": str}         (midturn only)
@@ -91,13 +92,16 @@ def advisor_flow(mode, *, conv_id, transcript_path, clean_prompt, initial_line_c
 
     def _skip_or_exit(reason):
         return {"action": "skip", "reason": reason} if final else {"action": "exit", "reason": reason}
-    if not MID_TURN_ADVISOR_ENABLED:
-        return _skip_or_exit("advisor disabled")
-    ms, es = int(state.get("mid_turn_steers", 0)), int(state.get("advisor_error_streak", 0))
+    is_enabled = bool(MID_TURN_SAGE_ENABLED and MID_TURN_ADVISOR_ENABLED)
+    if not is_enabled:
+        return _skip_or_exit("sage disabled")
+    ms = int(state.get("mid_turn_steers", 0))
+    es = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)))
     if MAX_MID_TURN_STEERS > 0 and ms >= MAX_MID_TURN_STEERS:
         return _skip_or_exit(f"max mid-turn steers reached ({ms}/{MAX_MID_TURN_STEERS})")
-    if es >= ADVISOR_MAX_ERROR_STREAK:
-        return _skip_or_exit(f"advisor circuit breaker open (streak={es})")
+    effective_max_streak = min(SAGE_MAX_ERROR_STREAK, ADVISOR_MAX_ERROR_STREAK)
+    if es >= effective_max_streak:
+        return _skip_or_exit(f"sage circuit breaker open (streak={es})")
     lv = int(state.get("last_verified_tools", 0))
     par_sig = get_parallelizable_signals(transcript_path) if not final else {}
     if par_sig.get("parallelizable"):
@@ -105,8 +109,9 @@ def advisor_flow(mode, *, conv_id, transcript_path, clean_prompt, initial_line_c
         stext = par_sig.get("signal_text", "")
         if stext and stext not in signal_note:
             signal_note = f"{signal_note} {stext}".strip()
-    if not final and not forced and (total_tool_calls - lv) < ADVISOR_TOOL_INTERVAL:
-        return {"action": "exit", "reason": f"Mid-turn tool delta below interval ({total_tool_calls - lv} < {ADVISOR_TOOL_INTERVAL})"}
+    effective_interval = min(SAGE_TOOL_INTERVAL, ADVISOR_TOOL_INTERVAL)
+    if not final and not forced and (total_tool_calls - lv) < effective_interval:
+        return {"action": "exit", "reason": f"Mid-turn tool delta below interval ({total_tool_calls - lv} < {effective_interval})"}
 
     if final:
         active_signal = format_summon_message(EVENT_FINAL_STOP)
@@ -126,7 +131,7 @@ def advisor_flow(mode, *, conv_id, transcript_path, clean_prompt, initial_line_c
         user_prompt, agent_steps, git_diff, state, is_forced=(forced or final),
         signals=active_signal)
     if has_new_user_activity(transcript_path, clean_prompt, initial_line_count):
-        return {"action": "yield", "reason": ("Fresh user input detected during final advisor; yielding" if final else "Fresh user input detected during advisor; yielding")}
+        return {"action": "yield", "reason": ("Fresh user input detected during final sage; yielding" if final else "Fresh user input detected during sage; yielding")}
     latest = extract_session_and_turn_data(transcript_path)
     progressed = (not final and is_post_invocation_completion_candidate(transcript_path, conv_id)) \
         or latest[3] > total_tool_calls or latest[7] > initial_line_count
@@ -135,10 +140,11 @@ def advisor_flow(mode, *, conv_id, transcript_path, clean_prompt, initial_line_c
     if not verdict or verdict.get("status") == "error":
         return {"action": "error"}
 
+    seen_adv = state.get("sage_advice_counts") or state.get("advisor_advice_counts", {})
     classified = classify_advice(
-        verdict, seen_advice=state.get("advisor_advice_counts", {}),
-        steer_min_conf=ADVISOR_STEER_MIN_CONFIDENCE,
-        escalate_min_conf=ADVISOR_ESCALATE_MIN_CONFIDENCE,
+        verdict, seen_advice=seen_adv,
+        steer_min_conf=SAGE_STEER_MIN_CONFIDENCE,
+        escalate_min_conf=SAGE_ESCALATE_MIN_CONFIDENCE,
         anchor_emitted=bool(state.get("pinned_emitted", state.get("anchor_emitted", False))))
     dec, text = classified.get("decision"), classified.get("text", "")
     res = {"seen": classified.get("seen")}
@@ -161,21 +167,28 @@ def advisor_flow(mode, *, conv_id, transcript_path, clean_prompt, initial_line_c
     return res
 
 
-def final_advisor_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
-                       total_tool_calls, turn_tool_names, user_prompt,
-                       agent_steps, git_diff, state):
-    """Advisor assessment at a finishing stop — the sole terminal gate.
+def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
+                    total_tool_calls, turn_tool_names, user_prompt,
+                    agent_steps, git_diff, state):
+    """Sage assessment at a finishing stop — the sole terminal gate.
 
-    Thin wrapper over advisor_flow(mode="final"); a healthy hold carries an
-    advisor recap that terminates the session cleanly.
+    Thin wrapper over sage_flow(mode="final"); a healthy hold carries a
+    sage recap that terminates the session cleanly.
     """
-    act = advisor_flow("final", conv_id=conv_id, transcript_path=transcript_path,
-                       clean_prompt=clean_prompt, initial_line_count=initial_line_count,
-                       total_tool_calls=total_tool_calls, turn_tool_names=turn_tool_names,
-                       user_prompt=user_prompt, agent_steps=agent_steps,
-                       git_diff=git_diff, state=state)
+    _flow = advisor_flow if advisor_flow is not sage_flow else sage_flow
+    act = _flow("final", conv_id=conv_id, transcript_path=transcript_path,
+                clean_prompt=clean_prompt, initial_line_count=initial_line_count,
+                total_tool_calls=total_tool_calls, turn_tool_names=turn_tool_names,
+                user_prompt=user_prompt, agent_steps=agent_steps,
+                git_diff=git_diff, state=state)
     if act.get("action") == "healthy":
         recap_txt = act.get("recap") or act.get("text") or "Work completed and verified successfully."
         act["recap"] = recap_txt
-        act["note"] = f"Advisor final assessment: hold (healthy). {act.get('text', '')}".strip()
+        act["note"] = f"Sage final assessment: hold (healthy). {act.get('text', '')}".strip()
     return act
+
+
+# Backward-compatibility aliases
+advisor_flow = sage_flow
+final_advisor_gate = final_sage_gate
+

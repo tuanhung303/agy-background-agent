@@ -1,17 +1,23 @@
 """
-advisor.models - Dynamic model discovery, version cascade, and runtime fallbacks.
+sage.models - Dynamic model discovery, version cascade, and runtime fallbacks.
 """
 
-import os, re, shutil, subprocess, time
-from advisor.config import DEFAULT_MODEL_FALLBACKS
-from advisor.locking import log_audit
+import os
+import re
+import shutil
+import subprocess
+import time
+
+from sage.config import DEFAULT_MODEL_FALLBACKS
+from sage.locking import log_audit
 
 _MODEL_CACHE = {"models": [], "timestamp": 0.0}
 _WORKING_MODEL = {"model": None}
 CACHE_TTL = 3600.0
 
 
-_WORKING_MODEL_FILE = "/tmp/agy_advisor_working_model.txt"
+_WORKING_MODEL_FILE = "/tmp/agy_sage_working_model.txt"
+_LEGACY_WORKING_MODEL_FILE = "/tmp/agy_advisor_working_model.txt"
 
 
 def parse_model_version(name):
@@ -48,7 +54,7 @@ def get_available_models(refresh=False):
                 line = line.strip()
                 if not line or line.lower().startswith("fetching") or line.startswith("#"):
                     continue
-                parts = line.split("	")
+                parts = line.split("\t")
                 name = parts[1].strip() if len(parts) > 1 else parts[0].strip()
                 if name and name not in models:
                     models.append(name)
@@ -73,26 +79,28 @@ def cache_working_model(model):
             pass
     else:
         _WORKING_MODEL["model"] = None
-        try:
-            if os.path.exists(_WORKING_MODEL_FILE):
-                os.remove(_WORKING_MODEL_FILE)
-        except Exception:
-            pass
+        for p in (_WORKING_MODEL_FILE, _LEGACY_WORKING_MODEL_FILE):
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
 
 
 def get_cached_working_model():
     """Returns cached working model if any (checking memory then file)."""
     if _WORKING_MODEL.get("model"):
         return _WORKING_MODEL["model"]
-    try:
-        if os.path.exists(_WORKING_MODEL_FILE):
-            with open(_WORKING_MODEL_FILE, "r", encoding="utf-8") as f:
-                val = f.read().strip()
-                if val:
-                    _WORKING_MODEL["model"] = val
-                    return val
-    except Exception:
-        pass
+    for p in (_WORKING_MODEL_FILE, _LEGACY_WORKING_MODEL_FILE):
+        try:
+            if os.path.exists(p):
+                with open(p, "r", encoding="utf-8") as f:
+                    val = f.read().strip()
+                    if val:
+                        _WORKING_MODEL["model"] = val
+                        return val
+        except Exception:
+            pass
     return None
 
 
@@ -120,10 +128,10 @@ def _expand_alias(alias, available, effort):
 def resolve_model_candidates(spec=None, effort=None, max_candidates=4):
     """Resolves model spec, aliases, and fallback chain capped to max_candidates."""
     if spec is None:
-        from advisor.config import REVIEWER_MODEL_SPEC
-        spec = os.environ.get("AGY_ADVISOR_MODEL") or REVIEWER_MODEL_SPEC
+        from sage.config import REVIEWER_MODEL_SPEC
+        spec = os.environ.get("AGY_SAGE_MODEL") or os.environ.get("AGY_ADVISOR_MODEL") or REVIEWER_MODEL_SPEC
     if effort is None:
-        effort = os.environ.get("AGY_ADVISOR_EFFORT", "high")
+        effort = os.environ.get("AGY_SAGE_EFFORT") or os.environ.get("AGY_ADVISOR_EFFORT", "high")
     tokens = [t.strip() for t in str(spec).split(",") if t.strip()] or ["auto"]
     available = get_available_models()
     expanded = []

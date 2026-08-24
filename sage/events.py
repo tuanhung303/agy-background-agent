@@ -1,5 +1,5 @@
 """
-advisor.events - Human-readable event summon context formatting for the strategic advisor.
+sage.events - Human-readable event summon context formatting for the strategic sage.
 """
 
 EVENT_FINAL_STOP = "final_stop"
@@ -12,7 +12,7 @@ EVENT_PARALLEL_OPP = "parallel_opportunity"
 
 
 def format_summon_message(event_type, **kwargs):
-    """Formats a clear, human-readable summon message for the strategic advisor."""
+    """Formats a clear, human-readable summon message for the strategic sage."""
     if event_type == EVENT_FINAL_STOP:
         return (
             "Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate and live empirical evidence: "

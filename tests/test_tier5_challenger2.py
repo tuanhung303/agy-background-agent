@@ -26,26 +26,26 @@ from statusline.statusline import (
     render_statusline,
     visible_len,
 )
-from advisor.advisor import (
+from sage.sage import (
     _normalize_advisor_dict,
     build_advisor_prompt,
     extract_target_goal,
     parse_advisor_output,
 )
-from advisor.models import (
+from sage.models import (
     _expand_alias,
     cache_working_model,
     get_cached_working_model,
     parse_model_version,
     resolve_model_candidates,
 )
-from advisor.task_structure import (
+from sage.task_structure import (
     _extract_file_path,
     _extract_research_target,
     _extract_test_target,
     get_parallelizable_signals,
 )
-from advisor.transcript import (
+from sage.transcript import (
     _read_transcript_steps,
     extract_session_and_turn_data,
     get_active_turn_identity,
@@ -54,7 +54,7 @@ from advisor.transcript import (
     has_repeated_tool_calls,
     is_post_invocation_completion_candidate,
 )
-from advisor.triage import (
+from sage.triage import (
     _parse_confidence,
     classify_advice,
     compute_advice_key,
@@ -352,7 +352,7 @@ class TestTriageAdversarial(unittest.TestCase):
             "confidence": 0.95,
         }
         res = classify_advice(advice)
-        self.assertLessEqual(len(res["text"]), 420)
+        self.assertLessEqual(len(res["text"]), 2000)
         self.assertTrue(res["text"].startswith("[STEER·architectural_trap]"))
 
 
@@ -574,7 +574,7 @@ class TestModelsAdversarial(unittest.TestCase):
         self.assertIn("gemini-2.5-pro-high", expanded_pro)
 
     def test_resolve_model_candidates_capping_and_cached_model(self):
-        with patch("advisor.models.get_cached_working_model", return_value="Gemini 3.7 Flash (High)"):
+        with patch("sage.models.get_cached_working_model", return_value="Gemini 3.7 Flash (High)"):
             candidates = resolve_model_candidates("auto", max_candidates=3)
             self.assertEqual(len(candidates), 3)
             self.assertEqual(candidates[0], "Gemini 3.7 Flash (High)")

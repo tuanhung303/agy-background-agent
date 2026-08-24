@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import advisor.config as config
-from advisor.config import (
+import sage.config as config
+from sage.config import (
     DEFAULT_MODEL_FALLBACKS,
     _safe_float,
     _safe_int,

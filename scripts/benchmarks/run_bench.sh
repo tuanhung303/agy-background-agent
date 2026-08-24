@@ -19,8 +19,9 @@ INTERVAL="${INTERVAL:-6}"
 MIN_TOOLS="${MIN_TOOLS:-8}"
 WT_ID="927f0242-5c5b-44ed-b698-27b7372e665b::/Users/__blitzzz/Documents/GitHub/agy-optimization"
 SCEN_FILE="$(cd "$(dirname "$0")" && pwd)/bench_scenarios/${SCENARIO}.md"
-OVERLAY="$HOME/.config/agy/advisor.env"
-AUDIT_LOG="/tmp/agy_stop_audit.log"
+OVERLAY="$HOME/.config/agy/sage.env"
+AUDIT_LOG="/tmp/agy_sage.log"
+[ -f "$AUDIT_LOG" ] || AUDIT_LOG="/tmp/agy_stop_audit.log"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 EVID="/tmp/bench_${SCENARIO}_${STAMP}"
 mkdir -p "$EVID"
@@ -32,6 +33,7 @@ PROMPT="$(awk '/^```$/{f=!f; next} f' "$SCEN_FILE" | head -40)"
 OVERLAY_BAK=""
 if [ -f "$OVERLAY" ]; then OVERLAY_BAK="$OVERLAY.bak.$STAMP"; cp "$OVERLAY" "$OVERLAY_BAK"; fi
 cat > "$OVERLAY" <<EOF
+AGY_SAGE_TOOL_INTERVAL=$INTERVAL
 AGY_ADVISOR_TOOL_INTERVAL=$INTERVAL
 AGY_STOP_AUDIT_MIN_TOOLS=$MIN_TOOLS
 AGY_STOP_AUDIT_MIN_DURATION=120
@@ -110,12 +112,12 @@ sleep 3
 grep -E "$(date +%Y-%m-%d)" "$AUDIT_LOG" 2>/dev/null | tail -400 > "$EVID/audit_log_tail.txt"
 echo "--- key audit events ---"
 grep -E "prompt mode|triggered steer|watchout emitted|deduplicated|passed \(healthy\)|circuit breaker|Recap recorded|New turn detected|Exit .*(below interval|healthy)" "$EVID/audit_log_tail.txt" | tail -20
-NEWEST_STATE=$(ls -t /tmp/agy_advisor_*.json 2>/dev/null | head -1)
+NEWEST_STATE=$(ls -t /tmp/agy_sage_*.json /tmp/agy_advisor_*.json 2>/dev/null | head -1)
 [ -n "$NEWEST_STATE" ] && python3 -c "
 import json
 d = json.load(open('$NEWEST_STATE'))
 print('--- state ($NEWEST_STATE) ---')
-print({k: d.get(k) for k in ('advisor_status','advisor_holds','advisor_advice_counts','advisor_error_streak','recap_emitted','last_verified_tools')})
+print({k: d.get(k) for k in ('sage_status','sage_holds','sage_advice_counts','sage_error_streak','advisor_status','advisor_holds','advisor_advice_counts','advisor_error_streak','recap_emitted','last_verified_tools')})
 " | tee "$EVID/state.json.txt"
 python3 -c "
 import os, subprocess, sys

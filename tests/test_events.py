@@ -3,7 +3,7 @@ tests.test_events - Unit tests for event-based advisor summon context formatting
 """
 
 import unittest
-from advisor.events import (
+from sage.events import (
     EVENT_FINAL_STOP,
     EVENT_HEARTBEAT,
     EVENT_TOOL_THRESHOLD,

@@ -1,22 +1,32 @@
 """
-advisor.sensitive - Regex word-boundary keyword detection and tool argument scanning.
+sage.sensitive - Regex word-boundary keyword detection and tool argument scanning.
 """
 
 import json
 import os
 import re
 
-from advisor.config import DEFAULT_SENSITIVE_KEYWORDS, SENSITIVE_TRIGGER_ENABLED, _safe_bool
+from sage.config import DEFAULT_SENSITIVE_KEYWORDS, SENSITIVE_TRIGGER_ENABLED, _safe_bool
 
 
 def is_sensitive_trigger_enabled():
     """Returns True if sensitive keyword tool triggers are enabled in config/env."""
-    return _safe_bool("AGY_STOP_AUDIT_SENSITIVE_TRIGGER", SENSITIVE_TRIGGER_ENABLED)
+    return _safe_bool(
+        "AGY_SAGE_SENSITIVE_TRIGGER",
+        _safe_bool(
+            "AGY_ADVISOR_SENSITIVE_TRIGGER",
+            _safe_bool("AGY_STOP_AUDIT_SENSITIVE_TRIGGER", SENSITIVE_TRIGGER_ENABLED),
+        ),
+    )
 
 
 def get_sensitive_keywords():
     """Retrieves the set of sensitive keywords from env or defaults."""
-    env_val = os.environ.get("AGY_STOP_AUDIT_SENSITIVE_KEYWORDS")
+    env_val = (
+        os.environ.get("AGY_SAGE_SENSITIVE_KEYWORDS")
+        or os.environ.get("AGY_ADVISOR_SENSITIVE_KEYWORDS")
+        or os.environ.get("AGY_STOP_AUDIT_SENSITIVE_KEYWORDS")
+    )
     if env_val is not None:
         items = [k.strip().lower() for k in env_val.split(",") if k.strip()]
         return tuple(items)

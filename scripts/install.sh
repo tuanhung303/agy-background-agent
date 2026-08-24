@@ -3,13 +3,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-ADVISOR_SRC="$REPO_DIR/hooks/session-advisor.py"
+SAGE_SRC="$REPO_DIR/hooks/session-sage.py"
 TIMER_SRC="$REPO_DIR/hooks/command-timer.py"
 STATUSLINE_SRC="$REPO_DIR/statusline/statusline.py"
-PROMPT_SRC="$REPO_DIR/advisor/advisor_prompt.md"
+PROMPT_SRC="$REPO_DIR/sage/sage_prompt.md"
 
-if [[ ! -f "$ADVISOR_SRC" ]]; then
-  echo "Error: Hook file not found at $ADVISOR_SRC" >&2
+if [[ ! -f "$SAGE_SRC" ]]; then
+  echo "Error: Hook file not found at $SAGE_SRC" >&2
   exit 1
 fi
 
@@ -24,27 +24,30 @@ if [[ ! -f "$STATUSLINE_SRC" ]]; then
 fi
 
 if [[ ! -f "$PROMPT_SRC" ]]; then
-  echo "Error: Advisor prompt file not found at $PROMPT_SRC" >&2
+  echo "Error: Sage prompt file not found at $PROMPT_SRC" >&2
   exit 1
 fi
 
-chmod +x "$ADVISOR_SRC" "$TIMER_SRC" "$STATUSLINE_SRC"
+chmod +x "$SAGE_SRC" "$TIMER_SRC" "$STATUSLINE_SRC"
 chmod +x "$SCRIPT_DIR/install.sh"
 
 echo "Installing hooks, statusline, and prompt from $REPO_DIR..."
 
 mkdir -p "$HOME/.config/agy" "$HOME/.gemini/config/hooks"
 
-# 1. session-advisor symlinks (and legacy session-stop-audit compatibility symlinks)
-ln -sf "$ADVISOR_SRC" "$HOME/.config/agy/session-advisor.py"
-ln -sf "$ADVISOR_SRC" "$HOME/.gemini/config/hooks/session-advisor.py"
-ln -sf "$ADVISOR_SRC" "$HOME/.config/agy/session-stop-audit.py"
-ln -sf "$ADVISOR_SRC" "$HOME/.gemini/config/hooks/session-stop-audit.py"
-echo "✓ Symlinked session-advisor.py (with session-stop-audit.py compatibility links)"
+# 1. session-sage symlinks (and legacy session-advisor / session-stop-audit compatibility symlinks)
+ln -sf "$SAGE_SRC" "$HOME/.config/agy/session-sage.py"
+ln -sf "$SAGE_SRC" "$HOME/.gemini/config/hooks/session-sage.py"
+ln -sf "$SAGE_SRC" "$HOME/.config/agy/session-advisor.py"
+ln -sf "$SAGE_SRC" "$HOME/.gemini/config/hooks/session-advisor.py"
+ln -sf "$SAGE_SRC" "$HOME/.config/agy/session-stop-audit.py"
+ln -sf "$SAGE_SRC" "$HOME/.gemini/config/hooks/session-stop-audit.py"
+echo "✓ Symlinked session-sage.py (with session-advisor.py and session-stop-audit.py compatibility links)"
 
-# 2. advisor prompt symlink
+# 2. sage prompt symlink (and legacy advisor_prompt compatibility link)
+ln -sf "$PROMPT_SRC" "$HOME/.config/agy/sage_prompt.md"
 ln -sf "$PROMPT_SRC" "$HOME/.config/agy/advisor_prompt.md"
-echo "✓ Symlinked advisor_prompt.md"
+echo "✓ Symlinked sage_prompt.md (with advisor_prompt.md compatibility link)"
 
 # 3. command-timer symlinks
 ln -sf "$TIMER_SRC" "$HOME/.config/agy/command-timer.py"
@@ -69,21 +72,22 @@ if os.path.exists(hooks_path):
     except Exception:
         data = {}
 
-# Ensure session-advisor is registered
-data["session-advisor"] = {
+# Ensure session-sage is registered
+data["session-sage"] = {
     "PostInvocation": [{
         "type": "command",
-        "command": f"python3 {os.path.expanduser('~/.config/agy/session-advisor.py')} post_invocation",
+        "command": f"python3 {os.path.expanduser('~/.config/agy/session-sage.py')} post_invocation",
         "timeout": 45
     }],
     "Stop": [{
         "type": "command",
-        "command": f"python3 {os.path.expanduser('~/.config/agy/session-advisor.py')}",
+        "command": f"python3 {os.path.expanduser('~/.config/agy/session-sage.py')}",
         "timeout": 45
     }]
 }
 
-# Remove redundant legacy session-stop-audit hook entry to prevent duplicate execution
+# Remove redundant legacy session-advisor and session-stop-audit hook entries to prevent duplicate execution
+data.pop("session-advisor", None)
 data.pop("session-stop-audit", None)
 
 # Ensure command-timer is registered
@@ -117,5 +121,5 @@ PYEOF
 echo "✓ Verified and updated hooks.json configuration"
 
 echo "Verifying symlink destinations:"
-ls -l "$HOME/.config/agy/session-advisor.py" "$HOME/.gemini/config/hooks/session-advisor.py" "$HOME/.gemini/config/hooks/command-timer.py" "$HOME/.config/agy/statusline.py" "$HOME/.config/agy/advisor_prompt.md"
+ls -l "$HOME/.config/agy/session-sage.py" "$HOME/.gemini/config/hooks/session-sage.py" "$HOME/.config/agy/session-advisor.py" "$HOME/.gemini/config/hooks/command-timer.py" "$HOME/.config/agy/statusline.py" "$HOME/.config/agy/sage_prompt.md" "$HOME/.config/agy/advisor_prompt.md"
 echo "Installation complete."

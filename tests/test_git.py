@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 
-from advisor.git import get_git_diff
+from sage.git import get_git_diff
 
 
 class TestGit(unittest.TestCase):

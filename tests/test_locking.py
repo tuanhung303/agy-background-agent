@@ -10,7 +10,7 @@ import time
 import unittest
 import unittest.mock
 
-from advisor.locking import (
+from sage.locking import (
     acquire_conversation_lock,
     atomic_write_json,
     cleanup_stale_tmp_files,
@@ -58,7 +58,7 @@ class TestLocking(unittest.TestCase):
         fh1 = acquire_conversation_lock(conv_id)
         self.assertIsNotNone(fh1)
 
-        lock_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.lock"
+        lock_file = f"/tmp/agy_sage_{safe_id(conv_id)}.lock"
         file_mode = stat.S_IMODE(os.stat(lock_file).st_mode)
         self.assertEqual(file_mode, 0o600)
 
@@ -82,13 +82,13 @@ class TestLocking(unittest.TestCase):
         # In-process second acquire cleans up properly
         fh2 = acquire_conversation_lock(conv_id)
         release_lock()
-        lock_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.lock"
+        lock_file = f"/tmp/agy_sage_{safe_id(conv_id)}.lock"
         if os.path.exists(lock_file):
             os.remove(lock_file)
 
     def test_cleanup_stale_tmp_files(self):
-        stale_file = "/tmp/agy_advisor_stale_test_12345.json"
-        fresh_file = "/tmp/agy_advisor_fresh_test_12345.json"
+        stale_file = "/tmp/agy_sage_stale_test_12345.json"
+        fresh_file = "/tmp/agy_sage_fresh_test_12345.json"
         try:
             with open(stale_file, "w") as f:
                 f.write("{}")
@@ -110,7 +110,7 @@ class TestLocking(unittest.TestCase):
 
     def test_log_audit(self):
         log_file = os.path.join(self.test_dir, "test.log")
-        with unittest.mock.patch("advisor.locking.LOG_FILE", log_file):
+        with unittest.mock.patch("sage.locking.LOG_FILE", log_file):
             log_audit("Testing audit log entry")
         self.assertTrue(os.path.exists(log_file))
         with open(log_file, "r") as f:

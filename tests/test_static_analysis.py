@@ -28,7 +28,7 @@ class PrintCallVisitor(ast.NodeVisitor):
 class TestStaticAnalysis(unittest.TestCase):
     def setUp(self):
         self.repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        self.pkg_dir = os.path.join(self.repo_root, "advisor")
+        self.pkg_dir = os.path.join(self.repo_root, "sage")
 
     def test_all_python_files_are_valid_syntax(self):
         py_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
@@ -49,10 +49,10 @@ class TestStaticAnalysis(unittest.TestCase):
                 except SyntaxError as e:
                     self.fail(f"Syntax error in {rel_path}: {e}")
 
-    def test_all_advisor_modules_are_strictly_under_200_lines(self):
+    def test_all_sage_modules_are_strictly_under_200_lines(self):
         pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
-        self.assertGreater(len(pkg_files), 0, "No python files found in advisor/")
-        self.assertEqual(len(pkg_files), 20, "Expected exactly 20 modules in advisor/")
+        self.assertGreater(len(pkg_files), 0, "No python files found in sage/")
+        self.assertEqual(len(pkg_files), 20, "Expected exactly 20 modules in sage/")
         for filepath in sorted(pkg_files):
             rel_path = os.path.relpath(filepath, self.repo_root)
             with self.subTest(filepath=rel_path):
@@ -66,9 +66,9 @@ class TestStaticAnalysis(unittest.TestCase):
                 )
 
     def test_all_modules_have_docstrings(self):
-        """Assert every stop_audit module contains a non-empty module-level docstring."""
+        """Assert every sage module contains a non-empty module-level docstring."""
         pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
-        self.assertGreater(len(pkg_files), 0, "No python files found in advisor/")
+        self.assertGreater(len(pkg_files), 0, "No python files found in sage/")
         for filepath in sorted(pkg_files):
             rel_path = os.path.relpath(filepath, self.repo_root)
             with self.subTest(filepath=rel_path):
@@ -81,7 +81,7 @@ class TestStaticAnalysis(unittest.TestCase):
     def test_no_wildcard_imports_in_core_modules(self):
         """Assert zero 'from module import *' statements except in designated shims."""
         pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
-        self.assertGreater(len(pkg_files), 0, "No python files found in advisor/")
+        self.assertGreater(len(pkg_files), 0, "No python files found in sage/")
         for filepath in sorted(pkg_files):
             rel_path = os.path.relpath(filepath, self.repo_root)
             if os.path.basename(filepath) == "mid_verifier.py":
@@ -98,8 +98,8 @@ class TestStaticAnalysis(unittest.TestCase):
                                 f"Wildcard import forbidden in {rel_path}: from {node.module} import *",
                             )
 
-    def test_no_semicolons_in_advisor_modules(self):
-        """Assert zero semicolon characters outside docstrings/strings in stop_audit, hooks, and statusline."""
+    def test_no_semicolons_in_sage_modules(self):
+        """Assert zero semicolon characters outside docstrings/strings in sage, hooks, and statusline."""
         target_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
         target_files.extend(glob.glob(f"{self.repo_root}/hooks/**/*.py", recursive=True))
         target_files.extend(glob.glob(f"{self.repo_root}/statusline/**/*.py", recursive=True))
@@ -130,8 +130,8 @@ class TestStaticAnalysis(unittest.TestCase):
                         + "\n".join(violations)
                     )
 
-    def test_ast_single_statement_per_line_in_advisor_modules(self):
-        """Assert AST single-statement per line in stop_audit, hooks, and statusline."""
+    def test_ast_single_statement_per_line_in_sage_modules(self):
+        """Assert AST single-statement per line in sage, hooks, and statusline."""
         target_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
         target_files.extend(glob.glob(f"{self.repo_root}/hooks/**/*.py", recursive=True))
         target_files.extend(glob.glob(f"{self.repo_root}/statusline/**/*.py", recursive=True))

@@ -1,24 +1,25 @@
 """
-advisor.runner - Main execution flow for the session stop audit hook.
+sage.runner - Main execution flow for the session stop audit hook.
 """
 
 import json
 
-from advisor.git import get_git_diff
-from advisor.goals import sync_goal_state
-from advisor.guards import (
+from sage.git import get_git_diff
+from sage.goals import sync_goal_state
+from sage.guards import (
     check_payload_and_lifecycle, emit_continue_response, emit_recap_response,
     fail_safe_exit, format_hook_message,
     handle_background_watch_action, is_post_invocation, is_subagent_session,
 )
-from advisor.locking import acquire_conversation_lock, cleanup_stale_tmp_files, log_audit
-from advisor.policies import advisor_flow, background_watch, final_advisor_gate
-from advisor.session_state import (
-    load_and_sync_session_state, record_advisor_emit, record_advisor_hold,
-    record_advisor_recap,
-    record_background_grace, record_background_steer, save_session_state,
+from sage.locking import acquire_conversation_lock, cleanup_stale_tmp_files, log_audit
+from sage.policies import background_watch, final_sage_gate, sage_flow
+from sage.session_state import (
+    load_and_sync_session_state,
+    record_background_grace, record_background_steer,
+    record_sage_emit, record_sage_hold, record_sage_recap,
+    save_session_state,
 )
-from advisor.transcript import (
+from sage.transcript import (
     extract_session_and_turn_data,
     get_active_background_tasks, get_active_subagents, get_transcript_path,
     has_recent_tool_errors, has_repeated_tool_calls,
@@ -27,6 +28,9 @@ from advisor.transcript import (
 
 # Backwards compatibility alias for external imports/patches
 _save_state = save_session_state
+final_advisor_gate = final_sage_gate
+advisor_flow = sage_flow
+record_advisor_hold, record_advisor_emit, record_advisor_recap = record_sage_hold, record_sage_emit, record_sage_recap
 
 
 def run_session_stop_audit(raw_payload=None):
@@ -71,10 +75,12 @@ def run_session_stop_audit(raw_payload=None):
     if is_post_invocation() and not is_post_invocation_completion_candidate(transcript_path, conv_id):
         has_err, has_loop = has_recent_tool_errors(transcript_path), has_repeated_tool_calls(transcript_path)
         sig = ("Recent tool errors detected. " if has_err else "") + ("Repeated tool calls detected (potential loop)." if has_loop else "")
-        save_session_state(state_file, state, advisor_status="evaluating", last_audited_line_count=initial_line_count)
-        act = advisor_flow(
-            "midturn", conv_id=conv_id, transcript_path=transcript_path, clean_prompt=clean_prompt,
-            initial_line_count=initial_line_count, total_tool_calls=total_tool_calls, turn_tool_names=turn_tool_names,
+        save_session_state(state_file, state, sage_status="evaluating", last_audited_line_count=initial_line_count)
+        _flow_fn = advisor_flow if advisor_flow != sage_flow else sage_flow
+        act = _flow_fn(
+            "midturn", conv_id=conv_id, transcript_path=transcript_path,
+            clean_prompt=clean_prompt, initial_line_count=initial_line_count,
+            total_tool_calls=total_tool_calls, turn_tool_names=turn_tool_names,
             user_prompt=user_prompt, agent_steps=agent_steps, git_diff=get_git_diff(ws_paths, turn_tool_names),
             state=state, forced=(has_err or has_loop), signal_note=sig.strip(),
         )
@@ -83,56 +89,58 @@ def run_session_stop_audit(raw_payload=None):
             fail_safe_exit(act["reason"])
         elif aact == "progressed":
             save_session_state(state_file, state, last_verified_tools=act["tools"], last_audited_line_count=act["lines"])
-            fail_safe_exit("Agent progressed during advisor evaluation; discarding stale advice")
+            fail_safe_exit("Agent progressed during sage evaluation; discarding stale advice")
         elif aact == "error":
-            err_streak = state.get("advisor_error_streak", 0) + 1
-            save_session_state(state_file, state, advisor_status="error", advisor_error_streak=err_streak, last_audited_line_count=initial_line_count)
-            fail_safe_exit("Mid-turn advisor unavailable (empty or model cascade failed); window preserved")
+            err_streak = state.get("sage_error_streak", state.get("advisor_error_streak", 0)) + 1
+            save_session_state(state_file, state, sage_status="error", sage_error_streak=err_streak, last_audited_line_count=initial_line_count)
+            fail_safe_exit("Mid-turn sage unavailable (empty or model cascade failed); window preserved")
         elif aact == "hold_dedup":
-            record_advisor_hold(state_file, state, total_tool_calls, initial_line_count, act.get("seen"))
-            fail_safe_exit("Advisor advice deduplicated")
+            (record_advisor_hold if record_advisor_hold != record_sage_hold else record_sage_hold)(state_file, state, total_tool_calls, initial_line_count, act.get("seen"))
+            fail_safe_exit("Sage advice deduplicated")
         elif aact == "emit":
             fdec, ftext = act["decision"], act["text"]
             gu = {k: act[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in act and act[k] is not None}
-            record_advisor_emit(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, act.get("seen", state.get("advisor_advice_counts", {})), **gu)
-            log_audit(f"Mid-turn advisor {('triggered steer' if fdec == 'steer' else 'watchout emitted')}: {ftext}")
-            emit_continue_response(format_hook_message("advisor", ftext), is_post=True)
+            (record_advisor_emit if record_advisor_emit != record_sage_emit else record_sage_emit)(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, act.get("seen", state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))), **gu)
+            log_audit(f"Mid-turn sage {('triggered steer' if fdec == 'steer' else 'watchout emitted')}: {ftext}")
+            emit_continue_response(format_hook_message("sage", ftext), is_post=True)
         else:
-            record_advisor_hold(state_file, state, total_tool_calls, initial_line_count)
-            fail_safe_exit("Mid-turn advisor passed (healthy)")
+            (record_advisor_hold if record_advisor_hold != record_sage_hold else record_sage_hold)(state_file, state, total_tool_calls, initial_line_count)
+            fail_safe_exit("Mid-turn sage passed (healthy)")
 
     git_diff = get_git_diff(ws_paths, turn_tool_names)
-    gate = final_advisor_gate(conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state)
+    _gate_fn = final_advisor_gate if final_advisor_gate != final_sage_gate else final_sage_gate
+    gate = _gate_fn(conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state)
     gact = gate.get("action")
-    log_audit(f"Final advisor gate: {gact}" + (f" ({gate.get('reason', '')})" if gate.get("reason") else ""))
+    log_audit(f"Final sage gate: {gact}" + (f" ({gate.get('reason', '')})" if gate.get("reason") else ""))
     if gact == "yield":
         fail_safe_exit(gate["reason"])
     elif gact == "progressed":
         save_session_state(state_file, state, last_verified_tools=gate["tools"], last_audited_line_count=gate["lines"])
-        fail_safe_exit("Agent progressed during final advisor; discarding stale advice")
+        fail_safe_exit("Agent progressed during final sage; discarding stale advice")
     elif gact == "emit":
         fdec, ftext = gate["decision"], gate["text"]
         gu = {k: gate[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in gate and gate[k] is not None}
-        record_advisor_emit(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, gate.get("seen", state.get("advisor_advice_counts", {})), **gu)
-        log_audit(f"Final advisor-first {fdec}: {ftext}")
-        emit_continue_response(format_hook_message("advisor", ftext), is_post=True)
+        (record_advisor_emit if record_advisor_emit != record_sage_emit else record_sage_emit)(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, gate.get("seen", state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))), **gu)
+        log_audit(f"Final sage-first {fdec}: {ftext}")
+        emit_continue_response(format_hook_message("sage", ftext), is_post=True)
     elif gact == "hold_dedup":
-        record_advisor_hold(state_file, state, total_tool_calls, initial_line_count, gate.get("seen"))
-        fail_safe_exit("Final advisor advice deduplicated")
+        (record_advisor_hold if record_advisor_hold != record_sage_hold else record_sage_hold)(state_file, state, total_tool_calls, initial_line_count, gate.get("seen"))
+        fail_safe_exit("Final sage advice deduplicated")
     elif gact in ("hold", "healthy"):
         recap = gate.get("recap") or "Work completed and verified successfully."
         cat = gate.get("category", "on_track")
-        advisor_recap = f"[RECAP·{cat}] {recap}" if not recap.startswith("[RECAP") else recap
+        sage_recap = f"[RECAP·{cat}] {recap}" if not recap.startswith("[RECAP") else recap
         gu = {k: gate[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in gate and gate[k] is not None}
-        record_advisor_recap(state_file, state, total_tool_calls, initial_line_count, recap_text=advisor_recap, **gu)
-        log_audit(f"Advisor passed cleanly. Advisor recap recorded: {advisor_recap}")
-        emit_recap_response(advisor_recap, kind="advisor")
+        (record_advisor_recap if record_advisor_recap != record_sage_recap else record_sage_recap)(state_file, state, total_tool_calls, initial_line_count, recap_text=sage_recap, **gu)
+        log_audit(f"Sage passed cleanly. Sage recap recorded: {sage_recap}")
+        emit_recap_response(sage_recap, kind="sage")
     elif gact == "error":
-        err_streak = state.get("advisor_error_streak", 0) + 1
-        save_session_state(state_file, state, advisor_status="error", advisor_error_streak=err_streak, last_audited_line_count=initial_line_count)
-        fail_safe_exit("Final advisor unavailable (empty or model cascade failed); allowing clean termination")
-    else:  # skip — advisor disabled, max steers reached, or circuit breaker open
-        fail_safe_exit(f"Final advisor gate skipped: {gate.get('reason', 'no reason')}")
+        err_streak = state.get("sage_error_streak", state.get("advisor_error_streak", 0)) + 1
+        save_session_state(state_file, state, sage_status="error", sage_error_streak=err_streak, last_audited_line_count=initial_line_count)
+        fail_safe_exit("Final sage unavailable (empty or model cascade failed); allowing clean termination")
+    else:  # skip — sage disabled, max steers reached, or circuit breaker open
+        fail_safe_exit(f"Final sage gate skipped: {gate.get('reason', 'no reason')}")
 
 
 main = run_session_stop_audit
+

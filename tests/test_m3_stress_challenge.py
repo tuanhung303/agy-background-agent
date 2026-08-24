@@ -14,20 +14,20 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from advisor.policies import (
+from sage.policies import (
     advisor_flow,
     background_watch,
 )
-from advisor.task_structure import (
+from sage.task_structure import (
     _extract_file_path,
     _extract_research_target,
     _extract_test_target,
     get_parallelizable_signals,
 )
-from advisor.transcript import (
+from sage.transcript import (
     is_post_invocation_completion_candidate,
 )
-from advisor.watchers import (
+from sage.watchers import (
     get_active_subagents as watchers_get_active_subagents,
 )
 
@@ -249,8 +249,8 @@ class TestM3SubagentWatcherStress(unittest.TestCase):
 class TestM3PolicyAndAdvisorFlowStress(unittest.TestCase):
     """Stress tests for policy routing and parallelization forcing."""
 
-    @patch("advisor.policies.evaluate_mid_turn_progress")
-    @patch("advisor.policies.classify_advice")
+    @patch("sage.policies.evaluate_mid_turn_progress")
+    @patch("sage.policies.classify_advice")
     def test_advisor_flow_forces_evaluation_on_parallel_signals(self, mock_classify, mock_eval):
         mock_eval.return_value = {
             "status": "watchout",

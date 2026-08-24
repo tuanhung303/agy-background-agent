@@ -5,10 +5,10 @@ tests.test_mid_verifier - Backward-compatible unit tests for mid_verifier shims.
 
 import unittest
 
-from tests.test_advisor import TestAdvisor
+from tests.test_sage import TestSage
 
 
-class TestMidVerifier(TestAdvisor):
+class TestMidVerifier(TestSage):
     """Verifies that legacy mid_verifier unit test suite continues to run cleanly."""
     pass
 

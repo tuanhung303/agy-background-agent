@@ -1,5 +1,5 @@
 """
-advisor.locking - Atomic file operations, fcntl locks, and audit logging.
+sage.locking - Atomic file operations, fcntl locks, and audit logging.
 """
 
 import atexit
@@ -11,7 +11,7 @@ import os
 import re
 import time
 
-from advisor.config import LOG_FILE
+from sage.config import LOG_FILE
 
 # Global lock file handle to prevent premature garbage collection
 _LOCK_FH = None
@@ -101,7 +101,7 @@ def acquire_conversation_lock(conv_id):
     """Acquires an exclusive, non-blocking lock for the conversation with 0600 mode."""
     global _LOCK_FH
     release_lock()
-    lock_file = f"/tmp/agy_advisor_{safe_id(conv_id)}.lock"
+    lock_file = f"/tmp/agy_sage_{safe_id(conv_id)}.lock"
     try:
         fd = os.open(lock_file, os.O_RDWR | os.O_CREAT, 0o600)
         fh = open(fd, "w")
@@ -128,7 +128,12 @@ def cleanup_stale_tmp_files(max_age_seconds=7200):
         if not os.path.exists(tmp_dir):
             return
         for fname in os.listdir(tmp_dir):
-            if fname.startswith(("agy_advisor_", "agy_stop_audit_", "agy_mid_advisor_", "agy_mid_verifier_", "agy_auditor_")):
+            if fname.startswith((
+                "agy_sage_", "agy_mid_sage_",
+                "agy_advisor_", "agy_stop_audit_",
+                "agy_mid_advisor_", "agy_mid_verifier_",
+                "agy_auditor_",
+            )):
                 fpath = os.path.join(tmp_dir, fname)
                 try:
                     if os.path.isfile(fpath) and (now - os.path.getmtime(fpath)) > max_age_seconds:
@@ -145,3 +150,4 @@ def cleanup_stale_tmp_files(max_age_seconds=7200):
                     pass
     except Exception as e:
         log_audit(f"Error cleaning stale tmp files: {e}")
+
