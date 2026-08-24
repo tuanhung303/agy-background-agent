@@ -147,7 +147,7 @@ def _normalize_kwargs(kwargs):
             norm.setdefault(k, v)
     if isinstance(norm.get("diff"), bool):
         norm.pop("diff", None)
-    elif isinstance(norm.get("diff"), int):
+    elif isinstance(norm.get("diff"), (int, float)):
         norm["diff"] = bucket_lines(norm["diff"])
     return norm
 

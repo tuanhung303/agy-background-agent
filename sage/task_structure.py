@@ -14,6 +14,7 @@ FILE_TOOLS = {
     "modify_file", "multi_replace_file_content",
 }
 RESEARCH_TOOLS = {"search_web", "read_url_content", "grep_search"}
+EXEC_TOOLS = {"run_command", "bash", "exec", "terminal"}
 TEST_RUNNERS = ("pytest", "unittest", "cargo test", "npm test", "go test", "vitest", "jest")
 
 
@@ -90,7 +91,8 @@ def get_parallelizable_signals(steps_or_path):
     t_steps = steps[turn_idxs[-1] + 1:] if turn_idxs else steps
     t_calls = [
         t for s in t_steps if isinstance(s, dict)
-        for t in (s.get("tool_calls") or []) if isinstance(t, dict)
+        for t in (s.get("tool_calls") if isinstance(s.get("tool_calls"), list) else [])
+        if isinstance(t, dict) and t.get("name")
     ]
 
     # If subagents were already dispatched in this turn, suppress parallelizable signal
@@ -121,7 +123,7 @@ def get_parallelizable_signals(steps_or_path):
             if rtarget:
                 research_queries.add(rtarget)
 
-        if name == "run_command":
+        if name in EXEC_TOOLS:
             ttarget = _extract_test_target(args)
             if ttarget:
                 test_commands.add(ttarget)
@@ -148,8 +150,6 @@ def get_parallelizable_signals(steps_or_path):
     if total_tools_in_turn >= 12 and (len(distinct_dirs) >= 2 or len(test_commands) >= 1):
         categories.append("context_fatigue_delegation")
         details.append(f"mid-task tool accumulation ({total_tools_in_turn} tools)")
-        if len(distinct_dirs) >= 2 and "Implementer" not in suggested_roles:
-            suggested_roles.append("Implementer")
         if "QA" not in suggested_roles:
             suggested_roles.append("QA")
 

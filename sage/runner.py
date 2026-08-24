@@ -4,6 +4,7 @@ sage.runner - Main execution flow for the session stop audit hook.
 
 import json
 
+from sage.events import EVENT_ERROR_LOOP, format_summon_message
 from sage.git import get_git_diff
 from sage.goals import sync_goal_state
 from sage.guards import (
@@ -74,7 +75,7 @@ def run_session_stop_audit(raw_payload=None):
     ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths") or []
     if is_post_invocation() and not is_post_invocation_completion_candidate(transcript_path, conv_id):
         has_err, has_loop = has_recent_tool_errors(transcript_path), has_repeated_tool_calls(transcript_path)
-        sig = ("Recent tool errors detected. " if has_err else "") + ("Repeated tool calls detected (potential loop)." if has_loop else "")
+        sig = format_summon_message(EVENT_ERROR_LOOP, err=has_err, loop=has_loop) if (has_err or has_loop) else ""
         save_session_state(state_file, state, sage_status="evaluating", last_audited_line_count=initial_line_count)
         _flow_fn = advisor_flow if advisor_flow != sage_flow else sage_flow
         act = _flow_fn(

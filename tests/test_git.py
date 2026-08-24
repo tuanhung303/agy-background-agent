@@ -60,6 +60,31 @@ class TestGit(unittest.TestCase):
         self.assertIn("untracked.txt", diff)
         self.assertIn("Changed lines: 2", diff)
 
+    def test_get_git_diff_untracked_multiline_and_binary_and_preview(self):
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
+
+        # 7-line untracked file
+        untracked_file = os.path.join(self.test_dir, "untracked.py")
+        with open(untracked_file, "w") as f:
+            f.write("\n".join(f"line {i}" for i in range(7)) + "\n")
+
+        # Binary untracked file
+        bin_file = os.path.join(self.test_dir, "model.bin")
+        with open(bin_file, "wb") as f:
+            f.write(b"header\0binary\ndata\nmore\n")
+
+        # Non-ASCII untracked file with 3 lines
+        unicode_file = os.path.join(self.test_dir, "café.py")
+        with open(unicode_file, "w", encoding="utf-8") as f:
+            f.write("a = 1\nb = 2\nc = 3\n")
+
+        diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
+        self.assertIn("Changed lines: 10", diff)  # 7 + 3
+        self.assertIn("Untracked files:", diff)
+        self.assertIn("--- untracked.py (untracked preview) ---", diff)
+
     def test_get_git_diff_with_string_workspace_path(self):
         # Passing string path instead of list must not crash or iterate characters
         diff = get_git_diff(self.test_dir, turn_tool_names={"write_to_file"})

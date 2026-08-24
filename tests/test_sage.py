@@ -474,11 +474,57 @@ class TestSage(unittest.TestCase):
             None,
             "invalid_step",
             {"type": "PLANNER_RESPONSE", "tool_calls": None},
+            {"type": "PLANNER_RESPONSE", "tool_calls": 123},
+            {"type": "PLANNER_RESPONSE", "tool_calls": True},
             {"type": "PLANNER_RESPONSE", "tool_calls": [None, 123, "string", {}, {"name": "write_to_file", "args": {"TargetFile": "/tmp/a/b.py"}}]},
         ]
         sig = get_parallelizable_signals(steps)
         self.assertIsInstance(sig, dict)
         self.assertIn("parallelizable", sig)
+
+    def test_single_file_fatigue_does_not_suggest_implementer(self):
+        from sage.task_structure import get_parallelizable_signals
+        steps = [{"type": "USER_INPUT", "source": "USER", "content": "fix bug"}]
+        # 11 reads on same file + 1 pytest execution = 12 tools
+        for _ in range(11):
+            steps.append({"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "read_url_content", "args": {"Url": "http://x"}}]})
+        steps.append({"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "pytest tests/test_auth.py"}}]})
+        sig = get_parallelizable_signals(steps)
+        self.assertTrue(sig["parallelizable"])
+        self.assertIn("QA", sig["suggested_roles"])
+        self.assertNotIn("Implementer", sig["suggested_roles"])
+        self.assertEqual(sig["categories"], ["context_fatigue_delegation"])
+        self.assertTrue(sig["signal_text"].startswith("PARALLELIZABLE: Delegation opportunity"))
+
+    def test_file_editing_tool_aliases_trigger_disjoint_files(self):
+        from sage.task_structure import get_parallelizable_signals
+        aliases = [
+            "replace_file_content", "write_to_file", "write_file",
+            "edit_file", "create_file", "notebook_edit", "patch", "apply_diff",
+            "modify_file", "multi_replace_file_content",
+        ]
+        for alias in aliases:
+            steps = [
+                {"type": "USER_INPUT", "source": "USER", "content": "edit"},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": alias, "args": {"TargetFile": "/tmp/dirA/a.py"}}]},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": alias, "args": {"TargetFile": "/tmp/dirB/b.py"}}]},
+            ]
+            sig = get_parallelizable_signals(steps)
+            self.assertIn("disjoint_files", sig["categories"], f"Failed for alias {alias}")
+            self.assertIn("Implementer", sig["suggested_roles"])
+
+    def test_exec_tool_aliases_trigger_test_detection(self):
+        from sage.task_structure import get_parallelizable_signals
+        exec_aliases = ["run_command", "bash", "exec", "terminal"]
+        for alias in exec_aliases:
+            steps = [
+                {"type": "USER_INPUT", "source": "USER", "content": "run tests"},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": alias, "args": {"CommandLine": "pytest tests/unit"}}]},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": alias, "args": {"CommandLine": "npm test"}}]},
+            ]
+            sig = get_parallelizable_signals(steps)
+            self.assertIn("independent_verification", sig["categories"], f"Failed for exec alias {alias}")
+            self.assertIn("QA", sig["suggested_roles"])
 
     def test_final_gate_diff_cnt_regex_extraction(self):
         from unittest.mock import patch
@@ -498,7 +544,7 @@ class TestSage(unittest.TestCase):
                 conv_id="c", transcript_path="/tmp/x.jsonl",
                 clean_prompt="p", initial_line_count=0, total_tool_calls=5, turn_tool_names={"write_to_file"},
                 user_prompt="u", agent_steps=[],
-                git_diff="Workspace (/tmp/ws):\nStatus:\nM file.py\nChanged lines: 42\nDiff:\n+hello",
+                git_diff="Workspace (/tmp/ws):\nStatus:\nM file.py\nChanged lines: 42 + (partial: >50 untracked files)\nDiff:\n+hello",
                 state={},
             )
 
