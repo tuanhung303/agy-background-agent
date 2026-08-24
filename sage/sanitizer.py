@@ -103,12 +103,25 @@ def sanitize_tool_output(content: Any, max_chars: int = 800, max_line_len: int =
     return hdr + head_txt[: avail // 2] + mid + tail_txt[-(avail - avail // 2) :]
 
 
+_SECRET_RE = re.compile(
+    r"(?i)(?:\b(?:token|secret|password|api[_-]?key|bearer|private[_-]?key|auth)\b\s*[:=]?\s*['\"]?\S+['\"]?|-----BEGIN [A-Z ]+PRIVATE KEY-----)"
+)
+
+
+def redact_secrets(text: Optional[str]) -> str:
+    """Redacts secret patterns, tokens, passwords, and private keys."""
+    if not text:
+        return ""
+    return _SECRET_RE.sub("[redacted]", str(text))
+
+
 def clamp_diff(git_diff: Optional[str], budget: int = 4000) -> str:
-    """Clamps git diff output to budget with head/tail preservation."""
+    """Clamps git diff output to budget with head/tail preservation and secret redaction."""
     if not git_diff or not git_diff.strip():
         return "No file modifications detected."
-    if len(git_diff) <= budget:
-        return git_diff
+    sanitized = redact_secrets(git_diff)
+    if len(sanitized) <= budget:
+        return sanitized
     head_budget = max(20, min(1200, budget // 3))
     tail_budget = max(20, budget - head_budget - 40)
-    return f"{git_diff[:head_budget]}\n... [diff truncated] ...\n{git_diff[-tail_budget:]}"
+    return f"{sanitized[:head_budget]}\n... [diff truncated] ...\n{sanitized[-tail_budget:]}"

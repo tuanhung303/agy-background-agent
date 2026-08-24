@@ -95,10 +95,11 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     lv = int(state.get("last_verified_tools", 0))
     par_sig = get_parallelizable_signals(transcript_path) if not final else {}
     if par_sig.get("parallelizable"):
-        cats = par_sig.get("categories", [])
-        if cats != ["context_fatigue_delegation"] and cats != state.get("last_par_cats"):
+        fp = [sorted(par_sig.get("categories", [])), sorted(par_sig.get("details", []))]
+        if par_sig.get("categories") != ["context_fatigue_delegation"] and fp != state.get("last_par_fp"):
             forced = True
-            state["last_par_cats"] = list(cats)
+            state["last_par_fp"] = fp
+            state["last_par_cats"] = list(par_sig.get("categories", []))
         stext = par_sig.get("signal_text", "")
         if signal_note and stext and stext not in signal_note:
             signal_note = f"{signal_note}\n{stext}".strip()

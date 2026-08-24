@@ -143,6 +143,50 @@ class TestGit(unittest.TestCase):
         self.assertEqual(get_git_diff([], turn_tool_names={"write_to_file"}), "")
         self.assertEqual(get_git_diff("", turn_tool_names={"write_to_file"}), "")
 
+    def test_get_git_diff_redacts_tracked_secrets(self):
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
+
+        tracked_file = os.path.join(self.test_dir, "config.py")
+        with open(tracked_file, "w") as f:
+            f.write("API_KEY = 'initial'\n")
+        subprocess.run(["git", "add", "config.py"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "initial"], cwd=self.test_dir, capture_output=True)
+
+        with open(tracked_file, "w") as f:
+            f.write("API_KEY = 'SECRET_TOKEN_9999'\n")
+
+        diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
+        self.assertNotIn("SECRET_TOKEN_9999", diff)
+        self.assertIn("[redacted]", diff)
+
+    def test_get_git_diff_with_shell_aliases(self):
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
+
+        with open(os.path.join(self.test_dir, "f.txt"), "w") as f:
+            f.write("hello\n")
+
+        for alias in ("bash", "exec", "terminal"):
+            diff = get_git_diff([self.test_dir], turn_tool_names={alias})
+            self.assertNotEqual(diff, "None (no file-editing tools invoked in turn)")
+            self.assertIn("f.txt", diff)
+
+    def test_get_git_diff_untracked_content_not_leaked(self):
+        subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
+
+        untracked_file = os.path.join(self.test_dir, "secrets.env")
+        with open(untracked_file, "w") as f:
+            f.write("AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n")
+
+        diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
+        self.assertNotIn("wJalrXUtnFEMI", diff)
+        self.assertIn("secrets.env", diff)
+
 
 if __name__ == "__main__":
     unittest.main()

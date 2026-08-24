@@ -96,8 +96,8 @@ def bucket_lines(value):
         return "?"
     try:
         val = float(value)
-        if not math.isfinite(val):
-            return ">1kL" if val > 0 else "?"
+        if not math.isfinite(val) or val < 0 or val % 1 != 0:
+            return ">1kL" if (math.isinf(val) and val > 0) else "?"
         num = int(val)
     except (TypeError, ValueError, OverflowError):
         return "?"

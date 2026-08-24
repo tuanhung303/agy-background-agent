@@ -6,6 +6,7 @@ import os
 import subprocess
 
 from sage.config import FILE_EDITING_TOOLS
+from sage.sanitizer import redact_secrets
 
 
 MAX_UNTRACKED_BYTES = 1 << 20  # 1 MiB
@@ -93,8 +94,8 @@ def get_git_diff(workspace_paths, turn_tool_names=None):
                         skipped += 1
 
             status_lines = [l.strip() for l in status_res.stdout.splitlines() if l.strip()][:12]
-            diff_unstaged = diff_unstaged_res.stdout.strip()
-            diff_staged = diff_staged_res.stdout.strip()
+            diff_unstaged = redact_secrets(diff_unstaged_res.stdout.strip())
+            diff_staged = redact_secrets(diff_staged_res.stdout.strip())
 
             combined_diff_parts = []
             if diff_staged:

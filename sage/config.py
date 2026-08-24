@@ -134,7 +134,7 @@ DEFAULT_SENSITIVE_KEYWORDS = (
 FILE_EDITING_TOOLS = {
     "write_to_file", "replace_file_content", "multi_replace_file_content",
     "edit_file", "create_file", "apply_diff", "patch", "modify_file",
-    "write_file", "run_command",
+    "write_file", "run_command", "bash", "exec", "terminal",
 }
 
 DEFAULT_TOOL_WEIGHTS = {

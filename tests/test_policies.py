@@ -187,7 +187,7 @@ class TestFinalSageGate(unittest.TestCase):
             self.assertEqual(act["action"], "healthy")
             self.assertTrue(mock_eval.call_args.kwargs.get("is_forced"))
 
-        # Second call with same state (state["last_par_cats"] recorded) and low tool delta: exits
+        # Second call with same state (state["last_par_fp"] recorded) and low tool delta: exits
         f2 = _frozen(latest_tools=3)
         with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
                 patch.object(policies, "get_parallelizable_signals", return_value=par_sig), \
@@ -195,6 +195,23 @@ class TestFinalSageGate(unittest.TestCase):
                 f2[0], f2[1], f2[2]:
             act2 = policies.sage_flow("midturn", **{**ctx, "state": state})
             self.assertEqual(act2["action"], "exit")
+
+        # Third call: details change (new workstream) -> forces evaluation again
+        par_sig3 = {
+            "parallelizable": True,
+            "categories": ["disjoint_files"],
+            "details": ["3 disjoint directories: api, core, web"],
+            "signal_text": "PARALLELIZABLE: Disjoint files (3 dirs)",
+        }
+        f3 = _frozen(latest_tools=3)
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "get_parallelizable_signals", return_value=par_sig3), \
+                patch.object(policies, "evaluate_mid_turn_progress", return_value={"status": "on_track"}) as mock_eval3, \
+                patch.object(policies, "classify_advice", return_value={"decision": "hold", "text": "ok", "seen": {}}), \
+                f3[0], f3[1], f3[2]:
+            act3 = policies.sage_flow("midturn", **{**ctx, "state": state})
+            self.assertEqual(act3["action"], "healthy")
+            self.assertTrue(mock_eval3.call_args.kwargs.get("is_forced"))
 
 
 TestFinalAdvisorGate = TestFinalSageGate

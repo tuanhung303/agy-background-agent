@@ -61,11 +61,25 @@ class TestTranscript(unittest.TestCase):
             extract_session_and_turn_data(self.transcript_path)
         )
         self.assertIn("Refactor code", user_prompt)
-        self.assertEqual(raw_prompt, "<USER_REQUEST>Refactor code</USER_REQUEST>")
+        self.assertEqual(user_prompt, "[LATEST ACTIVE USER REQUEST]:\nRefactor code")
         self.assertEqual(tools_count, 2)
-        self.assertIn("view_file", tool_names)
-        self.assertIn("replace_file_content", tool_names)
+        self.assertEqual(tool_names, {"view_file", "replace_file_content"})
         self.assertEqual(line_cnt, 4)
+
+    def test_extract_session_and_turn_data_malformed_tool_calls(self):
+        lines = [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "hello", "created_at": "2026-08-20T10:00:00Z"},
+            {"type": "PLANNER_RESPONSE", "content": "step 1", "tool_calls": None},
+            {"type": "PLANNER_RESPONSE", "content": "step 2", "tool_calls": 123},
+            {"type": "PLANNER_RESPONSE", "content": "step 3", "tool_calls": "invalid"},
+            {"type": "PLANNER_RESPONSE", "content": "step 4", "tool_calls": [None, 456, "bad", {"name": "write_to_file"}]},
+        ]
+        with open(self.transcript_path, "w") as f:
+            for item in lines:
+                f.write(json.dumps(item) + "\n")
+        user_prompt, raw_prompt, steps, tools_count, tool_names, first_ts, user_ts, _ = extract_session_and_turn_data(self.transcript_path)
+        self.assertEqual(tools_count, 1)
+        self.assertIn("write_to_file", tool_names)
         self.assertIsNotNone(first_ts)
         self.assertIsNotNone(user_ts)
 

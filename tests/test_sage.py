@@ -253,6 +253,27 @@ class TestSage(unittest.TestCase):
         _clear_sage_session(self.conv_id)
         self.assertIsNone(get_or_create_sage_session(self.conv_id))
 
+    def test_session_state_structural_fingerprint_persistence(self):
+        from sage.session_state import save_session_state, load_and_sync_session_state, get_state_file_path
+        from sage.transcript import get_active_turn_identity, clean_user_prompt
+        import hashlib
+        state_file = get_state_file_path("conv_fp_test")
+        try:
+            prompt = "user prompt"
+            clean_p = clean_user_prompt(prompt)
+            turn_id = get_active_turn_identity("/tmp/nonexistent_transcript.jsonl")
+            p_hash = hashlib.md5(clean_p.encode("utf-8")).hexdigest()
+            t_key = hashlib.sha256(f"{turn_id}\x00{clean_p}".encode("utf-8")).hexdigest()
+            state = {"turn_key": t_key, "prompt_hash": p_hash}
+            save_session_state(state_file, state, last_par_cats=["disjoint_files"], last_par_fp=[["disjoint_files"], ["2 dirs"]])
+            _, _, reloaded, is_same = load_and_sync_session_state("conv_fp_test", "/tmp/nonexistent_transcript.jsonl", prompt)
+            self.assertTrue(is_same)
+            self.assertEqual(reloaded.get("last_par_cats"), ["disjoint_files"])
+            self.assertEqual(reloaded.get("last_par_fp"), [["disjoint_files"], ["2 dirs"]])
+        finally:
+            if os.path.exists(state_file):
+                os.remove(state_file)
+
     def test_build_sage_prompt(self):
         prompt = build_sage_prompt(
             conv_id="conv_xyz",
@@ -520,6 +541,7 @@ class TestSage(unittest.TestCase):
         for alias in exec_aliases:
             steps = [
                 {"type": "USER_INPUT", "source": "USER", "content": "run tests"},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "/tmp/pkg/mod.py"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": alias, "args": {"CommandLine": "pytest tests/unit"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": alias, "args": {"CommandLine": "npm test"}}]},
             ]

@@ -89,7 +89,8 @@ def extract_session_and_turn_data(transcript_path):
         return user_prompt, raw_user_prompt, agent_steps, 0, tool_names, first_ts, user_ts, len(steps)
     for s in steps[last_user_idx + 1:]:
         stype, scontent = s.get("type"), str(s.get("content") or "")
-        stools = [t for t in s.get("tool_calls", []) if isinstance(t, dict)]
+        raw_tc = s.get("tool_calls")
+        stools = [t for t in raw_tc if isinstance(t, dict)] if isinstance(raw_tc, list) else []
         total_tools += len(stools)
         tool_names.update(t.get("name") for t in stools if t.get("name"))
         if stype == "PLANNER_RESPONSE":

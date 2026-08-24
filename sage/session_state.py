@@ -160,25 +160,23 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     seen_advice = (raw_state.get("sage_advice_counts") or raw_state.get("advisor_advice_counts", {})) if is_same else {}
     err_streak = (raw_state.get("sage_error_streak") or raw_state.get("advisor_error_streak", 0)) if is_same else 0
     emitted_texts = (raw_state.get("sage_emitted_texts") or raw_state.get("advisor_emitted_texts", [])) if is_same else []
-    mid_turn_steers = raw_state.get("mid_turn_steers", 0) if is_same else 0
-    last_verified = raw_state.get("last_verified_tools", 0) if is_same else 0
-    recap_emitted = raw_state.get("recap_emitted", False) if is_same else False
-    bg_watch_count = raw_state.get("bg_watch_count", 0) if is_same else 0
-    last_lines = raw_state.get("last_audited_line_count", 0) if is_same else 0
+    mid_turn_steers, last_verified = (raw_state.get("mid_turn_steers", 0), raw_state.get("last_verified_tools", 0)) if is_same else (0, 0)
+    recap_emitted, bg_watch_count, last_lines = (raw_state.get("recap_emitted", False), raw_state.get("bg_watch_count", 0), raw_state.get("last_audited_line_count", 0)) if is_same else (False, 0, 0)
     sage_status = (raw_state.get("sage_status") or raw_state.get("advisor_status", "hold")) if is_same else "hold"
     last_sage_text = (raw_state.get("last_sage_text") or raw_state.get("last_advisor_text", "")) if is_same else ""
     sage_recap = (raw_state.get("sage_recap") or raw_state.get("advisor_recap", "")) if is_same else ""
 
     # Preserved across turns:
     sage_holds = raw_state.get("sage_holds", raw_state.get("advisor_holds", 0))
-    recap_count = raw_state.get("recap_count", 0)
-    sm_steers = raw_state.get("session_mid_turn_steers", 0)
+    recap_count, sm_steers = raw_state.get("recap_count", 0), raw_state.get("session_mid_turn_steers", 0)
     pinned_goal = raw_state.get("pinned_goal") or raw_state.get("anchor_goal")
     revised_goal = raw_state.get("revised_goal")
     derived_tasks = list(raw_state.get("derived_tasks", []))
     goal_revisions = list(raw_state.get("goal_revisions", []))
     pinned_emitted = bool(raw_state.get("pinned_emitted", raw_state.get("anchor_emitted", False)))
     task_complexity = raw_state.get("task_complexity")
+    last_par_cats = list(raw_state.get("last_par_cats", [])) if is_same else []
+    last_par_fp = raw_state.get("last_par_fp", []) if is_same else []
 
     state = {
         "turn_key": turn_key, "prompt_hash": prompt_hash,
@@ -193,7 +191,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "pinned_goal": pinned_goal, "anchor_goal": pinned_goal, "revised_goal": revised_goal, "derived_tasks": derived_tasks,
         "goal_revisions": goal_revisions, "sage_recap": sage_recap, "advisor_recap": sage_recap,
         "pinned_emitted": pinned_emitted, "anchor_emitted": pinned_emitted, "task_complexity": task_complexity,
+        "last_par_cats": last_par_cats, "last_par_fp": last_par_fp,
     }
 
     return clean_prompt, state_file, state, is_same
-
