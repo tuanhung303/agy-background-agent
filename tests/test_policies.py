@@ -213,6 +213,21 @@ class TestFinalSageGate(unittest.TestCase):
             self.assertEqual(act3["action"], "healthy")
             self.assertTrue(mock_eval3.call_args.kwargs.get("is_forced"))
 
+        # Fourth call: only volatile tool accumulation changes -> fingerprint stable, exits
+        par_sig4 = {
+            "parallelizable": True,
+            "categories": ["disjoint_files"],
+            "details": ["3 disjoint directories: api, core, web", "mid-task tool accumulation (13 tools)"],
+            "signal_text": "PARALLELIZABLE: Disjoint files (3 dirs)",
+        }
+        f4 = _frozen(latest_tools=3)
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "get_parallelizable_signals", return_value=par_sig4), \
+                patch.object(policies, "calculate_turn_tool_score", return_value=(0.0, 0)), \
+                f4[0], f4[1], f4[2]:
+            act4 = policies.sage_flow("midturn", **{**ctx, "state": state})
+            self.assertEqual(act4["action"], "exit")
+
 
 TestFinalAdvisorGate = TestFinalSageGate
 

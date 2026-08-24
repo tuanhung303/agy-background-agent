@@ -22,7 +22,6 @@ def get_transcript_path(payload, conv_id):
         fb = os.path.expanduser(f"{base}/{conv_id}/.system_generated/logs/transcript.jsonl")
         if os.path.exists(fb):
             return fb
-    return None
 
 
 def _parse_ts(ts_str):
@@ -112,9 +111,12 @@ def has_new_user_activity(transcript_path, original_user_prompt, original_line_c
         if not steps or len(steps) < original_line_count:
             return True
         latest = [clean_user_prompt(str(s.get("content") or "")) for s in steps if is_explicit_user_input(s)]
-        return bool(latest and latest[-1] != clean_user_prompt(original_user_prompt))
-    except Exception:
-        return True
+        if latest and latest[-1] and latest[-1] != clean_user_prompt(original_user_prompt):
+            return True
+        return any(is_explicit_user_input(s) for s in steps[original_line_count:]) if len(steps) > original_line_count else False
+    except Exception as e:
+        log_audit(f"Error checking new user activity: {e}")
+        return False
 
 
 def get_active_turn_identity(transcript_path):

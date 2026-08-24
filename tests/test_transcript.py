@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 
 from sage.transcript import (
@@ -110,10 +111,19 @@ class TestTranscript(unittest.TestCase):
 
         self.assertFalse(has_new_user_activity(self.transcript_path, "Initial prompt", original_line_count=2))
 
+        # Appending identical prompt past original_line_count is detected as new user activity
+        with open(self.transcript_path, "a") as f:
+            f.write(json.dumps({"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Initial prompt"}) + "\n")
+        self.assertTrue(has_new_user_activity(self.transcript_path, "Initial prompt", original_line_count=2))
+
         with open(self.transcript_path, "a") as f:
             f.write(json.dumps({"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Wait stop that"}) + "\n")
 
         self.assertTrue(has_new_user_activity(self.transcript_path, "Initial prompt", original_line_count=2))
+
+        # Exception handling fails closed (returns False and logs audit)
+        with patch("sage.transcript._read_transcript_steps", side_effect=RuntimeError("Disk failure")):
+            self.assertFalse(has_new_user_activity(self.transcript_path, "Initial prompt", original_line_count=2))
 
     def test_has_new_user_activity_ignores_reviewer_steering(self):
         initial_lines = [
