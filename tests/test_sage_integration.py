@@ -66,7 +66,7 @@ class TestAdvisorIntegration(unittest.TestCase):
 
     def test_mid_turn_below_tool_interval_fast_exits(self):
         conv_id = f"test_mid_below_int_{int(time.time() * 1000)}"
-        self._write_transcript("Build feature", tool_calls_count=5, is_final=False)
+        self._write_transcript("Build feature", tool_calls_count=3, is_final=False)
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
 
         with patch("sys.argv", ["session-sage.py", "post_invocation"]), \

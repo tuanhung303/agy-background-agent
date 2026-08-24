@@ -121,8 +121,8 @@ def acquire_conversation_lock(conv_id):
         return None
 
 
-def cleanup_stale_tmp_files(max_age_seconds=7200):
-    """Cleans up stale agy state and lock files older than max_age_seconds (default: 2 hours)."""
+def cleanup_stale_tmp_files(max_age_seconds=7200, state_max_age_seconds=None):
+    """Cleans up stale lock and temp files older than max_age_seconds, preserving state files."""
     try:
         now, tmp_dir = time.time(), "/tmp"
         if not os.path.exists(tmp_dir):
@@ -136,7 +136,8 @@ def cleanup_stale_tmp_files(max_age_seconds=7200):
             )):
                 fpath = os.path.join(tmp_dir, fname)
                 try:
-                    if os.path.isfile(fpath) and (now - os.path.getmtime(fpath)) > max_age_seconds:
+                    ttl = (state_max_age_seconds if state_max_age_seconds is not None else max_age_seconds) if fname.endswith(".json") else max_age_seconds
+                    if os.path.isfile(fpath) and (now - os.path.getmtime(fpath)) > ttl:
                         if fname.endswith(".lock"):
                             try:
                                 with open(fpath, "r+") as lfh:

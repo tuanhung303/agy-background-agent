@@ -36,7 +36,7 @@ record_advisor_hold, record_advisor_emit, record_advisor_recap = record_sage_hol
 def run_session_stop_audit(raw_payload=None):
     payload = json.loads(raw_payload) if raw_payload else check_payload_and_lifecycle()
     conv_id = payload.get("conversationId") or payload.get("conversation_id") or "default"
-    cleanup_stale_tmp_files()
+    cleanup_stale_tmp_files(state_max_age_seconds=604800)
     if not acquire_conversation_lock(conv_id):
         fail_safe_exit(f"Concurrent audit in progress for {conv_id}")
 

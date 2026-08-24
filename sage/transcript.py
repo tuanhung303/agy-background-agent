@@ -6,12 +6,15 @@ from datetime import datetime, timezone
 import itertools
 import json
 import os
+import re
 
+from sage.config import get_tool_weight
 from sage.guards import is_steering_message
 from sage.locking import log_audit
 from sage.sanitizer import clean_user_prompt, sanitize_tool_output
 from sage.task_structure import get_parallelizable_signals
 from sage.watchers import get_active_background_tasks as _get_tasks, get_active_subagents as _get_subs
+_INTER_AGENT_RE = re.compile(r"(?:^|\n)\s*(?:\[Message\]|sender=)|has gone idle", re.I)
 
 
 def get_transcript_path(payload, conv_id):
@@ -30,9 +33,20 @@ def _parse_ts(ts_str):
         return None
     try:
         dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-        return dt if not dt or dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     except Exception:
         return None
+
+
+def is_explicit_user_input(step):
+    """True when a step is a real user turn boundary (blank `source` included)."""
+    if step.get("type") != "USER_INPUT":
+        return False
+    src = str(step.get("source") or "").upper()
+    content = str(step.get("content") or "")
+    if _INTER_AGENT_RE.search(content):
+        return False
+    return (not src or src in ("USER_EXPLICIT", "USER")) and not is_steering_message(content)
 
 
 def _read_transcript_steps(transcript_path):
@@ -63,8 +77,7 @@ def extract_session_and_turn_data(transcript_path):
     for i, s in enumerate(steps):
         ts = _parse_ts(s.get("created_at"))
         first_ts = first_ts or ts
-        src_u = str(s.get("source") or "").upper()
-        if s.get("type") == "USER_INPUT" and (not src_u or src_u in ("USER_EXPLICIT", "USER")) and not is_steering_message(str(s.get("content") or "")):
+        if is_explicit_user_input(s):
             last_user_idx, raw_user_prompt, user_ts = i, str(s.get("content") or ""), ts or user_ts
             cleaned = clean_user_prompt(raw_user_prompt)
             if cleaned:
@@ -80,9 +93,8 @@ def extract_session_and_turn_data(transcript_path):
         total_tools += len(stools)
         tool_names.update(t.get("name") for t in stools if t.get("name"))
         if stype == "PLANNER_RESPONSE":
-            tnames = [t.get("name") for t in stools]
             snip = scontent if len(scontent) <= 1000 else f"{scontent[:500]}\n...\n{scontent[-500:]}"
-            agent_steps.append(f"Response: {snip} | Tools: {tnames}")
+            agent_steps.append(f"Response: {snip} | Tools: {[t.get('name') for t in stools]}")
         elif stype == "GENERIC":
             agent_steps.append(f"Tool output: {sanitize_tool_output(scontent)}")
         elif scontent and not is_steering_message(scontent):
@@ -91,18 +103,14 @@ def extract_session_and_turn_data(transcript_path):
 
 
 def has_new_user_activity(transcript_path, original_user_prompt, original_line_count=0):
-    if not transcript_path or not os.path.exists(transcript_path):
-        return True
     try:
         steps = _read_transcript_steps(transcript_path)
-        if len(steps) < original_line_count:
+        if not steps or len(steps) < original_line_count:
             return True
-        latest = [clean_user_prompt(str(s.get("content") or "")) for s in steps if s.get("type") == "USER_INPUT" and str(s.get("source") or "").upper() in ("USER_EXPLICIT", "USER", "") and not is_steering_message(str(s.get("content") or ""))]
+        latest = [clean_user_prompt(str(s.get("content") or "")) for s in steps if is_explicit_user_input(s)]
         if latest and latest[-1] and latest[-1] != original_user_prompt:
             return True
-        if len(steps) > original_line_count:
-            return any(s.get("type") == "USER_INPUT" and str(s.get("source") or "").upper() in ("USER_EXPLICIT", "USER", "") and not is_steering_message(str(s.get("content") or "")) for s in steps[original_line_count:])
-        return False
+        return any(is_explicit_user_input(s) for s in steps[original_line_count:]) if len(steps) > original_line_count else False
     except Exception as e:
         log_audit(f"Error checking new user activity: {e}")
         return False
@@ -110,18 +118,23 @@ def has_new_user_activity(transcript_path, original_user_prompt, original_line_c
 
 def get_active_turn_identity(transcript_path):
     for s in reversed(_read_transcript_steps(transcript_path)):
-        if s.get("type") == "USER_INPUT" and str(s.get("source") or "").upper() in ("USER_EXPLICIT", "USER") and not is_steering_message(str(s.get("content") or "")):
-            if s.get("step_index") is not None:
-                return f"step:{s.get('step_index')}"
-            return f"created:{s.get('created_at')}" if s.get("created_at") else f"line:{s.get('_line_no', 1)}"
+        if is_explicit_user_input(s):
+            sid = s.get("step_index")
+            return f"step:{sid}" if sid is not None else (f"created:{s.get('created_at')}" if s.get("created_at") else f"line:{s.get('_line_no', 1)}")
     return "missing"
 
 
 def extract_turn_tool_calls(transcript_path):
     steps = _read_transcript_steps(transcript_path)
-    turn_idxs = [i for i, s in enumerate(steps) if s.get("type") == "USER_INPUT" and str(s.get("source") or "").upper() in ("USER_EXPLICIT", "USER") and not is_steering_message(str(s.get("content") or ""))]
+    turn_idxs = [i for i, s in enumerate(steps) if is_explicit_user_input(s)]
     t_steps = steps[turn_idxs[-1] + 1:] if turn_idxs else steps
     return [t for s in t_steps for t in (s.get("tool_calls") or []) if isinstance(t, dict)]
+
+
+def calculate_turn_tool_score(transcript_path, last_verified_tools=0):
+    calls = extract_turn_tool_calls(transcript_path)
+    new_calls = calls[last_verified_tools:] if len(calls) > last_verified_tools else []
+    return sum(get_tool_weight(c.get("name")) for c in new_calls if isinstance(c, dict)), len(calls)
 
 
 def has_repeated_tool_calls(transcript_path, lookback=12, min_repeats=3, min_dominance=0.6):
@@ -138,16 +151,13 @@ def has_repeated_tool_calls(transcript_path, lookback=12, min_repeats=3, min_dom
             sigs.append(f"{name}|{json.dumps(args, sort_keys=True, default=str)[:120]}")
         except Exception:
             sigs.append(f"{name}|?")
-    total = len(sigs)
-    if total < min_repeats:
+    if len(sigs) < min_repeats:
         return False
-    counts = {}
-    for s in sigs:
-        counts[s] = counts.get(s, 0) + 1
+    counts = {s: sigs.count(s) for s in set(sigs)}
     for sig, cnt in counts.items():
         if cnt >= min_repeats:
             best = max(sum(1 for _ in group) for match, group in itertools.groupby(sigs) if match == sig) if sig in sigs else 0
-            if best >= 2 or cnt / total >= min_dominance:
+            if best >= 2 or cnt / len(sigs) >= min_dominance:
                 return True
     return False
 
@@ -172,8 +182,6 @@ def is_post_invocation_completion_candidate(transcript_path, conv_id=None):
     if has_active_subagents(transcript_path, conv_id) or has_active_background_tasks(transcript_path, conv_id):
         return False
     steps = _read_transcript_steps(transcript_path)
-    if not steps:
-        return False
     latest_idx = next((i for i in range(len(steps) - 1, -1, -1) if steps[i].get("type") == "PLANNER_RESPONSE"), -1)
     if latest_idx == -1 or any(s.get("type") not in ("CHECKPOINT", "SYSTEM_MESSAGE") for s in steps[latest_idx + 1:]):
         return False
@@ -183,8 +191,6 @@ def is_post_invocation_completion_candidate(transcript_path, conv_id=None):
 
 def has_recent_tool_errors(transcript_path, max_lookback=6):
     steps = _read_transcript_steps(transcript_path)
-    if not steps:
-        return False
-    recent = [s for s in steps if s.get("type") in ("GENERIC", "PLANNER_RESPONSE")][-max_lookback:]
+    recent = [s for s in steps if s.get("type") in ("GENERIC", "PLANNER_RESPONSE")][-max_lookback:] if steps else []
     err_patterns = ("error:", "exit code 1", "exit code 2", "exit code 127", "command not found", "traceback (most recent call last)")
     return sum(1 for s in recent if any(p in str(s.get("content") or "").lower() for p in err_patterns)) >= 2

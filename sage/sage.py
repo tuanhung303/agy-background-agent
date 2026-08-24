@@ -5,7 +5,7 @@ sage.sage - Mid-turn slow-thinking strategic sage steering the fast-executing ag
 import os
 import re
 
-from sage.config import REVIEWER_MODEL, SAGE_TOOL_INTERVAL
+from sage.config import REVIEWER_MODEL, SAGE_TOOL_INTERVAL, SAGE_TOOL_SCORE_THRESHOLD
 from sage.executor import (
     acquire_spawn_lock, clean_resume_history, clear_session_id,
     extract_json_from_llm_output, load_session_id, release_spawn_lock,
@@ -16,6 +16,7 @@ from sage.guards import is_destructive_action
 from sage.locking import log_audit
 from sage.models import resolve_model_candidates
 from sage.sanitizer import clamp_diff
+from sage.transcript import calculate_turn_tool_score
 
 TEMPLATE_CANDIDATES = (
     os.path.expanduser("~/.config/agy/sage_prompt.md"),
@@ -172,8 +173,9 @@ _ORIG_RUN = run_sage_model
 def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state, is_forced=False, signals=""):
     last_verified = state.get("last_verified_tools", 0)
     delta = total_tool_calls - last_verified
-    if not is_forced and delta < SAGE_TOOL_INTERVAL:
-        return {"healthy": True, "skipped": True, "tool_delta": delta}
+    delta_score, _ = calculate_turn_tool_score(transcript_path, last_verified) if transcript_path and os.path.exists(transcript_path) else (0.0, 0)
+    if not is_forced and delta < SAGE_TOOL_INTERVAL and delta_score < SAGE_TOOL_SCORE_THRESHOLD:
+        return {"healthy": True, "skipped": True, "tool_delta": delta, "score_delta": delta_score}
     steps_summary = "\n".join(agent_steps[-10:]) if agent_steps else "No step details recorded."
     log_audit(f"Running mid-turn sage (tools={total_tool_calls}, delta={delta}, model={REVIEWER_MODEL})...")
     _run_fn = run_sage_model if run_sage_model is not _ORIG_RUN else (run_advisor_model if run_advisor_model is not _ORIG_RUN else (run_verifier_model if run_verifier_model is not _ORIG_RUN else run_sage_model))
@@ -185,11 +187,11 @@ def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_
 
 
 # Backward-compatibility aliases
-get_or_create_advisor_session, get_or_create_verifier_session = get_or_create_sage_session, get_or_create_sage_session
-save_advisor_session, save_verifier_session = save_sage_session, save_sage_session
-_clear_advisor_session, _clear_verifier_session = _clear_sage_session, _clear_sage_session
+get_or_create_advisor_session = get_or_create_verifier_session = get_or_create_sage_session
+save_advisor_session = save_verifier_session = save_sage_session
+_clear_advisor_session = _clear_verifier_session = _clear_sage_session
 load_advisor_template = load_sage_template
-build_advisor_prompt, build_verifier_prompt = build_sage_prompt, build_sage_prompt
-_normalize_advisor_dict, _normalize_verifier_dict = _normalize_sage_dict, _normalize_sage_dict
-parse_advisor_output, parse_verifier_output = parse_sage_output, parse_sage_output
-run_advisor_model, run_verifier_model = run_sage_model, run_sage_model
+build_advisor_prompt = build_verifier_prompt = build_sage_prompt
+_normalize_advisor_dict = _normalize_verifier_dict = _normalize_sage_dict
+parse_advisor_output = parse_verifier_output = parse_sage_output
+run_advisor_model = run_verifier_model = run_sage_model

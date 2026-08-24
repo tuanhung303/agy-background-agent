@@ -17,6 +17,9 @@ from sage.config import (
     FILE_EDITING_TOOLS,
     MID_TURN_SAGE_ENABLED,
     SAGE_TOOL_INTERVAL,
+    SAGE_TOOL_SCORE_THRESHOLD,
+    DEFAULT_TOOL_WEIGHTS,
+    get_tool_weight,
     MID_TURN_ADVISOR_ENABLED,
     ADVISOR_TOOL_INTERVAL,
     MAX_MID_TURN_STEERS,
@@ -58,6 +61,7 @@ from sage.events import (
     format_summon_message,
 )
 from sage.transcript import (
+    calculate_turn_tool_score,
     clean_user_prompt,
     extract_session_and_turn_data,
     get_active_background_tasks,
@@ -100,6 +104,10 @@ __all__ = [
     "FILE_EDITING_TOOLS",
     "MID_TURN_SAGE_ENABLED",
     "SAGE_TOOL_INTERVAL",
+    "SAGE_TOOL_SCORE_THRESHOLD",
+    "DEFAULT_TOOL_WEIGHTS",
+    "get_tool_weight",
+    "calculate_turn_tool_score",
     "MID_TURN_ADVISOR_ENABLED",
     "ADVISOR_TOOL_INTERVAL",
     "MAX_MID_TURN_STEERS",

@@ -208,18 +208,12 @@ def get_sage_steer_badges(data):
     is_sage_running = sage_status in {"evaluating", "running"}
 
     # Sage badge: sage:g[G]/a[A]/p[P]/r[R][/err[N]] — goal pinned, advise fired, pass (healthy hold), recap
-    # (Active: blue \033[1;34m, goal: magenta \033[35m, advise: coral \033[38;5;209m, pass: green \033[32m, recap: blue, breaker streak: red \033[31m)
+    # Badge metrics stay muted (\033[90m) like startup; 'sage:' lights up (\033[1;34m) only during active events.
     sage_label_color = "\033[1;34m" if is_sage_running else "\033[90m"
-    g_color = "\033[35m" if goal_c > 0 else "\033[90m"
-    a_color = "\033[38;5;209m" if sage_f > 0 else "\033[90m"
-    p_color = "\033[32m" if sage_h > 0 else "\033[90m"
-    r_color = "\033[1;34m" if recap_c > 0 else "\033[90m"
     err_streak = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)) or 0)
-    err_seg = f"\033[0m\033[31m/err[{err_streak}]\033[0m" if err_streak > 0 else ""
+    err_seg = f"\033[31m/err[{err_streak}]\033[0m" if err_streak > 0 else ""
     sage_badge = (
-        f"{sage_label_color}sage:\033[0m{g_color}g[{goal_c}]\033[0m\033[90m/"
-        f"{a_color}a[{sage_f}]\033[0m\033[90m/{p_color}p[{sage_h}]\033[0m\033[90m/"
-        f"{r_color}r[{recap_c}]\033[0m{err_seg}"
+        f"{sage_label_color}sage:\033[0m\033[90mg[{goal_c}]/a[{sage_f}]/p[{sage_h}]/r[{recap_c}]\033[0m{err_seg}"
     )
 
     return [sage_badge]

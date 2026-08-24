@@ -13,8 +13,6 @@ import time
 from sage.config import ADVISOR_EXEC_TIMEOUT, SAGE_EXEC_TIMEOUT, SAGE_TIMEOUT_BUDGET
 from sage.locking import acquire_spawn_lock, log_audit, release_spawn_lock, safe_id
 from sage.models import cache_working_model, resolve_model_candidates
-
-SPAWN_LOCK_FILE = "/tmp/agy_auditor_spawn.lock"
 CONV_DB_DIR = os.path.expanduser("~/.gemini/antigravity-cli/conversations")
 
 
@@ -30,9 +28,9 @@ def clean_resume_history(conv_id):
                 conn.commit()
     except Exception as e:
         log_audit(f"Failed to clean summary db for {conv_id}: {e}")
+    conv_dir = os.path.expanduser("~/.gemini/antigravity-cli/conversations")
     for name in {conv_id, sid}:
         try:
-            conv_dir = os.path.expanduser("~/.gemini/antigravity-cli/conversations")
             if os.path.isdir(conv_dir):
                 for suffix in ("", ".db", ".db-wal", ".db-shm"):
                     p = os.path.join(conv_dir, f"{name}{suffix}" if suffix else name)
@@ -52,8 +50,7 @@ def get_session_file(parent_conv_id, prefix="agy_stop_audit_session_"):
 def load_session_id(parent_conv_id, prefixes=("agy_stop_audit_session_",)):
     if not parent_conv_id:
         return None
-    target_prefixes = (prefixes,) if isinstance(prefixes, str) else prefixes
-    for prefix in target_prefixes:
+    for prefix in ((prefixes,) if isinstance(prefixes, str) else prefixes):
         sf = get_session_file(parent_conv_id, prefix)
         if os.path.exists(sf):
             try:
@@ -78,9 +75,7 @@ def save_session_id(parent_conv_id, session_id, prefix="agy_stop_audit_session_"
 def clear_session_id(parent_conv_id, prefixes=("agy_stop_audit_session_",), prefix=None):
     if not parent_conv_id:
         return
-    targets = prefix if prefix is not None else prefixes
-    target_prefixes = (targets,) if isinstance(targets, str) else targets
-    for p in target_prefixes:
+    for p in ((prefix,) if prefix is not None else ((prefixes,) if isinstance(prefixes, str) else prefixes)):
         sf = get_session_file(parent_conv_id, p)
         if os.path.exists(sf):
             try:
@@ -92,39 +87,49 @@ def clear_session_id(parent_conv_id, prefixes=("agy_stop_audit_session_",), pref
 def extract_json_from_llm_output(raw_text, schema_keys=()):
     if not raw_text or not raw_text.strip():
         return None
-    raw = raw_text.strip()
+    raw, fallback_dict = raw_text.strip(), None
     for cand in re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL):
         try:
             d = json.loads(cand)
             if isinstance(d, dict):
-                return d
+                if not schema_keys or any(k in d for k in schema_keys):
+                    return d
+                fallback_dict = fallback_dict or d
         except Exception:
             pass
     dec = json.JSONDecoder()
     for m in re.finditer(r"\{", raw):
         try:
             d, _ = dec.raw_decode(raw[m.start():])
-            if isinstance(d, dict) and (not schema_keys or any(k in d for k in schema_keys)):
-                return d
+            if isinstance(d, dict):
+                if not schema_keys or any(k in d for k in schema_keys):
+                    return d
+                fallback_dict = fallback_dict or d
         except Exception:
             continue
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     if match:
         try:
-            return json.loads(match.group(0))
+            d = json.loads(match.group(0))
+            if isinstance(d, dict):
+                if not schema_keys or any(k in d for k in schema_keys):
+                    return d
+                fallback_dict = fallback_dict or d
         except Exception:
             pass
     try:
-        return json.loads(raw)
+        d = json.loads(raw)
+        return d if isinstance(d, dict) else fallback_dict
     except Exception:
-        return None
+        return fallback_dict
 
 
 def _find_new_conv_id(conv_dir, before_dbs):
+    """The db created by our spawn, or None when attribution is ambiguous."""
     if not os.path.exists(conv_dir):
         return None
-    diffs = sorted([f for f in (set(os.listdir(conv_dir)) - before_dbs) if f.endswith(".db")], key=lambda f: os.path.getmtime(os.path.join(conv_dir, f)), reverse=True)
-    return diffs[0].replace(".db", "") if diffs else None
+    diffs = [f for f in (set(os.listdir(conv_dir)) - before_dbs) if f.endswith(".db")]
+    return diffs[0].replace(".db", "") if len(diffs) == 1 else None
 
 
 def _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_fn, existing=None):
@@ -164,18 +169,16 @@ def run_model_cascade(
                 if existing_session:
                     cmd.extend(["--conversation", existing_session])
                 cmd.extend(["-p", prompt, "--model", model, "--disable-slash-commands"])
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=min(ADVISOR_EXEC_TIMEOUT, max(5.0, remaining)), env=env)
+                res = subprocess.run(cmd, input="", capture_output=True, text=True, timeout=min(ADVISOR_EXEC_TIMEOUT, max(5.0, remaining)), env=env)
                 elapsed = round(time.time() - start_t, 2)
                 if res.returncode != 0 or not res.stdout.strip():
                     log_audit(f"{label} model '{model}' failed ({res.returncode}): {res.stderr.strip()[:100]}")
-                    _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session)
-                    existing_session = None
+                    existing_session = _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session) and None
                     continue
                 raw_json = extract_json_from_llm_output(res.stdout, schema_keys=schema_keys)
                 if raw_json is None:
                     log_audit(f"{label} model '{model}' output failed JSON decoding; clearing session")
-                    _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session)
-                    existing_session = None
+                    existing_session = _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session) and None
                     continue
                 parsed = normalize_func(raw_json)
                 new_conv_id = _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session)
@@ -184,8 +187,7 @@ def run_model_cascade(
                 return parsed
             except Exception as e:
                 log_audit(f"{label} candidate '{model}' exception: {e}")
-                _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session)
-                existing_session = None
+                existing_session = _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session) and None
                 continue
         return default_on_failure
     except Exception as e:

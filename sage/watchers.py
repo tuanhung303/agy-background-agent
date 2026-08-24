@@ -30,6 +30,10 @@ def get_active_subagents(steps, conv_id=None, parse_ts_func=None):
     now_dt = datetime.now(timezone.utc)
     parse_ts = parse_ts_func or _parse_iso_ts
     pending_batches = []
+    # Monotonic across the whole scan: reusing len(spawned) lets a new pending id
+    # collide with a surviving one (after a spawn failure pops a batch), silently
+    # overwriting a still-active subagent and unblocking a premature stop.
+    pending_seq = 0
     for s in steps:
         stype, content, stools = s.get("type"), str(s.get("content") or ""), s.get("tool_calls", [])
         ts_str = s.get("created_at")
@@ -48,7 +52,8 @@ def get_active_subagents(steps, conv_id=None, parse_ts_func=None):
                     subs = [subs] if isinstance(subs, dict) else (subs if isinstance(subs, list) else [{}])
                     pending_batch = []
                     for sub in subs:
-                        sid = f"pending_invoke_{len(spawned)}"
+                        sid = f"pending_invoke_{pending_seq}"
+                        pending_seq += 1
                         role = "Subagent"
                         if isinstance(sub, dict):
                             role = sub.get("Role") or sub.get("role") or sub.get("TypeName") or "Subagent"

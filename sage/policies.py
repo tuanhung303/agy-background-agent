@@ -18,30 +18,20 @@ Both return plain action dicts; the runner owns persistence and I/O.
 
 from sage.sage import evaluate_mid_turn_progress
 from sage.config import (
-    MAX_MID_TURN_STEERS,
-    MID_TURN_SAGE_ENABLED,
-    SAGE_ESCALATE_MIN_CONFIDENCE,
-    SAGE_MAX_ERROR_STREAK,
-    SAGE_STEER_MIN_CONFIDENCE,
-    SAGE_TOOL_INTERVAL,
+    MAX_MID_TURN_STEERS, MID_TURN_SAGE_ENABLED, SAGE_ESCALATE_MIN_CONFIDENCE,
+    SAGE_MAX_ERROR_STREAK, SAGE_STEER_MIN_CONFIDENCE, SAGE_TOOL_INTERVAL,
+    SAGE_TOOL_SCORE_THRESHOLD, ADVISOR_TOOL_SCORE_THRESHOLD,
 )
-
 MID_TURN_ADVISOR_ENABLED = MID_TURN_SAGE_ENABLED
 ADVISOR_TOOL_INTERVAL = SAGE_TOOL_INTERVAL
 ADVISOR_STEER_MIN_CONFIDENCE = SAGE_STEER_MIN_CONFIDENCE
 ADVISOR_ESCALATE_MIN_CONFIDENCE = SAGE_ESCALATE_MIN_CONFIDENCE
 ADVISOR_MAX_ERROR_STREAK = SAGE_MAX_ERROR_STREAK
-from sage.events import (
-    EVENT_FINAL_STOP,
-    EVENT_PARALLEL_OPP,
-    EVENT_TOOL_THRESHOLD,
-    format_summon_message,
-)
+from sage.events import EVENT_FINAL_STOP, EVENT_PARALLEL_OPP, EVENT_TOOL_THRESHOLD, format_summon_message
 from sage.task_structure import get_parallelizable_signals
 from sage.transcript import (
-    extract_session_and_turn_data,
-    has_new_user_activity,
-    is_post_invocation_completion_candidate,
+    calculate_turn_tool_score, extract_session_and_turn_data,
+    has_new_user_activity, is_post_invocation_completion_candidate,
 )
 from sage.triage import classify_advice
 
@@ -109,9 +99,11 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         stext = par_sig.get("signal_text", "")
         if stext and stext not in signal_note:
             signal_note = f"{signal_note} {stext}".strip()
+    effective_thresh = min(SAGE_TOOL_SCORE_THRESHOLD, ADVISOR_TOOL_SCORE_THRESHOLD)
     effective_interval = min(SAGE_TOOL_INTERVAL, ADVISOR_TOOL_INTERVAL)
-    if not final and not forced and (total_tool_calls - lv) < effective_interval:
-        return {"action": "exit", "reason": f"Mid-turn tool delta below interval ({total_tool_calls - lv} < {effective_interval})"}
+    delta_score, _ = calculate_turn_tool_score(transcript_path, lv) if transcript_path else (0.0, 0)
+    if not final and not forced and delta_score < effective_thresh and (total_tool_calls - lv) < effective_interval:
+        return {"action": "exit", "reason": f"Mid-turn tool delta below threshold (score={delta_score:.1f}<{effective_thresh:.1f}, count={total_tool_calls - lv}<{effective_interval})"}
 
     if final:
         active_signal = format_summon_message(EVENT_FINAL_STOP)
@@ -145,7 +137,8 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         verdict, seen_advice=seen_adv,
         steer_min_conf=SAGE_STEER_MIN_CONFIDENCE,
         escalate_min_conf=SAGE_ESCALATE_MIN_CONFIDENCE,
-        anchor_emitted=bool(state.get("pinned_emitted", state.get("anchor_emitted", False))))
+        anchor_emitted=bool(state.get("pinned_emitted", state.get("anchor_emitted", False))),
+        mode="final" if final else "midturn")
     dec, text = classified.get("decision"), classified.get("text", "")
     res = {"seen": classified.get("seen")}
     if "recap" in classified and classified["recap"]:
@@ -158,6 +151,11 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         if k in classified:
             res[k] = classified[k]
     if dec == "hold_dedup":
+        res["action"] = "hold_dedup"
+        return res
+    prior_texts = state.get("sage_emitted_texts") or state.get("advisor_emitted_texts") or []
+    if dec in ("steer", "watchout") and text and text in prior_texts:
+        # Backstop: an identical re-emission (key aged out of the counts table).
         res["action"] = "hold_dedup"
         return res
     if dec in ("steer", "watchout"):

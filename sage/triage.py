@@ -32,16 +32,22 @@ def _parse_confidence(val):
 
 
 def compute_advice_key(category, action, guidance=None):
+    """Keys advice by the intervention itself, deliberately category-independent.
+
+    Mixing the category into the key let one repeated demand escape the emission
+    ceiling every time the sage relabelled it (general -> missing_deliverable ->
+    ...), so the same steer could fire unboundedly and block termination.
+    """
     cat = re.sub(r"[^a-z0-9]+", "_", str(category or "general").strip().lower()).strip("_")
     if "parallel" in cat:
         return hashlib.sha1(b"parallelize_subagent").hexdigest()[:12]
     act = re.sub(r"[^a-z0-9]+", " ", str(action or "").strip().lower()).strip()
     gui = re.sub(r"[^a-z0-9]+", " ", str(guidance or "").strip().lower()).strip()
-    raw = f"{cat}|{act}".encode("utf-8", errors="replace") if act else f"{cat}||{gui}".encode("utf-8", errors="replace")
+    raw = (f"act|{act}" if act else (f"gui|{gui}" if gui else f"cat|{cat}")).encode("utf-8", errors="replace")
     return hashlib.sha1(raw).hexdigest()[:12]
 
 
-def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_conf=0.85, max_emissions=2, anchor_emitted=False):
+def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_conf=0.85, max_emissions=2, anchor_emitted=False, mode="midturn"):
     """
     Evaluates advisor output with confidence gating, keyed deduplication, and structured tags.
     Returns dict with decision ('steer', 'watchout', 'hold', 'hold_dedup'), status, and formatted text.
@@ -58,7 +64,7 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     conf = _parse_confidence(ver_res.get("confidence"))
     complexity = str(ver_res.get("task_complexity") or "").strip().lower()
     pinned = _safe_emission_text(ver_res.get("pinned_goal") or ver_res.get("anchor_goal") or "")
-    is_pinned = (category in ("pinned_goal", "anchor_goal") or (bool(pinned) and not anchor_emitted and complexity in ("complex_code", "multi_file")))
+    is_pinned = mode == "midturn" and (category in ("pinned_goal", "anchor_goal") or (bool(pinned) and not anchor_emitted and complexity in ("complex_code", "multi_file")))
 
     if is_pinned and status == "on_track" and not action and not guidance:
         status = "watchout"
@@ -95,7 +101,7 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
 
     seen[advice_key] = count + 1
     if len(seen) > 50:
-        seen = dict(sorted(seen.items(), key=lambda kv: -kv[1])[:50])
+        seen = dict(sorted(seen.items(), key=lambda kv: (kv[0] != advice_key, -kv[1]))[:50])
 
     if is_pinned:
         tag = "[Pinned Goal]"
@@ -120,7 +126,7 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     res = {
         "decision": "steer" if is_steer else "watchout",
         "status": "off_track" if is_steer else "watchout",
-        "category": category,
+        "category": "pinned_goal" if is_pinned else category,
         "confidence": conf,
         "advice_key": advice_key,
         "seen": seen,
@@ -135,4 +141,6 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     if pinned:
         res["pinned_goal"] = pinned
         res["anchor_goal"] = pinned
+    if "recap" in ver_res and ver_res["recap"] is not None and str(ver_res["recap"]).strip():
+        res["recap"] = ver_res["recap"]
     return res

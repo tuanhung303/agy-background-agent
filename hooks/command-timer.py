@@ -66,6 +66,10 @@ TIERS = [
 
 MAX_FEEDBACK_ITEMS = 10
 MAX_INJECTED_CHARS = 4000
+# A start record older than this cannot belong to a command finishing now
+# (orphaned pre_tool, reboot resetting the monotonic clock). Reconstructing a
+# duration from one fabricates bogus FORBIDDEN_EXCEEDED_LIMIT violations.
+MAX_TRACKED_SECONDS = 86400.0
 
 
 def get_safe_hash(conv_id: Any) -> str:
@@ -138,6 +142,22 @@ def classify_duration(dur: float) -> Tuple[str, Optional[str]]:
     return tier, template.format(dur=dur) if template else None
 
 
+def _state_matches_call(state: Dict[str, Any], step_idx: Any) -> bool:
+    """True when a start record can legitimately belong to the call finishing now."""
+    if not isinstance(state, dict):
+        return False
+    started = state.get("startWall")
+    if isinstance(started, (int, float)) and not 0.0 <= (time.time() - started) <= MAX_TRACKED_SECONDS:
+        return False
+    recorded = state.get("stepIdx")
+    if step_idx is None or recorded is None:
+        return True
+    try:
+        return int(recorded) == int(step_idx)
+    except (ValueError, TypeError):
+        return False
+
+
 def handle_pre_tool(payload: Dict[str, Any]) -> None:
     try:
         conv_id = payload.get("conversationId", "default")
@@ -151,6 +171,7 @@ def handle_pre_tool(payload: Dict[str, Any]) -> None:
             "conversationId": str(conv_id),
             "stepIdx": step_idx,
             "startMonoNs": now_mono,
+            "startWall": time.time(),
             "commandLine": sanitize_command_text(cmd),
         }
 
@@ -171,20 +192,26 @@ def handle_post_tool(payload: Dict[str, Any]) -> None:
         error = payload.get("error")
 
         now_mono = time.monotonic_ns()
-        state_file = get_state_file(conv_id, step_idx) if step_idx is not None else get_state_file(conv_id)
+        latest_file = get_state_file(conv_id)
+        state_file = get_state_file(conv_id, step_idx) if step_idx is not None else latest_file
         if not state_file.exists():
-            state_file = get_state_file(conv_id)
+            state_file = latest_file
 
         dur = 0.0
         cmd = "run_command"
         if state_file.exists():
             try:
                 state = json.loads(state_file.read_text(encoding="utf-8"))
-                start_mono = state.get("startMonoNs")
-                if isinstance(start_mono, (int, float)):
-                    dur = max(0.0, (now_mono - start_mono) / 1_000_000_000.0)
-                cmd = state.get("commandLine", "run_command")
+                if _state_matches_call(state, step_idx):
+                    start_mono = state.get("startMonoNs")
+                    if isinstance(start_mono, (int, float)):
+                        dur = max(0.0, (now_mono - start_mono) / 1_000_000_000.0)
+                    cmd = state.get("commandLine", "run_command")
                 state_file.unlink(missing_ok=True)
+                # The pre_tool hook mirrors every start into `_latest`; leaving it
+                # behind lets a later unmatched post_tool bill this command's
+                # start time to an unrelated one.
+                latest_file.unlink(missing_ok=True)
             except Exception as exc:
                 sys.stderr.write(f"[command_timer] parse state error: {exc}\n")
 
@@ -252,9 +279,12 @@ def handle_pre_invocation(payload: Dict[str, Any]) -> None:
                         inject_steps.append({
                             "ephemeralMessage": combined_msg
                         })
-                feedback_file.unlink(missing_ok=True)
             except Exception as exc:
                 sys.stderr.write(f"[command_timer] pre_invocation read feedback error: {exc}\n")
+            finally:
+                # Unconditional: a feedback file that failed to parse must still be
+                # dropped, or it is re-read (and re-logged) on every invocation.
+                feedback_file.unlink(missing_ok=True)
 
         # Cleanup stale state files (> 2 hours)
         try:

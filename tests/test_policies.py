@@ -54,7 +54,7 @@ class TestFinalSageGate(unittest.TestCase):
         with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1):
             act = policies.sage_flow("midturn", **{**ctx, "forced": False})
             self.assertEqual(act["action"], "exit")
-            self.assertIn("interval", act["reason"])
+            self.assertIn("delta below", act["reason"])
             frozen = _frozen(latest_tools=5)
             with patch.object(policies, "evaluate_mid_turn_progress",
                               return_value={"status": "on_track"}) as ev, \
@@ -120,6 +120,30 @@ class TestFinalSageGate(unittest.TestCase):
         mock_eval.assert_called_once()
         self.assertTrue(mock_eval.call_args.kwargs.get("is_forced"))
         self.assertIn("PARALLELIZABLE", mock_eval.call_args.kwargs.get("signals"))
+
+    def test_weighted_scoring_triggers_on_mutations_early(self):
+        # 4 edit calls = 4 * 2.5 = 10.0 score -> triggers audit even though total_tool_calls (4) < SAGE_TOOL_INTERVAL (10)
+        ctx = {**CTX, "total_tool_calls": 4}
+        frozen = _frozen(latest_tools=4)
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "calculate_turn_tool_score", return_value=(10.0, 4)), \
+                patch.object(policies, "evaluate_mid_turn_progress", return_value={"status": "on_track"}) as mock_eval, \
+                patch.object(policies, "classify_advice", return_value={"decision": "hold", "text": "ok", "seen": {}}), \
+                frozen[0], frozen[1], frozen[2]:
+            act = policies.sage_flow("midturn", **ctx)
+        self.assertEqual(act["action"], "healthy")
+        mock_eval.assert_called_once()
+
+    def test_weighted_scoring_exits_when_below_score_and_count_threshold(self):
+        # 4 read calls = 4 * 0.5 = 2.0 score < 10.0, raw delta = 4 < 10 -> exits cleanly
+        ctx = {**CTX, "total_tool_calls": 4}
+        frozen = _frozen(latest_tools=4)
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "calculate_turn_tool_score", return_value=(2.0, 4)), \
+                frozen[0], frozen[1], frozen[2]:
+            act = policies.sage_flow("midturn", **ctx)
+        self.assertEqual(act["action"], "exit")
+        self.assertIn("Mid-turn tool delta below threshold", act["reason"])
 
 
 TestFinalAdvisorGate = TestFinalSageGate

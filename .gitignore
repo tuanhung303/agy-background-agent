@@ -10,3 +10,5 @@ __pycache__/
 ORIGINAL_REQUEST.md
 .venv/
 .ruff_cache/
+.coverage
+htmlcov/

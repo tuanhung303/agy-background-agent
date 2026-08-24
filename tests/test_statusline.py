@@ -131,7 +131,7 @@ class TestStatusline(unittest.TestCase):
             return re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", s)
 
         try:
-            # 1. Idle/Hold state: goal unpinned, holds and one recap recorded
+            # 1. Idle/Hold state: goal unpinned, holds and one recap recorded (muted metric numbers)
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
@@ -144,10 +144,9 @@ class TestStatusline(unittest.TestCase):
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertEqual(len(badges), 1)
             self.assertEqual(clean(badges[0]), "sage:g[0]/a[0]/p[2]/r[1]")
-            self.assertIn("\033[32m", badges[0])
-            self.assertIn("\033[1;34mr[1]\033[0m", badges[0])
+            self.assertIn("\033[90msage:\033[0m\033[90mg[0]/a[0]/p[2]/r[1]\033[0m", badges[0])
 
-            # 2. Advisor Fired (session_mid_turn_steers drives a[])
+            # 2. Advisor Fired (session_mid_turn_steers drives a[], badge metrics stay muted)
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
@@ -157,9 +156,9 @@ class TestStatusline(unittest.TestCase):
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertEqual(clean(badges[0]), "sage:g[0]/a[2]/p[3]/r[0]")
-            self.assertIn("\033[38;5;209m", badges[0])
+            self.assertIn("\033[90msage:\033[0m\033[90mg[0]/a[2]/p[3]/r[0]\033[0m", badges[0])
 
-            # 3. Goal pinned -> g[1] magenta
+            # 3. Goal pinned -> g[1], badge metrics stay muted
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
@@ -170,9 +169,9 @@ class TestStatusline(unittest.TestCase):
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertEqual(clean(badges[0]), "sage:g[1]/a[1]/p[0]/r[0]")
-            self.assertIn("\033[35mg[1]\033[0m", badges[0])
+            self.assertIn("\033[90msage:\033[0m\033[90mg[1]/a[1]/p[0]/r[0]\033[0m", badges[0])
 
-            # 4. Evaluating State (Active Blue label) + error streak suffix
+            # 4. Evaluating State (Active Blue label on 'sage:') + error streak suffix
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
@@ -184,7 +183,6 @@ class TestStatusline(unittest.TestCase):
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertIn("\033[1;34msage:\033[0m", badges[0])
-            self.assertIn("\033[1;34mr[2]\033[0m", badges[0])
             self.assertIn("\033[31m/err[3]\033[0m", badges[0])
             self.assertEqual(clean(badges[0]), "sage:g[0]/a[0]/p[1]/r[2]/err[3]")
         finally:
