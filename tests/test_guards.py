@@ -86,14 +86,35 @@ class TestGuards(unittest.TestCase):
 
     def test_is_subagent_session_by_prompt(self):
         self.assertTrue(is_subagent_session({}, None, "You are running as a subagent to help."))
-        self.assertTrue(is_subagent_session({}, None, "Please act as a research subagent."))
         self.assertTrue(is_subagent_session({}, None, "invoked by a caller agent (name: parent)"))
         self.assertTrue(is_subagent_session({}, None, "<subagent_reminder>Don't stop</subagent_reminder>"))
+        self.assertTrue(is_subagent_session({}, None, "[subagent_role: scout] do research"))
+        self.assertTrue(is_subagent_session({}, None, "Please act as a research subagent."))
         self.assertFalse(is_subagent_session({}, None, "Please optimize my database query."))
+        self.assertFalse(is_subagent_session({}, None, "Can you do research on hermes and agy?"))
 
     def test_is_subagent_session_by_transcript(self):
         with open(self.transcript_path, "w") as f:
-            f.write(json.dumps({"type": "GENERIC", "content": "you are running as a subagent"}) + "\n")
+            f.write(json.dumps({"type": "USER_INPUT", "content": "you are running as a subagent"}) + "\n")
+        self.assertTrue(is_subagent_session({}, self.transcript_path, "Clean prompt"))
+
+    def test_is_subagent_session_generic_tool_output_not_false_positive(self):
+        tool_dumps = [
+            "Showing lines 1-100: <subagent_reminder> research subagent codebase researcher",
+            "advisor/guards.py:125: markers = (\"<subagent_reminder>\", ...)",
+            "\"\"\"\nadvisor.guards\n\"\"\"\nmarkers = (\"<subagent_reminder>\", ...)",
+            "AssertionError: [subagent_role: worker] not found in output",
+            "commit abc1234\nAuthor: dev\nFix <subagent_reminder> parsing",
+            "-rw-r--r-- 1 staff 1234 Aug 24 guards.py <subagent_reminder>",
+        ]
+        for dump in tool_dumps:
+            with open(self.transcript_path, "w") as f:
+                f.write(json.dumps({"type": "GENERIC", "content": dump}) + "\n")
+            self.assertFalse(is_subagent_session({}, self.transcript_path, "Clean prompt"), f"False positive on: {dump}")
+
+        # Real subagent GENERIC step starting with marker MUST be detected
+        with open(self.transcript_path, "w") as f:
+            f.write(json.dumps({"type": "GENERIC", "content": "<subagent_reminder> Running in worker mode </subagent_reminder>"}) + "\n")
         self.assertTrue(is_subagent_session({}, self.transcript_path, "Clean prompt"))
 
     def test_is_subagent_session_real_antigravity_transcript_not_false_positive(self):

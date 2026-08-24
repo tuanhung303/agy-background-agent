@@ -6,6 +6,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ADVISOR_SRC="$REPO_DIR/hooks/session-advisor.py"
 TIMER_SRC="$REPO_DIR/hooks/command-timer.py"
 STATUSLINE_SRC="$REPO_DIR/statusline/statusline.py"
+PROMPT_SRC="$REPO_DIR/advisor/advisor_prompt.md"
 
 if [[ ! -f "$ADVISOR_SRC" ]]; then
   echo "Error: Hook file not found at $ADVISOR_SRC" >&2
@@ -22,10 +23,15 @@ if [[ ! -f "$STATUSLINE_SRC" ]]; then
   exit 1
 fi
 
+if [[ ! -f "$PROMPT_SRC" ]]; then
+  echo "Error: Advisor prompt file not found at $PROMPT_SRC" >&2
+  exit 1
+fi
+
 chmod +x "$ADVISOR_SRC" "$TIMER_SRC" "$STATUSLINE_SRC"
 chmod +x "$SCRIPT_DIR/install.sh"
 
-echo "Installing hooks and statusline from $REPO_DIR..."
+echo "Installing hooks, statusline, and prompt from $REPO_DIR..."
 
 mkdir -p "$HOME/.config/agy" "$HOME/.gemini/config/hooks"
 
@@ -36,16 +42,20 @@ ln -sf "$ADVISOR_SRC" "$HOME/.config/agy/session-stop-audit.py"
 ln -sf "$ADVISOR_SRC" "$HOME/.gemini/config/hooks/session-stop-audit.py"
 echo "✓ Symlinked session-advisor.py (with session-stop-audit.py compatibility links)"
 
-# 2. command-timer symlinks
+# 2. advisor prompt symlink
+ln -sf "$PROMPT_SRC" "$HOME/.config/agy/advisor_prompt.md"
+echo "✓ Symlinked advisor_prompt.md"
+
+# 3. command-timer symlinks
 ln -sf "$TIMER_SRC" "$HOME/.config/agy/command-timer.py"
 ln -sf "$TIMER_SRC" "$HOME/.gemini/config/hooks/command-timer.py"
 echo "✓ Symlinked command-timer.py"
 
-# 3. statusline symlink
+# 4. statusline symlink
 ln -sf "$STATUSLINE_SRC" "$HOME/.config/agy/statusline.py"
 echo "✓ Symlinked statusline.py"
 
-# 4. Configure ~/.gemini/config/hooks.json if needed
+# 5. Configure ~/.gemini/config/hooks.json if needed
 HOOKS_JSON="$HOME/.gemini/config/hooks.json"
 python3 - << PYEOF
 import json, os
@@ -73,8 +83,8 @@ data["session-advisor"] = {
     }]
 }
 
-# Retain legacy session-stop-audit pointing to session-advisor for backward compatibility
-data.setdefault("session-stop-audit", data["session-advisor"])
+# Remove redundant legacy session-stop-audit hook entry to prevent duplicate execution
+data.pop("session-stop-audit", None)
 
 # Ensure command-timer is registered
 data.setdefault("command-timer", {
@@ -107,5 +117,5 @@ PYEOF
 echo "✓ Verified and updated hooks.json configuration"
 
 echo "Verifying symlink destinations:"
-ls -l "$HOME/.config/agy/session-advisor.py" "$HOME/.gemini/config/hooks/session-advisor.py" "$HOME/.gemini/config/hooks/command-timer.py" "$HOME/.config/agy/statusline.py"
+ls -l "$HOME/.config/agy/session-advisor.py" "$HOME/.gemini/config/hooks/session-advisor.py" "$HOME/.gemini/config/hooks/command-timer.py" "$HOME/.config/agy/statusline.py" "$HOME/.config/agy/advisor_prompt.md"
 echo "Installation complete."

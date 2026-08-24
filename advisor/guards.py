@@ -133,9 +133,13 @@ def is_subagent_session(payload, transcript_path, user_prompt, raw_user_prompt="
                 for line in f:
                     try:
                         step = json.loads(line)
-                        stype, c = step.get("type"), str(step.get("content") or "").lower()
-                        if stype != "CHECKPOINT" and (any(m in c for m in markers) or re.search(subagent_pattern, c)):
-                            return True
+                        stype = str(step.get("type") or "").upper()
+                        c = str(step.get("content") or "").strip().lower()
+                        if stype not in ("CHECKPOINT", "PLANNER_RESPONSE"):
+                            if any(c.startswith(m) for m in markers):
+                                return True
+                            if stype in ("USER_INPUT", "SYSTEM_MESSAGE") and (any(m in c for m in markers) or re.search(subagent_pattern, c)):
+                                return True
                     except Exception:
                         pass
         except Exception:

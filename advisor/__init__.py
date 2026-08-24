@@ -18,6 +18,7 @@ from advisor.config import (
     MID_TURN_ADVISOR_ENABLED,
     ADVISOR_TOOL_INTERVAL,
     MAX_MID_TURN_STEERS,
+    GATEWAY_NOTIFY_INTERVAL,
 )
 from advisor.models import (
     parse_model_version,
@@ -84,6 +85,7 @@ __all__ = [
     "MID_TURN_ADVISOR_ENABLED",
     "ADVISOR_TOOL_INTERVAL",
     "MAX_MID_TURN_STEERS",
+    "GATEWAY_NOTIFY_INTERVAL",
     "parse_model_version",
     "model_sort_key",
     "get_available_models",

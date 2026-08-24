@@ -102,10 +102,15 @@ def advisor_flow(mode, *, conv_id, transcript_path, clean_prompt, initial_line_c
     if not final and not forced and (total_tool_calls - lv) < ADVISOR_TOOL_INTERVAL:
         return {"action": "exit", "reason": f"Mid-turn tool delta below interval ({total_tool_calls - lv} < {ADVISOR_TOOL_INTERVAL})"}
 
+    final_signal = (
+        "Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate and live empirical evidence: "
+        "Before emitting recap, ask yourself: 'Can the user confidently ship this code to production, or distribute this to the customer right now without hidden regressions or unhandled defects?' "
+        "If the agent stopped on a passive question ('Shall I apply...'), or if unaddressed review findings/defects remain, do NOT recap; steer the agent to fix them."
+    )
     verdict = evaluate_mid_turn_progress(
         conv_id, transcript_path, total_tool_calls, turn_tool_names,
         user_prompt, agent_steps, git_diff, state, is_forced=(forced or final),
-        signals=("Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate: prompt coverage, live empirical evidence, and knowledge-system/skill-registry write-back (SKILL.md + OKF catalog regeneration) when skills were touched or reusable lessons emerged." if final else signal_note))
+        signals=(final_signal if final else signal_note))
     if has_new_user_activity(transcript_path, clean_prompt, initial_line_count):
         return {"action": "yield", "reason": ("Fresh user input detected during final advisor; yielding" if final else "Fresh user input detected during advisor; yielding")}
     latest = extract_session_and_turn_data(transcript_path)

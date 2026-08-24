@@ -3,7 +3,7 @@
 # /tmp session files, live brain dirs, and cached model state can never
 # leak in (root cause of the environment-sensitive flake class).
 set -e
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SANDBOX="$(mktemp -d)"
 mkdir -p "$SANDBOX/home" "$SANDBOX/tmp"
 export HOME="$SANDBOX/home"
