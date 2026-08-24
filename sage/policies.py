@@ -97,7 +97,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         return _skip_or_exit("sage disabled")
     ms = int(state.get("mid_turn_steers", 0))
     es = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)))
-    if MAX_MID_TURN_STEERS > 0 and ms >= MAX_MID_TURN_STEERS:
+    if not final and MAX_MID_TURN_STEERS > 0 and ms >= MAX_MID_TURN_STEERS:
         return _skip_or_exit(f"max mid-turn steers reached ({ms}/{MAX_MID_TURN_STEERS})")
     effective_max_streak = min(SAGE_MAX_ERROR_STREAK, ADVISOR_MAX_ERROR_STREAK)
     if es >= effective_max_streak:
