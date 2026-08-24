@@ -52,7 +52,7 @@ class TestStaticAnalysis(unittest.TestCase):
     def test_all_advisor_modules_are_strictly_under_200_lines(self):
         pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
         self.assertGreater(len(pkg_files), 0, "No python files found in advisor/")
-        self.assertEqual(len(pkg_files), 19, "Expected exactly 19 modules in advisor/")
+        self.assertEqual(len(pkg_files), 20, "Expected exactly 20 modules in advisor/")
         for filepath in sorted(pkg_files):
             rel_path = os.path.relpath(filepath, self.repo_root)
             with self.subTest(filepath=rel_path):

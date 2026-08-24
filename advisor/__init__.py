@@ -45,6 +45,16 @@ from advisor.guards import (
     is_steering_message,
     is_subagent_session,
 )
+from advisor.events import (
+    EVENT_FINAL_STOP,
+    EVENT_HEARTBEAT,
+    EVENT_TOOL_THRESHOLD,
+    EVENT_ERROR_LOOP,
+    EVENT_SENSITIVE_TOOL,
+    EVENT_STALE_TASK,
+    EVENT_PARALLEL_OPP,
+    format_summon_message,
+)
 from advisor.transcript import (
     clean_user_prompt,
     extract_session_and_turn_data,
@@ -123,5 +133,13 @@ __all__ = [
     "evaluate_turn_triggers",
     "record_advisor_recap",
     "save_session_state",
+    "format_summon_message",
+    "EVENT_FINAL_STOP",
+    "EVENT_HEARTBEAT",
+    "EVENT_TOOL_THRESHOLD",
+    "EVENT_ERROR_LOOP",
+    "EVENT_SENSITIVE_TOOL",
+    "EVENT_STALE_TASK",
+    "EVENT_PARALLEL_OPP",
     "main",
 ]

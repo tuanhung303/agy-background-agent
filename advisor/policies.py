@@ -25,6 +25,12 @@ from advisor.config import (
     MAX_MID_TURN_STEERS,
     MID_TURN_ADVISOR_ENABLED,
 )
+from advisor.events import (
+    EVENT_FINAL_STOP,
+    EVENT_PARALLEL_OPP,
+    EVENT_TOOL_THRESHOLD,
+    format_summon_message,
+)
 from advisor.task_structure import get_parallelizable_signals
 from advisor.triage import classify_advice
 from advisor.transcript import (
@@ -102,15 +108,23 @@ def advisor_flow(mode, *, conv_id, transcript_path, clean_prompt, initial_line_c
     if not final and not forced and (total_tool_calls - lv) < ADVISOR_TOOL_INTERVAL:
         return {"action": "exit", "reason": f"Mid-turn tool delta below interval ({total_tool_calls - lv} < {ADVISOR_TOOL_INTERVAL})"}
 
-    final_signal = (
-        "Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate and live empirical evidence: "
-        "Before emitting recap, ask yourself: 'Can the user confidently ship this code to production, or distribute this to the customer right now without hidden regressions or unhandled defects?' "
-        "If the agent stopped on a passive question ('Shall I apply...'), or if unaddressed review findings/defects remain, do NOT recap; steer the agent to fix them."
-    )
+    if final:
+        active_signal = format_summon_message(EVENT_FINAL_STOP)
+    elif par_sig.get("parallelizable"):
+        active_signal = format_summon_message(EVENT_PARALLEL_OPP, signal_text=par_sig.get("signal_text", ""))
+    elif signal_note:
+        active_signal = signal_note
+    else:
+        active_signal = format_summon_message(
+            EVENT_TOOL_THRESHOLD,
+            total_tools=total_tool_calls,
+            delta_tools=total_tool_calls - lv,
+            pinned_goal=state.get("pinned_goal") or state.get("anchor_goal"),
+        )
     verdict = evaluate_mid_turn_progress(
         conv_id, transcript_path, total_tool_calls, turn_tool_names,
         user_prompt, agent_steps, git_diff, state, is_forced=(forced or final),
-        signals=(final_signal if final else signal_note))
+        signals=active_signal)
     if has_new_user_activity(transcript_path, clean_prompt, initial_line_count):
         return {"action": "yield", "reason": ("Fresh user input detected during final advisor; yielding" if final else "Fresh user input detected during advisor; yielding")}
     latest = extract_session_and_turn_data(transcript_path)

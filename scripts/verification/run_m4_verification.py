@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts.run_m4_verification - Unified Verification Runner for Milestone M4 (R3).
-Executes AST static analysis validation, line budget checking across all 19 modules,
+Executes AST static analysis validation, line budget checking across all 20 modules,
 the M2 empirical suite, M4 hardening suites, the 4-tier E2E suite, and full test discovery.
 """
 
@@ -35,9 +35,9 @@ def verify_static_invariants(repo_root):
     pkg_dir = os.path.join(repo_root, "advisor")
     pkg_files = sorted(glob.glob(f"{pkg_dir}/**/*.py", recursive=True))
 
-    print(f"Found {len(pkg_files)} modules in advisor/ (expected: 19)")
-    if len(pkg_files) != 19:
-        print(f"[FAIL] Expected 19 modules, found {len(pkg_files)}")
+    print(f"Found {len(pkg_files)} modules in advisor/ (expected: 20)")
+    if len(pkg_files) != 20:
+        print(f"[FAIL] Expected 20 modules, found {len(pkg_files)}")
         return False
 
     # 1. Line Budget Check
@@ -242,7 +242,7 @@ def main():
     print("\n" + "#" * 70)
     print("MILESTONE M4 VERIFICATION SUMMARY: 100% PASS")
     print("#" * 70)
-    print(f"  1. 19/19 stop_audit modules <= 199 lines (0 semicolons, 0 packing): PASS")
+    print(f"  1. 20/20 stop_audit modules <= 199 lines (0 semicolons, 0 packing): PASS")
     print(f"  2. AST Docstrings, Wildcard Import, & Print Gates:                  PASS")
     print(f"  3. Static Analysis Suite (tests/test_static_analysis.py):           {count_static:>3} tests in {dur_static:.3f}s [PASS]")
     print(f"  4. M2 Empirical Suite (scripts/test_m2_empirical_stress.py):       {count_m2:>3} tests in {dur_m2:.3f}s [PASS]")
