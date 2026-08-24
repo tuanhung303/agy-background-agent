@@ -10,6 +10,7 @@ import sqlite3
 import subprocess
 import time
 
+from advisor.config import ADVISOR_EXEC_TIMEOUT, ADVISOR_TIMEOUT_BUDGET
 from advisor.locking import acquire_spawn_lock, log_audit, release_spawn_lock, safe_id
 from advisor.models import cache_working_model, resolve_model_candidates
 
@@ -20,14 +21,28 @@ CONV_DB_DIR = os.path.expanduser("~/.gemini/antigravity-cli/conversations")
 def clean_resume_history(conv_id):
     if not conv_id:
         return
+    sid = safe_id(conv_id)
     try:
         db_path = os.path.expanduser("~/.gemini/antigravity-cli/conversation_summaries.db")
-        if os.path.exists(db_path):
+        if os.path.isfile(db_path):
             with sqlite3.connect(db_path, timeout=5) as conn:
-                conn.execute("DELETE FROM conversation_summaries WHERE conversation_id = ?", (conv_id,))
+                conn.execute("DELETE FROM conversation_summaries WHERE conversation_id IN (?, ?)", (conv_id, sid))
                 conn.commit()
     except Exception as e:
         log_audit(f"Failed to clean summary db for {conv_id}: {e}")
+    for name in {conv_id, sid}:
+        try:
+            conv_dir = os.path.expanduser("~/.gemini/antigravity-cli/conversations")
+            if os.path.isdir(conv_dir):
+                for suffix in ("", ".db", ".db-wal", ".db-shm"):
+                    p = os.path.join(conv_dir, f"{name}{suffix}" if suffix else name)
+                    if os.path.isfile(p):
+                        os.remove(p)
+            brain_dir = os.path.expanduser(f"~/.gemini/antigravity-cli/brain/{name}")
+            if os.path.isdir(brain_dir):
+                shutil.rmtree(brain_dir, ignore_errors=True)
+        except Exception as e:
+            log_audit(f"Failed to remove artifacts for {name}: {e}")
 
 
 def get_session_file(parent_conv_id, prefix="agy_stop_audit_session_"):
@@ -44,8 +59,8 @@ def load_session_id(parent_conv_id, prefixes=("agy_stop_audit_session_",)):
             try:
                 with open(sf, "r", encoding="utf-8") as f:
                     sid = f.read().strip()
-                    if sid:
-                        return sid
+                if sid:
+                    return sid
             except Exception:
                 pass
     return None
@@ -105,13 +120,27 @@ def extract_json_from_llm_output(raw_text, schema_keys=()):
         return None
 
 
+def _find_new_conv_id(conv_dir, before_dbs):
+    if not os.path.exists(conv_dir):
+        return None
+    diffs = sorted([f for f in (set(os.listdir(conv_dir)) - before_dbs) if f.endswith(".db")], key=lambda f: os.path.getmtime(os.path.join(conv_dir, f)), reverse=True)
+    return diffs[0].replace(".db", "") if diffs else None
+
+
+def _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_fn, existing=None):
+    cid = existing or _find_new_conv_id(conv_dir, before_dbs)
+    if cid:
+        clean_fn(cid)
+    clear_session_id(parent_conv_id, prefixes)
+    return cid
+
+
 def run_model_cascade(
     parent_conv_id, prompt, prefixes, normalize_func, default_on_failure,
-    label="Advisor", timeout_budget=40.0, schema_keys=(),
+    label="Advisor", timeout_budget=ADVISOR_TIMEOUT_BUDGET, schema_keys=(),
     acquire_lock_fn=acquire_spawn_lock, release_lock_fn=release_spawn_lock,
     resolve_candidates_fn=resolve_model_candidates, clean_resume_fn=clean_resume_history,
 ):
-    primary_prefix = prefixes[0] if isinstance(prefixes, (list, tuple)) else prefixes
     existing_session = load_session_id(parent_conv_id, prefixes)
     start_t, agy_bin = time.time(), (shutil.which("agy") or os.path.expanduser("~/.local/bin/agy"))
     candidates, conv_dir = (resolve_candidates_fn() or [])[:4], CONV_DB_DIR
@@ -135,35 +164,28 @@ def run_model_cascade(
                 if existing_session:
                     cmd.extend(["--conversation", existing_session])
                 cmd.extend(["-p", prompt, "--model", model, "--disable-slash-commands"])
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=min(35.0, max(5.0, remaining)), env=env)
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=min(ADVISOR_EXEC_TIMEOUT, max(5.0, remaining)), env=env)
                 elapsed = round(time.time() - start_t, 2)
                 if res.returncode != 0 or not res.stdout.strip():
                     log_audit(f"{label} model '{model}' failed ({res.returncode}): {res.stderr.strip()[:100]}")
+                    _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session)
                     existing_session = None
-                    clear_session_id(parent_conv_id, prefixes)
                     continue
                 raw_json = extract_json_from_llm_output(res.stdout, schema_keys=schema_keys)
                 if raw_json is None:
                     log_audit(f"{label} model '{model}' output failed JSON decoding; clearing session")
+                    _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session)
                     existing_session = None
-                    clear_session_id(parent_conv_id, prefixes)
                     continue
                 parsed = normalize_func(raw_json)
-                new_conv_id = existing_session
-                if not new_conv_id and os.path.exists(conv_dir):
-                    diff_dbs = sorted([f for f in (set(os.listdir(conv_dir)) - before_dbs) if f.endswith(".db")], key=lambda f: os.path.getmtime(os.path.join(conv_dir, f)), reverse=True)
-                    if diff_dbs:
-                        new_conv_id = diff_dbs[0].replace(".db", "")
-                if new_conv_id:
-                    save_session_id(parent_conv_id, new_conv_id, primary_prefix)
-                    clean_resume_fn(new_conv_id)
+                new_conv_id = _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session)
                 cache_working_model(model)
                 log_audit(f"{label} finished in {elapsed}s with {model} (session={new_conv_id})")
                 return parsed
             except Exception as e:
                 log_audit(f"{label} candidate '{model}' exception: {e}")
+                _clean_cascade_session(parent_conv_id, prefixes, conv_dir, before_dbs, clean_resume_fn, existing_session)
                 existing_session = None
-                clear_session_id(parent_conv_id, prefixes)
                 continue
         return default_on_failure
     except Exception as e:

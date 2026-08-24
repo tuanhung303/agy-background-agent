@@ -92,6 +92,10 @@ MIN_TOOLS_FOR_DURATION_TRIGGER = _safe_int("AGY_ADVISOR_MIN_TOOLS_FOR_TIME", _sa
 # Gateway heartbeat notification interval (180s = 3 minutes)
 GATEWAY_NOTIFY_INTERVAL = max(0.0, _safe_float("AGY_GATEWAY_NOTIFY_INTERVAL", _safe_float("HERMES_AGENT_NOTIFY_INTERVAL", 180.0)))
 
+# Advisor execution timeouts (relaxed for read/bash validation)
+ADVISOR_TIMEOUT_BUDGET = _safe_float("AGY_ADVISOR_TIMEOUT_BUDGET", _safe_float("AGY_STOP_AUDIT_TIMEOUT_BUDGET", 120.0))
+ADVISOR_EXEC_TIMEOUT = _safe_float("AGY_ADVISOR_EXEC_TIMEOUT", _safe_float("AGY_STOP_AUDIT_EXEC_TIMEOUT", 90.0))
+
 # Mid-turn advisor configuration
 MID_TURN_ADVISOR_ENABLED = _safe_int("AGY_MID_TURN_ADVISOR_ENABLED", _safe_int("AGY_MID_TURN_VERIFIER_ENABLED", 1))
 ADVISOR_TOOL_INTERVAL = _safe_int("AGY_ADVISOR_TOOL_INTERVAL", _safe_int("AGY_VERIFIER_TOOL_INTERVAL", 10))

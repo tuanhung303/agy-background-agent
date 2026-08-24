@@ -223,9 +223,23 @@ class TestTriage(unittest.TestCase):
             "pinned_goal": "Optimize AGY stop audit latency under 100ms",
             "goal_status": "drift_detected",
         }
-        res = classify_advice(ver_res, {})
-        self.assertEqual(res["decision"], "steer")
-        self.assertIn("Pinned: Optimize AGY stop audit latency under 100ms", res["text"])
+    def test_advice_key_deduplication_across_guidance_variations(self):
+        ver_res1 = {
+            "status": "watchout",
+            "category": "missing_deliverable",
+            "action": "Run pytest tests/",
+            "guidance": "Execute test suite to verify prompt and timeout changes pass cleanly.",
+        }
+        ver_res2 = {
+            "status": "watchout",
+            "category": "missing_deliverable",
+            "action": "Run pytest tests/",
+            "guidance": "Run pytest tests/ to confirm prompt, config, and executor changes pass cleanly before concluding.",
+        }
+        r1 = classify_advice(ver_res1, {})
+        self.assertEqual(r1["decision"], "watchout")
+        r2 = classify_advice(ver_res2, r1["seen"])
+        self.assertEqual(r2["decision"], "hold_dedup")
 
 
 if __name__ == "__main__":

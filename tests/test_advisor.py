@@ -318,7 +318,7 @@ class TestAdvisor(unittest.TestCase):
     @patch("time.time")
     @patch("subprocess.run")
     def test_run_advisor_model_overall_timeout_budget_halts_fallbacks(self, mock_run, mock_time, _mock_lock, _mock_cands):
-        mock_time.side_effect = [0.0, 0.0, 0.0] + [39.0] * 10
+        mock_time.side_effect = [0.0, 0.0, 0.0] + [119.0] * 10
         proc_fail = MagicMock()
         proc_fail.returncode = 1
         proc_fail.stdout = ""

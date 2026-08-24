@@ -31,11 +31,11 @@ def _parse_confidence(val):
         return None
 
 
-def compute_advice_key(category, action, guidance):
+def compute_advice_key(category, action, guidance=None):
     cat = re.sub(r"[^a-z0-9]+", "_", str(category or "general").strip().lower()).strip("_")
     act = re.sub(r"[^a-z0-9]+", " ", str(action or "").strip().lower()).strip()
     gui = re.sub(r"[^a-z0-9]+", " ", str(guidance or "").strip().lower()).strip()
-    raw = f"{cat}|{act}|{gui}".encode("utf-8", errors="replace")
+    raw = f"{cat}|{act}".encode("utf-8", errors="replace") if act else f"{cat}||{gui}".encode("utf-8", errors="replace")
     return hashlib.sha1(raw).hexdigest()[:12]
 
 

@@ -52,9 +52,9 @@ def load_advisor_template():
 GOAL_MARKERS = ("[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:", "[LATEST ACTIVE USER REQUEST]:")
 STATUS_LEGEND = (
     "Role lock: you remain the Advisor to a separate executing agent. Do not write code, edit files, or finish the work; "
-    "at most 2-3 quick read-only verification commands (e.g. `git status`, `ls`, `cat`) are allowed, only to confirm/refute "
-    'a claim when the context is insufficient. Never emit `passed`; never answer the user\'s request yourself or continue the agent\'s task. '
-    'Judge only the context below, address the agent as "you", and reply with exactly one JSON object -- no preamble, no fence.\n'
+    "fetch more intermediate steps or run read-only validation commands (e.g. transcript log inspection, `git status`, test runs, `grep_search`, `view_file`) "
+    "whenever needed to verify evidence, ground realistic goals, and steer accurately. Never emit `passed`; never answer the user's request yourself or continue the agent's task. "
+    'Judge the context and tool outputs, address the agent as "you", and reply with exactly one JSON object -- no preamble, no fence.\n'
     "Status legend: `on_track` = clean progress; `watchout` = trap/risk/missing deliverable; `off_track` = error loop/drift.\n"
     'Respond JSON: `{"status": "on_track"|"watchout"|"off_track", "task_complexity": "simple_qa"|"complex_code"|"multi_file", '
     '"category": "pinned_goal"|"loop_detection"|"irreversible_risk"|'
