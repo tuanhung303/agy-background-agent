@@ -61,10 +61,13 @@ class TestTranscript(unittest.TestCase):
             extract_session_and_turn_data(self.transcript_path)
         )
         self.assertIn("Refactor code", user_prompt)
+        self.assertEqual(raw_prompt, "<USER_REQUEST>Refactor code</USER_REQUEST>")
         self.assertEqual(user_prompt, "[LATEST ACTIVE USER REQUEST]:\nRefactor code")
         self.assertEqual(tools_count, 2)
         self.assertEqual(tool_names, {"view_file", "replace_file_content"})
         self.assertEqual(line_cnt, 4)
+        self.assertIsNotNone(first_ts)
+        self.assertIsNotNone(user_ts)
 
     def test_extract_session_and_turn_data_malformed_tool_calls(self):
         lines = [
@@ -82,6 +85,14 @@ class TestTranscript(unittest.TestCase):
         self.assertIn("write_to_file", tool_names)
         self.assertIsNotNone(first_ts)
         self.assertIsNotNone(user_ts)
+
+        from sage.transcript import extract_turn_tool_calls, calculate_turn_tool_score, has_repeated_tool_calls
+        calls = extract_turn_tool_calls(self.transcript_path)
+        self.assertEqual(len(calls), 1)
+        score, count = calculate_turn_tool_score(self.transcript_path)
+        self.assertGreater(score, 0.0)
+        self.assertEqual(count, 1)
+        self.assertFalse(has_repeated_tool_calls(self.transcript_path))
 
     def test_extract_empty_or_missing_transcript(self):
         res = extract_session_and_turn_data("/path/does/not/exist.jsonl")

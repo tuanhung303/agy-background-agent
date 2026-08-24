@@ -3,10 +3,7 @@ sage.transcript - Parsing, sanitization, and turn extraction from transcript.jso
 """
 
 from datetime import datetime, timezone
-import itertools
-import json
-import os
-import re
+import itertools, json, os, re
 
 from sage.config import get_tool_weight
 from sage.guards import is_steering_message
@@ -68,6 +65,13 @@ def _read_transcript_steps(transcript_path):
     return steps
 
 
+def _safe_tool_calls(s):
+    if not isinstance(s, dict):
+        return []
+    tc = s.get("tool_calls")
+    return [t for t in tc if isinstance(t, dict)] if isinstance(tc, list) else []
+
+
 def extract_session_and_turn_data(transcript_path):
     steps = _read_transcript_steps(transcript_path)
     if not steps:
@@ -89,8 +93,7 @@ def extract_session_and_turn_data(transcript_path):
         return user_prompt, raw_user_prompt, agent_steps, 0, tool_names, first_ts, user_ts, len(steps)
     for s in steps[last_user_idx + 1:]:
         stype, scontent = s.get("type"), str(s.get("content") or "")
-        raw_tc = s.get("tool_calls")
-        stools = [t for t in raw_tc if isinstance(t, dict)] if isinstance(raw_tc, list) else []
+        stools = _safe_tool_calls(s)
         total_tools += len(stools)
         tool_names.update(t.get("name") for t in stools if t.get("name"))
         if stype == "PLANNER_RESPONSE":
@@ -109,19 +112,16 @@ def has_new_user_activity(transcript_path, original_user_prompt, original_line_c
         if not steps or len(steps) < original_line_count:
             return True
         latest = [clean_user_prompt(str(s.get("content") or "")) for s in steps if is_explicit_user_input(s)]
-        if latest and latest[-1] and latest[-1] != original_user_prompt:
-            return True
-        return any(is_explicit_user_input(s) for s in steps[original_line_count:]) if len(steps) > original_line_count else False
-    except Exception as e:
-        log_audit(f"Error checking new user activity: {e}")
-        return False
+        return bool(latest and latest[-1] != clean_user_prompt(original_user_prompt))
+    except Exception:
+        return True
 
 
 def get_active_turn_identity(transcript_path):
     for s in reversed(_read_transcript_steps(transcript_path)):
         if is_explicit_user_input(s):
             sid = s.get("step_index")
-            return f"step:{sid}" if sid is not None else (f"created:{s.get('created_at')}" if s.get("created_at") else f"line:{s.get('_line_no', 1)}")
+            return f"step:{sid}" if sid is not None else (f"created:{s.get('created_at')}" if s.get('created_at') else f"line:{s.get('_line_no', 1)}")
     return "missing"
 
 
@@ -129,7 +129,7 @@ def extract_turn_tool_calls(transcript_path):
     steps = _read_transcript_steps(transcript_path)
     turn_idxs = [i for i, s in enumerate(steps) if is_explicit_user_input(s)]
     t_steps = steps[turn_idxs[-1] + 1:] if turn_idxs else steps
-    return [t for s in t_steps for t in (s.get("tool_calls") or []) if isinstance(t, dict)]
+    return [t for s in t_steps for t in _safe_tool_calls(s)]
 
 
 def calculate_turn_tool_score(transcript_path, last_verified_tools=0):

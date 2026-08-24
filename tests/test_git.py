@@ -187,6 +187,33 @@ class TestGit(unittest.TestCase):
         self.assertNotIn("wJalrXUtnFEMI", diff)
         self.assertIn("secrets.env", diff)
 
+    def test_redact_secrets_corpus_and_no_diff_fabrication(self):
+        from sage.sanitizer import redact_secrets, clamp_diff
+        secrets_corpus = [
+            ("AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG'", "wJalrXUtnFEMI"),
+            ("GITHUB_TOKEN = 'ghp_RealLookingTokenValue12345'", "ghp_RealLookingTokenValue"),
+            ("DB_PASSWORD = 'hunter2'", "hunter2"),
+            ("OPENAI_API_KEY = 'sk-proj-xyz12345'", "sk-proj-xyz12345"),
+            ("STRIPE_SECRET_KEY = 'sk_live_12345'", "sk_live_12345"),
+            ("MY_AUTH_TOKEN = 'abc_token_123'", "abc_token_123"),
+            ("JWT_SECRET = 'supersecretjwt'", "supersecretjwt"),
+            ("SLACK_BEARER_TOKEN = 'xoxb-12345'", "xoxb-12345"),
+            ("access_token = 'token_abc_xyz'", "token_abc_xyz"),
+            ("-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA1234567890abcdef\nQUJDREVGRw==\n-----END RSA PRIVATE KEY-----", "MIIEowIBAAKCAQEA1234567890abcdef"),
+        ]
+        for payload, marker in secrets_corpus:
+            redacted = redact_secrets(payload)
+            self.assertNotIn(marker, redacted, f"Failed to redact marker {marker} from payload {payload}")
+            clamped = clamp_diff(payload)
+            self.assertNotIn(marker, clamped, f"Failed in clamp_diff for {marker}")
+
+        # Ensure no line-spanning diff fabrication on normal code
+        normal_diff = "+import auth\n+CRITICAL_LINE = 1\n+from auth import login\n+def compute():\n+    return 42\n"
+        redacted_diff = redact_secrets(normal_diff)
+        self.assertIn("CRITICAL_LINE = 1", redacted_diff)
+        self.assertIn("def compute():", redacted_diff)
+        self.assertEqual(len(normal_diff.splitlines()), len(redacted_diff.splitlines()))
+
 
 if __name__ == "__main__":
     unittest.main()

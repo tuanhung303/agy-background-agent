@@ -104,7 +104,12 @@ def sanitize_tool_output(content: Any, max_chars: int = 800, max_line_len: int =
 
 
 _SECRET_RE = re.compile(
-    r"(?i)(?:\b(?:token|secret|password|api[_-]?key|bearer|private[_-]?key|auth)\b\s*[:=]?\s*['\"]?\S+['\"]?|-----BEGIN [A-Z ]+PRIVATE KEY-----)"
+    r"(?i)("
+    r"[a-z0-9_.-]*(?:token|secret|passwd|password|api[_-]?key|apikey|bearer|private[_-]?key"
+    r"|access[_-]?key|auth[_-]?token|client[_-]?secret)[a-z0-9_.-]*"
+    r"\s*[:=]\s*['\"]?[^\s'\"]+['\"]?"
+    r"|-----BEGIN[ A-Z]*PRIVATE KEY-----[\s\S]*?-----END[ A-Z]*PRIVATE KEY-----"
+    r")"
 )
 
 

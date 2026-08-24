@@ -270,6 +270,12 @@ class TestSage(unittest.TestCase):
             self.assertTrue(is_same)
             self.assertEqual(reloaded.get("last_par_cats"), ["disjoint_files"])
             self.assertEqual(reloaded.get("last_par_fp"), [["disjoint_files"], ["2 dirs"]])
+
+            # On new turn, structural fingerprint resets
+            _, _, reloaded_new, is_same_new = load_and_sync_session_state("conv_fp_test", "/tmp/nonexistent_transcript.jsonl", "new distinct prompt")
+            self.assertFalse(is_same_new)
+            self.assertEqual(reloaded_new.get("last_par_cats"), [])
+            self.assertEqual(reloaded_new.get("last_par_fp"), [])
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)

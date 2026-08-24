@@ -24,9 +24,7 @@ from sage.config import (
     SAGE_TOOL_SCORE_THRESHOLD, ADVISOR_TOOL_SCORE_THRESHOLD,
 )
 MID_TURN_ADVISOR_ENABLED, ADVISOR_TOOL_INTERVAL = MID_TURN_SAGE_ENABLED, SAGE_TOOL_INTERVAL
-ADVISOR_STEER_MIN_CONFIDENCE, ADVISOR_ESCALATE_MIN_CONFIDENCE, ADVISOR_MAX_ERROR_STREAK = (
-    SAGE_STEER_MIN_CONFIDENCE, SAGE_ESCALATE_MIN_CONFIDENCE, SAGE_MAX_ERROR_STREAK
-)
+ADVISOR_STEER_MIN_CONFIDENCE, ADVISOR_ESCALATE_MIN_CONFIDENCE, ADVISOR_MAX_ERROR_STREAK = SAGE_STEER_MIN_CONFIDENCE, SAGE_ESCALATE_MIN_CONFIDENCE, SAGE_MAX_ERROR_STREAK
 from sage.events import EVENT_FINAL_STOP, EVENT_PARALLEL_OPP, EVENT_TOOL_THRESHOLD, format_summon_message
 from sage.task_structure import get_parallelizable_signals
 from sage.transcript import (
@@ -95,7 +93,8 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     lv = int(state.get("last_verified_tools", 0))
     par_sig = get_parallelizable_signals(transcript_path) if not final else {}
     if par_sig.get("parallelizable"):
-        fp = [sorted(par_sig.get("categories", [])), sorted(par_sig.get("details", []))]
+        stable_details = [d for d in par_sig.get("details", []) if not d.startswith("mid-task tool accumulation")]
+        fp = [sorted(par_sig.get("categories", [])), sorted(stable_details)]
         if par_sig.get("categories") != ["context_fatigue_delegation"] and fp != state.get("last_par_fp"):
             forced = True
             state["last_par_fp"] = fp
