@@ -147,6 +147,8 @@ class TestFinalSageGate(unittest.TestCase):
                 patch.object(policies, "calculate_turn_tool_score", return_value=(2.0, 4)), \
                 frozen[0], frozen[1], frozen[2]:
             act = policies.sage_flow("midturn", **ctx)
+        self.assertEqual(act["action"], "exit")
+        self.assertIn("Mid-turn tool delta below threshold", act["reason"])
     def test_signal_note_newline_separation(self):
         ctx = _ctx(total_tool_calls=30, signal_note="[EVT·error_loop s3] err=1\nASK root cause.")
         par_sig = {
