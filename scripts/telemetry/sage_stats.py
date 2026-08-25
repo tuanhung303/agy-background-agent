@@ -97,18 +97,6 @@ def main():
         print(f"categories              {top}")
     return 0
 
-    print("-" * 52)
-    fired = counts["steers_fired"] + counts["watchouts_emitted"]
-    evals = fired + counts["advisor_holds"] + counts["advice_deduped"]
-    if evals:
-        print(f"evaluations             {evals:>6}  (fire {fired / evals:.0%}, dedup {counts['advice_deduped'] / evals:.0%})")
-    if modes:
-        print(f"prompt modes            initial={modes['initial']} update={modes['update']}")
-    if categories:
-        top = ", ".join(f"{k}:{v}" for k, v in categories.most_common(5))
-        print(f"categories              {top}")
-    return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

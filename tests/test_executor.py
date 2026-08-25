@@ -77,8 +77,6 @@ class TestExecutor(unittest.TestCase):
         self.assertTrue(result.get("healthy"))
 
     def test_clean_resume_history_full_ephemeral_cleanup(self):
-        import os
-        import sqlite3
         cid = f"test_adv_{int(time.time() * 1000)}"
         fake_home = os.path.join(self.test_dir, "fake_home")
         gemini_dir = os.path.join(fake_home, ".gemini", "antigravity-cli")
@@ -114,8 +112,6 @@ class TestExecutor(unittest.TestCase):
             self.assertEqual(cnt, 0)
 
     def test_clean_summary_only_preserves_runtime_db(self):
-        import os
-        import sqlite3
         cid = f"test_adv_{int(time.time() * 1000)}"
         fake_home = os.path.join(self.test_dir, "fake_home_summary")
         gemini_dir = os.path.join(fake_home, ".gemini", "antigravity-cli")

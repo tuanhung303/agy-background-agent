@@ -3,7 +3,7 @@ sage.sanitizer - String cleaning, tool output sanitization, and output budget tr
 """
 
 import re
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 def clean_user_prompt(text: Optional[str]) -> str:

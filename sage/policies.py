@@ -175,7 +175,7 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
     Thin wrapper over sage_flow(mode="final"); a healthy hold carries a
     sage recap that terminates the session cleanly.
     """
-    _flow = advisor_flow if advisor_flow is not sage_flow else sage_flow
+    _flow = advisor_flow if advisor_flow is not _BASE_SAGE_FLOW else sage_flow
     act = _flow("final", conv_id=conv_id, transcript_path=transcript_path,
                 clean_prompt=clean_prompt, initial_line_count=initial_line_count,
                 total_tool_calls=total_tool_calls, turn_tool_names=turn_tool_names,
@@ -189,5 +189,6 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
 
 
 # Backward-compatibility aliases
+_BASE_SAGE_FLOW = sage_flow
 advisor_flow = sage_flow
 final_advisor_gate = final_sage_gate
