@@ -78,5 +78,65 @@ class TestDeferrals(unittest.TestCase):
         self.assertIn("còn xyz có muốn làm không", classified["text"])
 
 
+    def test_lexical_variants_normalization(self):
+        cases = [
+            "This is out-of-scope for now.",
+            "This is out  of  scope.",
+            "This is out\u200bof scope.",
+            "Lỗi này ngoài-scope nhé.",
+        ]
+        for text in cases:
+            matches = detect_deferral_in_text(text)
+            self.assertTrue(len(matches) > 0, f"Failed for lexical variant: {text}")
+
+    def test_washout_avoidance_turn_wide_scan(self):
+        steps = [
+            {"type": "USER_INPUT", "content": "triển khai tính năng"},
+            {"type": "PLANNER_RESPONSE", "content": "Em đã làm phần 1, còn phần 2 anh có muốn em làm không?"},
+            {"type": "GENERIC", "content": "Tool output"},
+            {"type": "PLANNER_RESPONSE", "content": "Done."},
+        ]
+        res = detect_transcript_deferral(steps)
+        self.assertTrue(res["matched"], "Failed to catch deferral in earlier response of the same turn")
+
+    def test_delegated_command_extraction(self):
+        steps = [
+            {"type": "USER_INPUT", "content": "chạy test"},
+            {"type": "PLANNER_RESPONSE", "content": "Em xong rồi, bạn có thể tự chạy lệnh: `pytest tests/test_deferrals.py` để verify."},
+        ]
+        res = detect_transcript_deferral(steps)
+        self.assertTrue(res["matched"])
+        self.assertEqual(res["delegated_cmd"], "pytest tests/test_deferrals.py")
+        classified = classify_advice({"status": "on_track", "healthy": True}, deferral=res)
+        self.assertEqual(classified["decision"], "watchout")
+        self.assertIn("pytest tests/test_deferrals.py", classified["text"])
+
+    def test_tail_todo_extraction(self):
+        steps = [
+            {"type": "USER_INPUT", "content": "hoàn thiện task"},
+            {"type": "PLANNER_RESPONSE", "content": "Hoàn tất các mục chính.\n\n## Remaining Work\n- Check production logs"},
+        ]
+        res = detect_transcript_deferral(steps)
+        self.assertTrue(res["matched"])
+        self.assertEqual(res["tail_todo"], "## Remaining Work")
+        classified = classify_advice({"status": "on_track", "healthy": True}, deferral=res)
+        self.assertEqual(classified["decision"], "watchout")
+        self.assertIn("Execute remaining work directly", classified["text"])
+
+    def test_dedup_does_not_suppress_active_deferral_at_final_gate(self):
+        deferral = {
+            "matched": True,
+            "snippet": "còn xyz có muốn làm không",
+            "phrases": ["còn xyz có muốn làm không"],
+        }
+        # First stop emission
+        res1 = classify_advice({"status": "on_track", "healthy": True}, seen_advice={}, deferral=deferral)
+        self.assertEqual(res1["decision"], "watchout")
+        # Second stop emission with same key
+        res2 = classify_advice({"status": "on_track", "healthy": True}, seen_advice=res1["seen"], deferral=deferral)
+        # Must still emit watchout and NOT hold_dedup on round 2
+        self.assertEqual(res2["decision"], "watchout")
+
+
 if __name__ == "__main__":
     unittest.main()

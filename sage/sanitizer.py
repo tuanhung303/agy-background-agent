@@ -10,12 +10,7 @@ def clean_user_prompt(text: Optional[str]) -> str:
     """Strips AGY XML envelope tags (<USER_REQUEST>, <ADDITIONAL_METADATA>, etc.)."""
     if not text:
         return ""
-    patterns = (
-        r"<USER_REQUEST>(.*?)</USER_REQUEST>",
-        r"<ADDITIONAL_METADATA>.*?</ADDITIONAL_METADATA>",
-        r"<USER_SETTINGS_CHANGE>.*?</USER_SETTINGS_CHANGE>",
-    )
-    for p in patterns:
+    for p in (r"<USER_REQUEST>(.*?)</USER_REQUEST>", r"<ADDITIONAL_METADATA>.*?</ADDITIONAL_METADATA>", r"<USER_SETTINGS_CHANGE>.*?</USER_SETTINGS_CHANGE>"):
         text = re.sub(p, r"\1" if "(.*?)" in p else "", text, flags=re.DOTALL)
     return text.strip()
 
@@ -57,63 +52,39 @@ def _clamp_lines(lines: List[str], max_line_len: int) -> List[str]:
 
 def sanitize_tool_output(content: Any, max_chars: int = 800, max_line_len: int = 300) -> str:
     """Sanitizes tool output by stripping boilerplates, clamping long lines, and head/tail truncation."""
-    if not content:
+    if not content or not str(content).strip():
         return ""
-    text = str(content).strip()
-    if not text:
-        return ""
-
-    clean_lines = _strip_boilerplate_headers(text.splitlines())
+    clean_lines = _strip_boilerplate_headers(str(content).strip().splitlines())
     if not clean_lines:
         return ""
-
     clamped = _clamp_lines(clean_lines, max_line_len)
     total_lines = len(clamped)
     full_text = "\n".join(clamped)
     if len(full_text) <= max_chars:
         return full_text
-
-    head_count = min(6, total_lines // 2)
-    tail_count = min(6, total_lines // 2)
+    head_count = tail_count = min(6, total_lines // 2)
     if head_count == 0 or total_lines <= head_count + tail_count:
         h_half = max(1, max_chars // 2 - 15)
-        if max_chars < 60:
-            return full_text[:max_chars]
-        return f"{full_text[:h_half]}\n... [truncated] ...\n{full_text[-h_half:]}"
-
-    head = clamped[:head_count]
-    tail = clamped[-tail_count:]
-    tr_count = total_lines - head_count - tail_count
-    head_txt = "\n".join(head)
-    tail_txt = "\n".join(tail)
+        return full_text[:max_chars] if max_chars < 60 else f"{full_text[:h_half]}\n... [truncated] ...\n{full_text[-h_half:]}"
     hdr = f"[Output: {total_lines} lines total]\n[Lines 1-{head_count}]:\n"
-    mid = f"\n... [{tr_count} lines truncated] ...\n[Lines {total_lines - tail_count + 1}-{total_lines}]:\n"
-    res = hdr + head_txt + mid + tail_txt
+    mid = f"\n... [{total_lines - head_count - tail_count} lines truncated] ...\n[Lines {total_lines - tail_count + 1}-{total_lines}]:\n"
+    res = hdr + "\n".join(clamped[:head_count]) + mid + "\n".join(clamped[-tail_count:])
     if len(res) <= max_chars:
         return res
-
     avail = max_chars - len(hdr) - len(mid)
     if avail < 40:
         return full_text[:max_chars] if max_chars > 0 else ""
-    return hdr + head_txt[: avail // 2] + mid + tail_txt[-(avail - avail // 2) :]
+    return hdr + "\n".join(clamped[:head_count])[:avail // 2] + mid + "\n".join(clamped[-tail_count:])[-(avail - avail // 2):]
 
 
 _SECRET_RE = re.compile(
-    r"(?i)("
-    r"[a-z0-9_.-]*(?:token|secret|passwd|password|api[_-]?key|apikey|bearer|private[_-]?key"
-    r"|access[_-]?key|auth[_-]?token|client[_-]?secret)[a-z0-9_.-]*"
-    r"[^\S\r\n]*[:=][^\S\r\n]*(?:'[^'\r\n]*'|\"[^\"\r\n]*\"|[^\s'\"\r\n]+)"
-    r"|Authorization[^\S\r\n]*:[^\S\r\n]*(?:Bearer|Basic|Digest|Negotiate|Token)[^\S\r\n]+[^\s\r\n]+"
-    r"|-----BEGIN[ A-Z]*PRIVATE KEY-----(?:[\s\S]{0,4000}?-----END[ A-Z]*PRIVATE KEY-----|(?:[\r\n]+[+ \t]*[A-Za-z0-9+/=]{10,}[^\r\n]*)*)"
-    r")"
+    r"(?i)([a-z0-9_.-]*(?:token|secret|passwd|password|api[_-]?key|apikey|bearer|private[_-]?key|access[_-]?key|auth[_-]?token|client[_-]?secret)[a-z0-9_.-]*[^\S\r\n]*[:=][^\S\r\n]*(?:'[^'\r\n]*'|\"[^\"\r\n]*\"|[^\s'\"\r\n]+)|Authorization[^\S\r\n]*:[^\S\r\n]*(?:Bearer|Basic|Digest|Negotiate|Token)[^\S\r\n]+[^\s\r\n]+|-----BEGIN[ A-Z]*PRIVATE KEY-----(?:[\s\S]{0,4000}?-----END[ A-Z]*PRIVATE KEY-----|(?:[\r\n]+[+ \t]*[A-Za-z0-9+/=]{10,}[^\r\n]*)*))"
 )
 
 
 def redact_secrets(text: Optional[str]) -> str:
     """Redacts secret patterns, tokens, passwords, and private keys."""
-    if not text:
-        return ""
-    return _SECRET_RE.sub("[redacted]", str(text))
+    return _SECRET_RE.sub("[redacted]", str(text)) if text else ""
 
 
 def clamp_diff(git_diff: Optional[str], budget: int = 4000) -> str:
@@ -128,40 +99,30 @@ def clamp_diff(git_diff: Optional[str], budget: int = 4000) -> str:
     return f"{sanitized[:head_budget]}\n... [diff truncated] ...\n{sanitized[-tail_budget:]}"
 
 
-BANNED_DEFERRAL_PATTERNS = (
-    re.compile(r"\bout of scope\b", re.I),
-    re.compile(r"\bkhông thuộc scope\b", re.I),
-    re.compile(r"\bngoài scope\b", re.I),
-    re.compile(r"\bngoài phạm vi\b", re.I),
-    re.compile(r"\bfuture change\b", re.I),
-    re.compile(r"\bđể sau làm\b", re.I),
-    re.compile(r"\blater we can\b", re.I),
-    re.compile(r"\bwe will need to\b", re.I),
-    re.compile(r"\bdeliberate accepted cost\b", re.I),
-    re.compile(r"\baccept the (?:gap|slight|small|aspirational|cosmetic)\b", re.I),
-    re.compile(r"\bleft for user judgment\b", re.I),
-    re.compile(r"\bfor now we(?:'ll| will) just\b", re.I),
-    re.compile(r"\bgood enough for (?:v1|now)\b", re.I),
-    re.compile(r"\btạm thời như vậy\b", re.I),
-    re.compile(r"\bwe can revisit this\b", re.I),
-    re.compile(r"\btactical fix only\b", re.I),
-    re.compile(r"\bminimum viable fix\b", re.I),
-    re.compile(r"\bnon-blocking\b", re.I),
-    re.compile(r"\bnot blocking\b", re.I),
-    re.compile(r"\bcost of fixing isn't worth\b", re.I),
-    re.compile(r"\bmvp mindset\b", re.I),
-    re.compile(r"\bship now, fix later\b", re.I),
-    re.compile(r"\bnot worth the dance\b", re.I),
-    re.compile(r"\btrivial enough to skip\b", re.I),
-    re.compile(r"\bfile follow-up if load-bearing\b", re.I),
-    re.compile(r"\bproves insufficient post-merge\b", re.I),
-    re.compile(r"\bstructural and pre-existing\b", re.I),
-    re.compile(r"\b(?:would you like me to|do you want me to|should (?:i|we)|shall (?:i|we)|let me know if you would like)\b", re.I),
-    re.compile(r"\b(?:bạn|anh)\s*(?:có muốn|có cần|muốn)\b.*(?:\?|không\??)", re.I),
-    re.compile(r"\b(?:có muốn|muốn làm tiếp|muốn address|có cần|muốn triển khai)\s*.*(?:\?|không\??)", re.I),
-    re.compile(r"\bcòn\s+.*\s+(?:có muốn|có cần|muốn)\s+.*(?:\?|không\??)", re.I),
-    re.compile(r"\badvise đã sync có muốn làm không\b", re.I),
+DEFERRAL_TAXONOMY = (
+    ("question_dumping", (
+        re.compile(r"\b(?:would you like me to|do you want me to|should (?:i|we)|shall (?:i|we)|let me know if you would like|how would you like to proceed|what would you like to do next)\b", re.I),
+        re.compile(r"\b(?:bạn|anh|chị|senpai)\s*(?:có\s+)?(?:muốn|cần|muốn em|muốn mình)\b.*(?:\?|không\??)", re.I),
+        re.compile(r"\b(?:có\s+)?(?:muốn|cần)\s+(?:mình|em|tôi|tiếp tục|làm tiếp|triển khai|chạy|fix|sửa|test|address)\b.*(?:\?|không\??)", re.I),
+        re.compile(r"\bcòn\s+.*\s+(?:có\s+)?(?:muốn|cần|muốn em)\s+.*(?:\?|không\??)", re.I),
+        re.compile(r"\badvise đã sync có muốn làm không\b", re.I),
+    )),
+    ("scope_evasion", (
+        re.compile(r"\b(?:out[\s_-]?of[\s_-]?scope|outside(?: of)? scope|không thuộc scope|ngoài scope|ngoài phạm vi|pre-existing|not in (?:the )?(?:original )?prompt|beyond the scope)\b", re.I),
+    )),
+    ("aspirational_gap", (
+        re.compile(r"\b(?:good enough for (?:v1|now)|future (?:change|work|enhancement|iteration)|(?:we can|we will) revisit|we will need to|left for user judgment|for now we(?:'ll| will) just|tạm thời (?:như vậy|chấp nhận|thế)|để sau (?:làm|xử lý|tính)|gác lại phần này|mvp mindset|non-blocking|not blocking|deliberate accepted cost|accept the (?:gap|slight|small|aspirational))\b", re.I),
+    )),
+    ("delegated_execution", (
+        re.compile(r"\b(?:(?:bạn|anh|chị|senpai)\s+(?:có thể\s+)?(?:tự\s+)?(?:chạy|thử|test|run|execute)|(?:you can|please|feel free to)\s+(?:now\s+)?(?:run|test|execute|verify|try)|hãy\s+(?:tự\s+)?(?:chạy|chạy lệnh|run)|to\s+(?:test|verify|run),?\s+(?:you can\s+)?run)\b", re.I),
+    )),
+    ("tail_todo", (
+        re.compile(r"(?:^|\n)#{1,4}\s*(?:Next Steps|Remaining Work|Remaining|TODO|Caveats|Limitations|Lưu ý|Việc cần làm|Bước tiếp theo|Known issues?)\b", re.I),
+        re.compile(r"(?:^|\n)-\s*\[\s*\]\s*TODO:", re.I),
+    )),
 )
+
+BANNED_DEFERRAL_PATTERNS = tuple(pat for _, pats in DEFERRAL_TAXONOMY for pat in pats)
 
 
 def strip_code_blocks(text: Optional[str]) -> str:
@@ -169,27 +130,68 @@ def strip_code_blocks(text: Optional[str]) -> str:
     return re.sub(r"```[\s\S]*?```", "", str(text or ""))
 
 
+def _normalize_for_search(text: str) -> str:
+    if not text:
+        return ""
+    cleaned = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", str(text)).replace("\u00a0", " ")
+    collapsed = re.sub(r"[^\S\n]+", " ", cleaned)
+    return re.sub(r"\b(out|ngoài|không\s+thuộc)[-_]scope\b", r"\1 scope", collapsed, flags=re.I)
+
+
 def detect_deferral_in_text(text: Optional[str]) -> List[str]:
     """Returns a list of matched deferral phrases in text, or empty list."""
     if not text:
         return []
-    clean = strip_code_blocks(text)
+    clean = _normalize_for_search(strip_code_blocks(text))
     return [m.group(0).strip() for pat in BANNED_DEFERRAL_PATTERNS if (m := pat.search(clean))]
 
 
-def detect_transcript_deferral(steps: Any) -> dict:
-    """Inspects the last assistant response step in transcript steps for deferrals."""
+def extract_delegated_command(text: str) -> str:
+    clean = strip_code_blocks(text)
+    m = re.search(r"(?:chạy|run|execute|lệnh|test(?:ing)?)\s*(?:bằng|with|command)?:?\s*`([^`]+)`", clean, re.I)
+    return m.group(1).strip() if m else ""
+
+
+def extract_tail_todo(text: str) -> str:
+    clean = strip_code_blocks(text)
+    m = re.search(r"(?:^|\n)(#{1,4}\s*(?:Next Steps|Remaining Work|Remaining|TODO|Việc cần làm|Bước tiếp theo)[^\n]*)", clean, re.I)
+    return m.group(1).strip() if m else ""
+
+
+def detect_transcript_deferral(steps: Any) -> Dict[str, Any]:
+    """Inspects all assistant response steps in current turn for deferrals."""
     if not steps or not isinstance(steps, list):
-        return {"matched": False, "phrases": [], "snippet": ""}
-    latest_resp = ""
+        return {"matched": False, "category": "general", "phrases": [], "snippet": "", "delegated_cmd": "", "tail_todo": ""}
+    turn_responses = []
     for s in reversed(steps):
-        if isinstance(s, dict) and s.get("type") == "PLANNER_RESPONSE":
-            content = str(s.get("content") or "").strip()
-            if content:
-                latest_resp = content
+        if isinstance(s, dict):
+            stype = s.get("type")
+            if stype == "USER_INPUT":
                 break
-    if not latest_resp:
-        return {"matched": False, "phrases": [], "snippet": ""}
-    phrases = detect_deferral_in_text(latest_resp)
-    return {"matched": bool(phrases), "phrases": phrases, "snippet": phrases[0] if phrases else "", "raw_preview": latest_resp[:200]}
+            if stype == "PLANNER_RESPONSE":
+                content = str(s.get("content") or "").strip()
+                if content:
+                    turn_responses.append(content)
+    if not turn_responses:
+        return {"matched": False, "category": "general", "phrases": [], "snippet": "", "delegated_cmd": "", "tail_todo": ""}
+    full_turn_text = "\n".join(reversed(turn_responses))
+    clean = _normalize_for_search(strip_code_blocks(full_turn_text))
+    matched_cat, matched_phrases = "general", []
+    for cat, pats in DEFERRAL_TAXONOMY:
+        for p in pats:
+            if m := p.search(clean):
+                matched_phrases.append(m.group(0).strip())
+                if matched_cat == "general":
+                    matched_cat = cat
+    del_cmd = extract_delegated_command(full_turn_text) if matched_cat == "delegated_execution" or "`" in full_turn_text else ""
+    tail_td = extract_tail_todo(turn_responses[0])
+    return {
+        "matched": bool(matched_phrases),
+        "category": matched_cat,
+        "phrases": matched_phrases,
+        "snippet": matched_phrases[0] if matched_phrases else "",
+        "delegated_cmd": del_cmd,
+        "tail_todo": tail_td,
+        "raw_preview": turn_responses[0][:200],
+    }
 

@@ -25,8 +25,8 @@ SEVERITY = {
 
 FACT_RANK = (
     "why", "sig", "cmd", "kw", "tool", "fails", "loop", "err", "bg", "age", "task",
-    "sub", "deferral", "exec_after_edit", "test_cmd", "tools", "mix",
-    "diff", "steers", "rep", "dur",
+    "sub", "deferral", "deferral_cat", "delegated_cmd", "tail_todo", "exec_after_edit",
+    "test_cmd", "tools", "mix", "diff", "steers", "rep", "dur",
 )
 
 FILLER_RE = re.compile(

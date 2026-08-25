@@ -70,7 +70,14 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         phrase = deferral.get("snippet") or "banned deferral"
         status = "watchout"
         category = "missing_deliverable"
-        action = action or "Execute required implementation and verification tests directly"
+        del_cmd = deferral.get("delegated_cmd")
+        tail_td = deferral.get("tail_todo")
+        if del_cmd:
+            action = f"Run `{del_cmd}` directly and verify empirical output"
+        elif tail_td:
+            action = f"Execute remaining work directly: {tail_td}"
+        else:
+            action = action or "Execute required implementation and verification tests directly"
         evidence = evidence or f"Agent output contained banned deferral/question pattern: '{phrase}'"
         guidance = guidance or "Do not defer or stop on passive confirmation questions; execute the verified work directly."
 
@@ -100,7 +107,7 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     advice_key = compute_advice_key(category, action or pinned, guidance)
     count = seen.get(advice_key, 0)
     escalation = str(ver_res.get("escalation") or "").strip().lower()
-    escalating = "ignored" in escalation or escalation in ("escalated", "repeat")
+    escalating = "ignored" in escalation or escalation in ("escalated", "repeat") or bool(deferral and deferral.get("matched"))
     repeatable = category in ("loop_detection", "irreversible_risk")
     effective_max = max_emissions * 2 if category == "irreversible_risk" else max_emissions
 

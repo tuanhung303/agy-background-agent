@@ -103,6 +103,9 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         active_signal = format_summon_message(
             EVENT_FINAL_STOP, total_tools=total_tool_calls, diff=diff_cnt if diff_cnt else None,
             deferral=deferral.get("snippet") if deferral.get("matched") else None,
+            deferral_cat=deferral.get("category") if deferral.get("matched") else None,
+            delegated_cmd=deferral.get("delegated_cmd") if deferral.get("matched") else None,
+            tail_todo=deferral.get("tail_todo") if deferral.get("matched") else None,
         )
     elif signal_note:
         active_signal = signal_note
@@ -114,6 +117,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
             total_tools=total_tool_calls,
             mix=list(turn_tool_names)[-5:] if turn_tool_names else None,
             deferral=deferral.get("snippet") if deferral.get("matched") else None,
+            delegated_cmd=deferral.get("delegated_cmd") if deferral.get("matched") else None,
         )
     verdict = evaluate_mid_turn_progress(
         conv_id, transcript_path, total_tool_calls, turn_tool_names,
