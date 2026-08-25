@@ -47,7 +47,7 @@ def compute_advice_key(category, action, guidance=None):
     return hashlib.sha1(raw).hexdigest()[:12]
 
 
-def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_conf=0.85, max_emissions=2, anchor_emitted=False, mode="midturn"):
+def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_conf=0.85, max_emissions=2, anchor_emitted=False, mode="midturn", deferral=None):
     """
     Evaluates advisor output with confidence gating, keyed deduplication, and structured tags.
     Returns dict with decision ('steer', 'watchout', 'hold', 'hold_dedup'), status, and formatted text.
@@ -65,6 +65,14 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     complexity = str(ver_res.get("task_complexity") or "").strip().lower()
     pinned = _safe_emission_text(ver_res.get("pinned_goal") or ver_res.get("anchor_goal") or "")
     is_pinned = mode == "midturn" and (category in ("pinned_goal", "anchor_goal") or (bool(pinned) and not anchor_emitted and complexity in ("complex_code", "multi_file")))
+
+    if deferral and deferral.get("matched"):
+        phrase = deferral.get("snippet") or "banned deferral"
+        status = "watchout"
+        category = "missing_deliverable"
+        action = action or "Execute required implementation and verification tests directly"
+        evidence = evidence or f"Agent output contained banned deferral/question pattern: '{phrase}'"
+        guidance = guidance or "Do not defer or stop on passive confirmation questions; execute the verified work directly."
 
     if is_pinned and status == "on_track" and not action and not guidance:
         status = "watchout"

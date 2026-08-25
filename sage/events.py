@@ -25,7 +25,7 @@ SEVERITY = {
 
 FACT_RANK = (
     "why", "sig", "cmd", "kw", "tool", "fails", "loop", "err", "bg", "age", "task",
-    "sub", "exec_after_edit", "test_cmd", "tools", "mix",
+    "sub", "deferral", "exec_after_edit", "test_cmd", "tools", "mix",
     "diff", "steers", "rep", "dur",
 )
 
@@ -40,11 +40,10 @@ _SECRET_RE = re.compile(r"(?i)\b(?:token|secret|password|api[_-]?key|bearer)\b\s
 
 FINAL_STOP_DIRECTIVE = (
     "Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate and live empirical evidence: "
-    "You are being summoned because the agent is attempting to conclude the session. "
-    "Your objective is to enforce the Final Stop Gate: verify that all user requirements are satisfied with live empirical proof, "
-    "reject passive stops on trivial questions, and ask yourself before permitting completion: "
-    "'Can the user confidently ship this code to production, or distribute this to the customer right now without hidden regressions or unhandled defects?' "
-    "If the agent stopped on a passive question ('Shall I apply...'), or if unaddressed review findings/defects remain, do NOT recap; steer the agent to fix them."
+    "verify full proof and reject passive question-dumping ('Shall I...', 'có muốn... không') "
+    "or banned deferral phrases ('out of scope', 'left for user judgment', 'future change', 'good enough for now', 'non-blocking'). "
+    "Ask before permitting completion: 'Can the user confidently ship this code to production, or distribute this to the customer right now without defects?' "
+    "If deferral or passive dumping is detected, do NOT recap; steer agent to execute directly."
 )
 
 ASK = {

@@ -1,21 +1,6 @@
 """
-sage.policies - Decision policies extracted from the stop runner.
-
-Two policies live here:
-
-1. background_watch: decides whether active background tasks require a
-   watch-steer, a grace-period block, or free passage. Encapsulated so the
-   mechanical watcher cannot fire before richer context (the sage) has
-   spoken, and so the policy stays unit-testable in isolation.
-
-2. final_sage_gate: on a finishing stop, the sage is the sole final
-   gate — it either emits a steer/watchout (agent continues) or approves
-   with an on_track recap (session terminates). There is no separate
-   steerer/auditor role.
-
-Both return plain action dicts; the runner owns persistence and I/O.
+sage.policies - Decision policies for background task watching and terminal sage gating.
 """
-
 import re
 from sage.sage import evaluate_mid_turn_progress
 from sage.config import (
@@ -26,9 +11,10 @@ from sage.config import (
 MID_TURN_ADVISOR_ENABLED, ADVISOR_TOOL_INTERVAL = MID_TURN_SAGE_ENABLED, SAGE_TOOL_INTERVAL
 ADVISOR_STEER_MIN_CONFIDENCE, ADVISOR_ESCALATE_MIN_CONFIDENCE, ADVISOR_MAX_ERROR_STREAK = SAGE_STEER_MIN_CONFIDENCE, SAGE_ESCALATE_MIN_CONFIDENCE, SAGE_MAX_ERROR_STREAK
 from sage.events import EVENT_FINAL_STOP, EVENT_PARALLEL_OPP, EVENT_TOOL_THRESHOLD, format_summon_message
+from sage.sanitizer import detect_transcript_deferral
 from sage.task_structure import get_parallelizable_signals
 from sage.transcript import (
-    calculate_turn_tool_score, extract_session_and_turn_data,
+    _read_transcript_steps, calculate_turn_tool_score, extract_session_and_turn_data,
     has_new_user_activity, is_post_invocation_completion_candidate,
 )
 from sage.triage import classify_advice
@@ -108,12 +94,15 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     if not final and not forced and delta_score < effective_thresh and (total_tool_calls - lv) < effective_interval:
         return {"action": "exit", "reason": f"Mid-turn tool delta below threshold (score={delta_score:.1f}<{effective_thresh:.1f}, count={total_tool_calls - lv}<{effective_interval})"}
 
+    tsteps = _read_transcript_steps(transcript_path) if transcript_path else []
+    deferral = detect_transcript_deferral(tsteps)
     if final:
         diff_cnt = sum(int(m) for m in re.findall(r"^Changed lines: (\d+)", git_diff or "", re.M))
         if not diff_cnt and git_diff:
             diff_cnt = sum(1 for ln in git_diff.splitlines() if ln.startswith(("+", "-")) and not ln.startswith(("+++", "---")))
         active_signal = format_summon_message(
             EVENT_FINAL_STOP, total_tools=total_tool_calls, diff=diff_cnt if diff_cnt else None,
+            deferral=deferral.get("snippet") if deferral.get("matched") else None,
         )
     elif signal_note:
         active_signal = signal_note
@@ -124,10 +113,11 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
             EVENT_TOOL_THRESHOLD,
             total_tools=total_tool_calls,
             mix=list(turn_tool_names)[-5:] if turn_tool_names else None,
+            deferral=deferral.get("snippet") if deferral.get("matched") else None,
         )
     verdict = evaluate_mid_turn_progress(
         conv_id, transcript_path, total_tool_calls, turn_tool_names,
-        user_prompt, agent_steps, git_diff, state, is_forced=(forced or final),
+        user_prompt, agent_steps, git_diff, state, is_forced=(forced or final or deferral.get("matched", False)),
         signals=active_signal)
     if has_new_user_activity(transcript_path, clean_prompt, initial_line_count):
         return {"action": "yield", "reason": ("Fresh user input detected during final sage; yielding" if final else "Fresh user input detected during sage; yielding")}
@@ -145,7 +135,8 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         steer_min_conf=SAGE_STEER_MIN_CONFIDENCE,
         escalate_min_conf=SAGE_ESCALATE_MIN_CONFIDENCE,
         anchor_emitted=bool(state.get("pinned_emitted", state.get("anchor_emitted", False))),
-        mode="final" if final else "midturn")
+        mode="final" if final else "midturn",
+        deferral=deferral)
     dec, text = classified.get("decision"), classified.get("text", "")
     res = {"seen": classified.get("seen")}
     if "recap" in classified and classified["recap"]:
