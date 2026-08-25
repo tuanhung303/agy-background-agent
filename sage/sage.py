@@ -19,14 +19,11 @@ from sage.sanitizer import clamp_diff
 from sage.transcript import calculate_turn_tool_score
 
 TEMPLATE_CANDIDATES = (
-    os.path.expanduser("~/.config/agy/sage_prompt.md"),
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "sage_prompt.md")),
-    os.path.expanduser("~/.config/agy/advisor_prompt.md"),
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "advisor_prompt.md")),
+    os.path.expanduser("~/.config/agy/sage_prompt.md"), os.path.abspath(os.path.join(os.path.dirname(__file__), "sage_prompt.md")),
+    os.path.expanduser("~/.config/agy/advisor_prompt.md"), os.path.abspath(os.path.join(os.path.dirname(__file__), "advisor_prompt.md")),
     os.path.expanduser("~/.config/agy/verifier_prompt.md"),
 )
-TEMPLATE_FILE = TEMPLATE_CANDIDATES[0]
-DEFAULT_TEMPLATE = 'Acts as wise strategist sage. JSON output: {"status": "on_track"|"watchout"|"off_track", ...}.'
+TEMPLATE_FILE, DEFAULT_TEMPLATE = TEMPLATE_CANDIDATES[0], 'Acts as wise strategist sage. JSON output: {"status": "on_track"|"watchout"|"off_track", ...}.'
 _clamp_diff, _acquire_spawn_lock, _release_spawn_lock = clamp_diff, acquire_spawn_lock, release_spawn_lock
 
 
@@ -39,6 +36,9 @@ def save_sage_session(parent_conv_id, session_id):
 
 
 def _clear_sage_session(parent_conv_id):
+    old_sid = get_or_create_sage_session(parent_conv_id)
+    if old_sid:
+        clean_resume_history(old_sid)
     clear_session_id(parent_conv_id, ("agy_mid_sage_session_", "agy_mid_advisor_session_", "agy_mid_verifier_session_"))
 
 

@@ -14,6 +14,7 @@ from sage.guards import (
 )
 from sage.locking import acquire_conversation_lock, cleanup_stale_tmp_files, log_audit
 from sage.policies import background_watch, final_sage_gate, sage_flow
+from sage.sage import _clear_sage_session
 from sage.session_state import (
     load_and_sync_session_state,
     record_background_grace, record_background_steer,
@@ -139,6 +140,7 @@ def run_session_stop_audit(raw_payload=None):
         gu = {k: gate[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in gate and gate[k] is not None}
         (record_advisor_recap if record_advisor_recap != record_sage_recap else record_sage_recap)(state_file, state, total_tool_calls, initial_line_count, recap_text=sage_recap, **gu)
         log_audit(f"Sage passed cleanly. Sage recap recorded: {sage_recap}")
+        _clear_sage_session(conv_id)
         emit_recap_response(sage_recap, kind="sage")
     elif gact == "error":
         err_streak = state.get("sage_error_streak", state.get("advisor_error_streak", 0)) + 1

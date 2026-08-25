@@ -9,6 +9,8 @@ import hashlib
 import json
 import os
 import re
+import shutil
+import sqlite3
 import time
 
 from sage.config import LOG_FILE
@@ -122,7 +124,7 @@ def acquire_conversation_lock(conv_id):
 
 
 def cleanup_stale_tmp_files(max_age_seconds=7200, state_max_age_seconds=None):
-    """Cleans up stale lock and temp files older than max_age_seconds, preserving state files."""
+    """Cleans up stale lock, temp, and orphaned session files older than max_age_seconds, preserving active state files."""
     try:
         now, tmp_dir = time.time(), "/tmp"
         if not os.path.exists(tmp_dir):
@@ -145,8 +147,43 @@ def cleanup_stale_tmp_files(max_age_seconds=7200, state_max_age_seconds=None):
                                     os.remove(fpath)
                             except Exception:
                                 pass
+                        elif fname.endswith(".txt") and "session" in fname:
+                            try:
+                                with open(fpath, "r", encoding="utf-8") as sf:
+                                    cid = sf.read().strip()
+                                if cid:
+                                    g_dir = os.path.expanduser("~/.gemini/antigravity-cli")
+                                    s_db = os.path.join(g_dir, "conversation_summaries.db")
+                                    if os.path.isfile(s_db):
+                                        try:
+                                            conn = sqlite3.connect(s_db, timeout=3)
+                                            try:
+                                                conn.execute("DELETE FROM conversation_summaries WHERE conversation_id = ?", (cid,))
+                                                conn.commit()
+                                            finally:
+                                                conn.close()
+                                        except Exception:
+                                            pass
+                                    conv_dir = os.path.join(g_dir, "conversations")
+                                    for suffix in ("", ".db", ".db-wal", ".db-shm"):
+                                        p = os.path.join(conv_dir, f"{cid}{suffix}" if suffix else cid)
+                                        if os.path.isfile(p):
+                                            try:
+                                                os.remove(p)
+                                            except OSError:
+                                                pass
+                                    shutil.rmtree(os.path.join(g_dir, "brain", cid), ignore_errors=True)
+                            except Exception:
+                                pass
+                            try:
+                                os.remove(fpath)
+                            except OSError:
+                                pass
                         else:
-                            os.remove(fpath)
+                            try:
+                                os.remove(fpath)
+                            except OSError:
+                                pass
                 except Exception:
                     pass
     except Exception as e:
