@@ -169,6 +169,11 @@ def get_active_subagents(transcript_path, conv_id=None):
     return _get_subs(_read_transcript_steps(transcript_path), conv_id)
 
 
+def get_active_external_panes(transcript_path):
+    from sage.watchers import get_active_external_panes as _panes
+    return _panes(_read_transcript_steps(transcript_path))
+
+
 def has_active_subagents(transcript_path, conv_id=None):
     return bool(get_active_subagents(transcript_path, conv_id))
 

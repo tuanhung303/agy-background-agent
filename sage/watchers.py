@@ -1,6 +1,4 @@
-"""
-sage.watchers - Subagent and background task tracking from transcript logs.
-"""
+"""sage.watchers - Subagent and background task tracking from transcript logs."""
 
 from datetime import datetime, timezone
 import json
@@ -13,6 +11,13 @@ SUBAGENT_INVOKE_FAILURE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# External worker panes (e.g. `orca terminal create --command "claude ..."`).
+# The pane is "open" once created; it is only settled when a later transcript
+# step records an idle prompt (❯ / $) in that same handle's read/wait output.
+ORCA_TERMINAL_CREATE_RE = re.compile(r"orca\s+terminal\s+create\b[^\n]*?--command\b", re.I)
+_ORCA_HANDLE_RE = re.compile(r"term_[a-f0-9-]{8,}")
+ORCA_IDLE_PROMPT_RE = re.compile(r"(?:^|\n)[^\S\n]*(?:❯|❯|\$)\s*(?:\n|$)")
+
 
 def _parse_iso_ts(ts_str):
     if not ts_str:
@@ -22,6 +27,39 @@ def _parse_iso_ts(ts_str):
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     except Exception:
         return None
+
+
+def get_active_external_panes(steps):
+    """Tracks Orca worker panes spawned via run_command.
+
+    Returns handles whose pane was created and used as a delegated worker but
+    never observed idle. A premature "done!" claim while the worker is still
+    streaming is exactly the fake_verification this guards against.
+    """
+    open_handles, settled = [], set()
+    for s in steps:
+        content = str(s.get("content") or "")
+        low = content.lower()
+        for t in (s.get("tool_calls") or []):
+            args = str((t.get("args") or {}).get("CommandLine") or "")
+            if ORCA_TERMINAL_CREATE_RE.search(args) or ("orca terminal send" in args.lower() and _ORCA_HANDLE_RE.search(args)):
+                open_handles.extend(_ORCA_HANDLE_RE.findall(args))
+            elif "orca terminal close" in args.lower():
+                settled.update(h.strip() for h in _ORCA_HANDLE_RE.findall(args))
+        if "orca terminal" in low:
+            handles = set(_ORCA_HANDLE_RE.findall(content))
+            if "orca terminal close" in low:
+                settled.update(h.strip() for h in handles)
+            elif handles and ORCA_IDLE_PROMPT_RE.search(content):
+                # a read of this pane showed its idle prompt -> worker settled
+                settled.update(h.strip() for h in handles)
+            elif "exited with code" in low and "--screen" in low:
+                settled.update(h.strip() for h in handles)
+        elif ORCA_IDLE_PROMPT_RE.search(content) and open_handles:
+            # latest captured screen (any read) shows an idle prompt: every
+            # pane still open at this point has gone idle.
+            settled.update(h.strip() for h in open_handles)
+    return [h for h in dict.fromkeys(open_handles) if h not in settled]
 
 
 def get_active_subagents(steps, conv_id=None, parse_ts_func=None):

@@ -23,7 +23,8 @@ from sage.session_state import (
 )
 from sage.transcript import (
     extract_session_and_turn_data,
-    get_active_background_tasks, get_active_subagents, get_transcript_path,
+    get_active_background_tasks, get_active_subagents, get_active_external_panes,
+    get_transcript_path,
     has_recent_tool_errors, has_repeated_tool_calls,
     is_post_invocation_completion_candidate,
 )
@@ -58,6 +59,15 @@ def run_session_stop_audit(raw_payload=None):
             log_audit("Active subagents detected during Stop event -> Blocking stop")
             emit_continue_response("Subagent work in progress; waiting for subagents", is_post=False)
         fail_safe_exit("Subagent work in progress; waiting for subagents")
+
+    active_panes = get_active_external_panes(transcript_path)
+    if active_panes:
+        log_audit(f"Active external worker pane(s) detected: {active_panes}")
+        emit_continue_response(
+            "External worker pane(s) still streaming (" + ", ".join(active_panes) + "); "
+            "wait for the idle prompt and read full output before concluding.",
+            is_post=is_post_invocation(),
+        )
 
     active_tasks = get_active_background_tasks(transcript_path, conv_id)
     bgp = background_watch(active_tasks, state.get("background_steered_tasks", []))
