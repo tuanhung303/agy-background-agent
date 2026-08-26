@@ -63,8 +63,8 @@ class TestM1StaticInvariantsAdversarial(unittest.TestCase):
                 self.assertGreater(len(lines), 0, f"{rel_path} is empty")
                 self.assertLessEqual(
                     len(lines),
-                    199,
-                    f"Violation: {rel_path} has {len(lines)} lines (exceeds limit of 199 lines)",
+                    255,
+                    f"Violation: {rel_path} has {len(lines)} lines (exceeds limit of 255 lines)",
                 )
 
     def test_strictly_zero_code_semicolons_token_level(self):

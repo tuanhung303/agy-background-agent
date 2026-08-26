@@ -229,6 +229,48 @@ class TestFinalSageGate(unittest.TestCase):
             self.assertEqual(act4["action"], "exit")
 
 
+class TestConfusedGoalGate(unittest.TestCase):
+    def _classified(self):
+        return {"decision": "watchout", "status": "watchout", "category": "confused_goal",
+                "confidence": 0.8, "text": "[WATCH·confused_goal] Ask user what done means",
+                "seen": {"k": 1}}
+
+    def test_midturn_confused_goal_records_without_emitting(self):
+        ctx = _ctx()
+        frozen = _frozen()
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "calculate_turn_tool_score", return_value=(12.0, 5)), \
+                patch.object(policies, "evaluate_mid_turn_progress", return_value={"status": "s"}), \
+                patch.object(policies, "classify_advice", return_value=self._classified()), \
+                frozen[0], frozen[1], frozen[2]:
+            act = policies.sage_flow("midturn", **ctx)
+        self.assertEqual(act["action"], "exit")
+        self.assertEqual(act["pending_clarify"]["category"], "confused_goal")
+        self.assertIn("done means", act["pending_clarify"]["question"])
+
+    def test_final_confused_goal_flows_as_emit_for_runner_to_route(self):
+        # final gate: confused_goal is NOT intercepted by policies — runner's
+        # pending_clarify branch handles the ask-once-and-stop behavior.
+        ctx = _ctx()
+        classified = dict(self._classified())
+        frozen = _frozen(latest_tools=30)
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "evaluate_mid_turn_progress", return_value={"status": "s"}), \
+                patch.object(policies, "classify_advice", return_value=classified), \
+                frozen[0], frozen[1], frozen[2]:
+            gate = policies.final_sage_gate(**ctx)
+        self.assertEqual(gate["action"], "emit")
+        self.assertIn("confused_goal", gate["text"])
+
+    def test_triage_does_not_dedup_confused_goal(self):
+        from sage.triage import classify_advice
+        ver = {"status": "watchout", "task_complexity": "complex_code",
+               "category": "confused_goal", "action": "Ask: what does done mean?",
+               "evidence": "goal vague", "confidence": 0.9}
+        first = classify_advice(ver, seen_advice={"abc123": 3}, mode="midturn")
+        self.assertEqual(first["decision"], "watchout")
+
+
 TestFinalAdvisorGate = TestFinalSageGate
 
 

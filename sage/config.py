@@ -138,16 +138,16 @@ FILE_EDITING_TOOLS = {
 }
 
 DEFAULT_TOOL_WEIGHTS = {
-    "write_to_file": 2.5, "replace_file_content": 2.5, "multi_replace_file_content": 2.5,
-    "edit_file": 2.5, "create_file": 2.5, "modify_file": 2.5, "write_file": 2.5,
-    "apply_diff": 2.5, "patch": 2.5, "generate_image": 2.5,
-    "run_command": 2.0, "bash": 2.0, "exec": 2.0, "terminal": 2.0,
-    "invoke_subagent": 1.5, "send_message": 1.5, "manage_task": 1.5,
-    "schedule": 1.5, "call_mcp_tool": 1.5,
-    "view_file": 0.5, "grep_search": 0.5, "find_by_name": 0.5, "list_dir": 0.5,
-    "read_url_content": 0.5, "search_web": 0.5, "list_resources": 0.5, "read_resource": 0.5,
+    "write_to_file": 2.0, "replace_file_content": 2.0, "multi_replace_file_content": 2.0,
+    "edit_file": 2.0, "create_file": 2.0, "modify_file": 2.0, "write_file": 2.0,
+    "apply_diff": 2.0, "patch": 2.0, "generate_image": 2.0,
+    "run_command": 1.5, "bash": 1.5, "exec": 1.5, "terminal": 1.5,
+    "invoke_subagent": 1.3, "send_message": 1.3, "manage_task": 1.3,
+    "schedule": 1.3, "call_mcp_tool": 1.3,
+    "view_file": 0.3, "grep_search": 0.3, "find_by_name": 0.3, "list_dir": 0.3,
+    "read_url_content": 0.3, "search_web": 0.3, "list_resources": 0.3, "read_resource": 0.3,
 }
-DEFAULT_TOOL_WEIGHT_FALLBACK = 1.0
+DEFAULT_TOOL_WEIGHT_FALLBACK = 0.9
 
 
 def get_tool_weight(tool_name):

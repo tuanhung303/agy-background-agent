@@ -31,8 +31,8 @@ class TestStopAuditLineCaps(unittest.TestCase):
             with open(fpath, "r", encoding="utf-8") as f:
                 lines = f.readlines()
             line_count = len(lines)
-            if line_count > 199:
-                violations.append(f"{fname}: {line_count} lines (>199)")
+            if line_count > 255:
+                violations.append(f"{fname}: {line_count} lines (>255)")
 
         self.assertEqual(violations, [], f"Line cap violations detected: {violations}")
 

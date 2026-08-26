@@ -53,7 +53,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     """Unified policy flow for sage decisions (mid-turn or final).
 
     Returns an action dict:
-      {"action": "exit", "reason": str}         (midturn only)
+      {"action": "exit", "reason": str}         (midturn only; +pending_clarify)
       {"action": "skip"}                        (final only)
       {"action": "yield", "reason": str}
       {"action": "progressed", "tools": int, "lines": int}
@@ -90,9 +90,11 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
             signal_note = f"{signal_note}\n{stext}".strip()
     effective_thresh = min(SAGE_TOOL_SCORE_THRESHOLD, ADVISOR_TOOL_SCORE_THRESHOLD)
     effective_interval = min(SAGE_TOOL_INTERVAL, ADVISOR_TOOL_INTERVAL)
-    delta_score, _ = calculate_turn_tool_score(transcript_path, lv) if transcript_path else (0.0, 0)
-    if not final and not forced and delta_score < effective_thresh and (total_tool_calls - lv) < effective_interval:
-        return {"action": "exit", "reason": f"Mid-turn tool delta below threshold (score={delta_score:.1f}<{effective_thresh:.1f}, count={total_tool_calls - lv}<{effective_interval})"}
+    delta_score, delta_count = calculate_turn_tool_score(transcript_path, lv) if transcript_path else (0.0, 0)
+    # Score is the sole cadence gate: weights (read-light, edit-heavy) decide how
+    # soon the sage fires; raw tool counts no longer trigger it.
+    if not final and not forced and delta_score < effective_thresh:
+        return {"action": "exit", "reason": f"Mid-turn tool delta below threshold (score={delta_score:.1f}<{effective_thresh:.1f}, count={delta_count})"}
 
     tsteps = _read_transcript_steps(transcript_path) if transcript_path else []
     deferral = detect_transcript_deferral(tsteps)
@@ -151,6 +153,11 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "goal_status", "task_complexity", "pinned_emitted", "anchor_emitted"):
         if k in classified:
             res[k] = classified[k]
+    if not final and classified.get("category") == "confused_goal":
+        # Never interrupt mid-turn (user may be elsewhere). The FINAL gate of
+        # this turn asks the user once and ends the turn.
+        return {"action": "exit", "reason": "Confused goal recorded for final gate",
+                "pending_clarify": {"category": "confused_goal", "question": text}}
     if dec == "hold_dedup":
         res["action"] = "hold_dedup"
         return res

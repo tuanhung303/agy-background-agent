@@ -94,6 +94,8 @@ def run_session_stop_audit(raw_payload=None):
         )
         aact = act.get("action")
         if aact in ("exit", "yield"):
+            if act.get("pending_clarify"):
+                save_session_state(state_file, state, pending_clarify=act["pending_clarify"])
             fail_safe_exit(act["reason"])
         elif aact == "progressed":
             save_session_state(state_file, state, last_verified_tools=act["tools"], last_audited_line_count=act["lines"])
@@ -120,6 +122,12 @@ def run_session_stop_audit(raw_payload=None):
     gate = _gate_fn(conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state)
     gact = gate.get("action")
     log_audit(f"Final sage gate: {gact}" + (f" ({gate.get('reason', '')})" if gate.get("reason") else ""))
+    if state.get("pending_clarify") and not state.get("clarify_asked"):
+        # Confused goal surfaced earlier this turn: ask the user ONCE and end the
+        # turn — never ask mid-turn, never loop on repeated asks.
+        q = (state.get("pending_clarify") or {}).get("question") or "The goal is ambiguous; please clarify the objective."
+        save_session_state(state_file, state, clarify_asked=True, pending_clarify=None)
+        emit_recap_response(f"[CLARIFY] {q}", kind="sage")
     if gact == "yield":
         fail_safe_exit(gate["reason"])
     elif gact == "progressed":

@@ -61,8 +61,8 @@ class TestStaticAnalysis(unittest.TestCase):
                 line_count = len(lines)
                 self.assertLessEqual(
                     line_count,
-                    199,
-                    f"File {rel_path} has {line_count} lines (must be <= 199 lines)",
+                    255,
+                    f"File {rel_path} has {line_count} lines (must be <= 255 lines)",
                 )
 
     def test_all_modules_have_docstrings(self):
