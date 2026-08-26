@@ -15,7 +15,7 @@ from sage.sanitizer import detect_transcript_deferral
 from sage.task_structure import get_parallelizable_signals
 from sage.transcript import (
     _read_transcript_steps, calculate_turn_tool_score, extract_session_and_turn_data,
-    has_new_user_activity, is_post_invocation_completion_candidate,
+    has_new_user_activity, has_repeated_tool_calls, is_post_invocation_completion_candidate,
 )
 from sage.triage import classify_advice
 
@@ -108,10 +108,22 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     effective_thresh = min(SAGE_TOOL_SCORE_THRESHOLD, ADVISOR_TOOL_SCORE_THRESHOLD)
     effective_interval = min(SAGE_TOOL_INTERVAL, ADVISOR_TOOL_INTERVAL)
     delta_score, delta_count = calculate_turn_tool_score(transcript_path, lv) if transcript_path else (0.0, 0)
+    loop_override = False
     # Score is the sole cadence gate: weights (read-light, edit-heavy) decide how
-    # soon the sage fires; raw tool counts no longer trigger it.
+    # soon the sage fires; raw tool counts no longer trigger it. Exception: a
+    # repeated-identical-tool loop is a live error loop that cheap commands can
+    # hide under the score threshold (retry loop of 1.5-weight runs never sums
+    # to 10) — force ONE loop_override evaluation per fresh window of >=2 new
+    # tools. The override is NOT the user-force flag (P2-F): downstream gates
+    # must still apply on a fuzzy heuristic. Bounded regardless of whether a
+    # steer lands (P1-A) and turn-safe via max(0, ..) clamp (P1-B).
     if not final and not forced and delta_score < effective_thresh:
-        return {"action": "exit", "reason": f"Mid-turn tool delta below threshold (score={delta_score:.1f}<{effective_thresh:.1f}, count={delta_count})"}
+        repeats = transcript_path and has_repeated_tool_calls(transcript_path)
+        fresh = max(0, total_tool_calls - int(state.get("last_loop_eval_tools", 0)))
+        if not (repeats and fresh >= 2):
+            return {"action": "exit", "reason": f"Mid-turn tool delta below threshold (score={delta_score:.1f}<{effective_thresh:.1f}, count={delta_count})"}
+        state["last_loop_eval_tools"] = total_tool_calls
+        loop_override = True
 
     tsteps = _read_transcript_steps(transcript_path) if transcript_path else []
     deferral = detect_transcript_deferral(tsteps)
@@ -145,7 +157,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         )
     verdict = evaluate_mid_turn_progress(
         conv_id, transcript_path, total_tool_calls, turn_tool_names,
-        user_prompt, agent_steps, git_diff, state, is_forced=(forced or final or deferral.get("matched", False)),
+        user_prompt, agent_steps, git_diff, state, is_forced=(forced or final or deferral.get("matched", False) or loop_override),
         signals=active_signal, workspace_root=workspace_root)
     if has_new_user_activity(transcript_path, clean_prompt, initial_line_count):
         return {"action": "yield", "reason": ("Fresh user input detected during final sage; yielding" if final else "Fresh user input detected during sage; yielding")}

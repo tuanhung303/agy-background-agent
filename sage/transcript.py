@@ -3,7 +3,7 @@ sage.transcript - Parsing, sanitization, and turn extraction from transcript.jso
 """
 
 from datetime import datetime, timezone
-import itertools, json, os, re
+import hashlib, itertools, json, os, re
 
 from sage.config import get_tool_weight
 from sage.guards import is_steering_message
@@ -179,20 +179,28 @@ def calculate_turn_tool_score(transcript_path, last_verified_tools=0):
     return sum(get_tool_weight(c.get("name")) for c in new_calls if isinstance(c, dict)), len(calls)
 
 
+def _tool_sig(t):
+    """Repeat-detection signature: strip churn tokens, hash full args (P2-D)."""
+    name = str(t.get("name") or "")
+    if any(m in name.lower() for m in ("manage_task", "status", "list_dir", "get_window")):
+        return None
+    args = t.get("args") or t.get("arguments") or {}
+    try:
+        raw = json.dumps(args, sort_keys=True, default=str)
+    except Exception:
+        return f"{name}|?"
+    # Timestamps are anchored to the clock format (P2-C over-match), retry
+    # counters (`i3`, attempt#) and bare seconds before `s` are stripped; two
+    # different long commands must never collide on a truncated prefix.
+    normed = re.sub(r"\b(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?Z?|i\d+\b|it #\d+|attempt[ _]?\d+|\b\d+(?:\.\d+)?(?=s\b))", "", raw)
+    return f"{name}|{hashlib.sha1(normed.encode('utf-8', errors='replace')).hexdigest()[:16]}"
+
+
 def has_repeated_tool_calls(transcript_path, lookback=12, min_repeats=3, min_dominance=0.6):
     calls = extract_turn_tool_calls(transcript_path)[-lookback:]
     if len(calls) < min_repeats:
         return False
-    sigs = []
-    for t in calls:
-        name = str(t.get("name") or "")
-        if any(m in name.lower() for m in ("manage_task", "status", "list_dir", "get_window")):
-            continue
-        args = t.get("args") or t.get("arguments") or {}
-        try:
-            sigs.append(f"{name}|{json.dumps(args, sort_keys=True, default=str)[:120]}")
-        except Exception:
-            sigs.append(f"{name}|?")
+    sigs = [s for t in calls if (s := _tool_sig(t)) is not None]
     if len(sigs) < min_repeats:
         return False
     counts = {s: sigs.count(s) for s in set(sigs)}
