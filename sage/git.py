@@ -12,6 +12,7 @@ from sage.sanitizer import redact_secrets
 MAX_STATUS_LINES = 12
 
 def _parse_numstat(stdout):
+    """Sums added and deleted lines from git diff --numstat output."""
     tot = 0
     for nl in (stdout or "").splitlines():
         cols = nl.split("\t")
