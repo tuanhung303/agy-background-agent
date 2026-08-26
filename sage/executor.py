@@ -1,13 +1,7 @@
 """
 sage.executor - Subprocess AGY execution with isolated home and session persistence.
 """
-import json
-import os
-import re
-import shutil
-import sqlite3
-import subprocess
-import time
+import json, os, re, shutil, sqlite3, subprocess, time
 from sage.config import ADVISOR_EXEC_TIMEOUT, SAGE_EXEC_TIMEOUT, SAGE_TIMEOUT_BUDGET
 from sage.locking import acquire_spawn_lock, log_audit, release_spawn_lock, safe_id
 from sage.models import cache_working_model, resolve_model_candidates
@@ -41,8 +35,11 @@ def ensure_isolated_home():
     for f in os.listdir(real_cli) if os.path.isdir(real_cli) else []:
         if "token" in f or "auth" in f or "credential" in f or f in ("settings.json", "installation_id"):
             _link_file(os.path.join(real_cli, f), os.path.join(iso_cli, f))
+    iso_hooks = os.path.join(iso_cfg, "hooks.json")
     try:
-        with open(os.path.join(iso_cfg, "hooks.json"), "w", encoding="utf-8") as f:
+        if os.path.islink(iso_hooks) or os.path.lexists(iso_hooks):
+            os.unlink(iso_hooks)
+        with open(iso_hooks, "w", encoding="utf-8") as f:
             f.write("{}")
     except OSError:
         pass
@@ -103,14 +100,15 @@ def save_session_id(parent_conv_id, session_id, prefix="agy_stop_audit_session_"
 
 
 def clear_session_id(parent_conv_id, prefixes=("agy_stop_audit_session_",), prefix=None):
-    if parent_conv_id:
-        for p in ((prefix,) if prefix is not None else ((prefixes,) if isinstance(prefixes, str) else prefixes)):
-            sf = get_session_file(parent_conv_id, p)
-            if os.path.exists(sf):
-                try:
-                    os.remove(sf)
-                except Exception:
-                    pass
+    if not parent_conv_id:
+        return
+    for p in ((prefix,) if prefix is not None else ((prefixes,) if isinstance(prefixes, str) else prefixes)):
+        sf = get_session_file(parent_conv_id, p)
+        if os.path.exists(sf):
+            try:
+                os.remove(sf)
+            except Exception:
+                pass
 
 
 def extract_json_from_llm_output(raw_text, schema_keys=()):

@@ -1,7 +1,4 @@
-"""
-sage.sanitizer - String cleaning, tool output sanitization, and output budget truncation.
-"""
-
+"""sage.sanitizer - String cleaning, tool output sanitization, and output budget truncation."""
 import re
 from typing import Any, Dict, List, Optional
 
@@ -10,8 +7,11 @@ def clean_user_prompt(text: Optional[str]) -> str:
     """Strips AGY XML envelope tags (<USER_REQUEST>, <ADDITIONAL_METADATA>, etc.)."""
     if not text:
         return ""
-    for p in (r"<USER_REQUEST>(.*?)</USER_REQUEST>", r"<ADDITIONAL_METADATA>.*?</ADDITIONAL_METADATA>", r"<USER_SETTINGS_CHANGE>.*?</USER_SETTINGS_CHANGE>"):
-        text = re.sub(p, r"\1" if "(.*?)" in p else "", text, flags=re.DOTALL)
+    prev = None
+    while text != prev:
+        prev = text
+        for p in (r"<USER_REQUEST>(.*?)</USER_REQUEST>", r"<ADDITIONAL_METADATA>.*?</ADDITIONAL_METADATA>", r"<USER_SETTINGS_CHANGE>.*?</USER_SETTINGS_CHANGE>"):
+            text = re.sub(p, r"\1" if "(.*?)" in p else "", text, flags=re.DOTALL)
     return text.strip()
 
 

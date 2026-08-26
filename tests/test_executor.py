@@ -177,6 +177,28 @@ class TestExecutor(unittest.TestCase):
             self.assertIn("--conversation", last_call_cmd)
             self.assertIn("sage_session_abc", last_call_cmd)
 
+    def test_ensure_isolated_home_symlink_safety(self):
+        from sage.executor import ensure_isolated_home
+        fake_home = os.path.join(self.test_dir, "fake_user_home")
+        real_cfg = os.path.join(fake_home, ".gemini", "config")
+        os.makedirs(real_cfg, exist_ok=True)
+        real_hooks = os.path.join(real_cfg, "hooks.json")
+        with open(real_hooks, "w") as f:
+            f.write('{"custom_hook": true}')
+
+        iso_dir = os.path.join(self.test_dir, "fake_iso_home")
+        iso_cfg = os.path.join(iso_dir, ".gemini", "config")
+        os.makedirs(iso_cfg, exist_ok=True)
+        os.symlink(real_hooks, os.path.join(iso_cfg, "hooks.json"))
+
+        with patch("sage.executor.SAGE_ISOLATED_HOME", iso_dir), \
+             patch("sage.executor.SAGE_CLI_DIR", os.path.join(iso_dir, ".gemini", "antigravity-cli")):
+            ensure_isolated_home()
+
+        with open(real_hooks, "r") as f:
+            self.assertEqual(f.read(), '{"custom_hook": true}')
+        self.assertFalse(os.path.islink(os.path.join(iso_cfg, "hooks.json")))
+
 
 if __name__ == "__main__":
     unittest.main()

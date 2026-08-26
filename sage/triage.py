@@ -104,14 +104,14 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
             res["anchor_goal"] = pinned
         return res
 
-    advice_key = compute_advice_key(category, action or pinned, guidance)
+    advice_key = f"deferral_{re.sub(r'[^a-z0-9]+', '_', str(deferral.get('snippet', 'banned')).lower())[:24]}" if (deferral and deferral.get("matched")) else compute_advice_key(category, action or pinned, guidance)
     count = seen.get(advice_key, 0)
     escalation = str(ver_res.get("escalation") or "").strip().lower()
-    escalating = "ignored" in escalation or escalation in ("escalated", "repeat") or bool(deferral and deferral.get("matched"))
+    escalating = "ignored" in escalation or escalation in ("escalated", "repeat")
     repeatable = category in ("loop_detection", "irreversible_risk")
     effective_max = max_emissions * 2 if category == "irreversible_risk" else max_emissions
-
-    if count >= effective_max or (count >= 1 and not escalating and not repeatable and not is_steer and not is_pinned):
+    is_deferral = bool(deferral and deferral.get("matched"))
+    if count >= effective_max or (count >= 1 and not escalating and not repeatable and not is_deferral and not is_steer and not is_pinned):
         return {"decision": "hold_dedup", "status": status, "category": category, "confidence": conf, "advice_key": advice_key, "seen": seen}
 
     seen[advice_key] = count + 1

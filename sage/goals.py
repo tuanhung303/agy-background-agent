@@ -63,6 +63,8 @@ def extract_pinned_goal(user_prompt: str, limit: int = 500) -> str:
     if not lines:
         return ""
     summary = " ".join(lines)
+    if summary.startswith("/") and len(summary.split()) == 1:
+        return ""
     return summary[:limit].strip()
 
 
