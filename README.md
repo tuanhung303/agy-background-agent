@@ -101,7 +101,8 @@ This symlinks the hooks and statusline into `~/.config/agy/` and `~/.gemini/conf
 | `AGY_SAGE_ESCALATE_MIN_CONFIDENCE` | `0.85` | Floor to escalate `irreversible_risk` |
 | `AGY_SAGE_MAX_ERROR_STREAK` | `3` | Failures before the circuit breaker opens |
 | `AGY_SAGE_MODEL` | `auto` | Sage model alias or model ID |
-| `AGY_SAGE_EFFORT` | `high` | Reasoning effort |
+| `AGY_SAGE_EFFORT` | `high` | Reasoning effort for forced/final evaluations |
+| `AGY_SAGE_ROUTINE_EFFORT` | `medium` | Effort tier for routine unforced mid-turn checks (low/medium/high; bad values fall back to medium). Routed via model re-tiering — agy bakes effort into the model name, so a mismatched `--effort` flag is never sent. |
 | `AGY_MAX_CONTEXT_TOKENS` | `250000` | Compaction ceiling shown in the statusline |
 
 ## Tests
@@ -111,3 +112,18 @@ uv run --with pytest pytest
 ```
 
 659+ unit, integration, adversarial, and static-analysis tests, including a gate that keeps every module ≤ 199 lines with no semicolon packing.
+
+## Empirical eval harness
+
+Scenario-driven evaluation against the REAL policy pipeline (guards → cadence →
+deferral scan → classify → hammer guard), model call mocked per scenario script:
+
+```bash
+python3 scripts/eval/run_eval.py                 # all scenarios in scripts/eval/scenarios/
+python3 scripts/eval/run_eval.py loop_early      # single scenario
+python3 scripts/eval/run_eval.py --json out.json # machine-readable results
+```
+
+Adding coverage = drop a JSON scenario file (tools, model-call script, expect
+contract: fire timing, category, emission caps, effort ladder, dedup ratio).
+Exit code 0 only when every scenario passes — CI-safe.
