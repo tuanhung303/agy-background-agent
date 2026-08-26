@@ -47,6 +47,21 @@ def background_watch(active_tasks, bg_steered):
     return {"action": "already_steered"}
 
 
+def _hammer_suppressed(state, category, turn_tools):
+    """Same-category steer + fresh executor tools since the last steer = wait.
+
+    The reworded-guidance hole: identical advice with new wording produces a
+    fresh advice_key, so key-based dedup never counts it. If the executor
+    already acted (new tools) since our last steer of this category, let that
+    evidence land before hammering again.
+    """
+    if not category:
+        return False
+    prev_cat = state.get("last_steer_category")
+    prev_tools = state.get("last_steer_tools", 0)
+    return prev_cat == category and turn_tools > prev_tools
+
+
 def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
               total_tool_calls, turn_tool_names, user_prompt, agent_steps,
               git_diff, state, forced=False, signal_note=""):
@@ -162,6 +177,12 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         res["action"] = "hold_dedup"
         return res
     prior_texts = state.get("sage_emitted_texts") or state.get("advisor_emitted_texts") or []
+    if dec in ("steer", "watchout") and classified.get("category"):
+        if _hammer_suppressed(state, classified["category"], latest[3]):
+            res["action"] = "hold_dedup"
+            res["hammer_suppressed"] = True
+            res["category"] = classified["category"]
+            return res
     if dec in ("steer", "watchout") and text and text in prior_texts:
         # Backstop: an identical re-emission (key aged out of the counts table).
         res["action"] = "hold_dedup"

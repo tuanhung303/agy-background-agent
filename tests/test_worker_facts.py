@@ -108,6 +108,34 @@ class TestExtractWorkerFacts(unittest.TestCase):
         self.assertIn("HEAD_SIGNATURE", facts)
         self.assertNotIn("TAIL_CHROME", facts)
 
+    def test_exited_status_settles_and_nos_not_settled_warning(self):
+        # Regression: executor proves `status: exited` via direct query — the
+        # facts block must stop claiming NOT SETTLED (it caused sage to hammer
+        # fake_verification steers while the pane was provably finished).
+        steps = [
+            _cmd("orca terminal create --command claude --json"),
+            _out('{"result":{"terminal":{"handle":"term_ab12cd34ef"}}}'),
+            _cmd("orca terminal read --terminal term_ab12cd34ef --limit 10 --json"),
+            _out('{"result":{"terminal":{"handle":"term_ab12cd34ef","status":"exited",'
+                 '"tail":["verdict: LGTM with 2 nits","line one: fix A.","line two: fix B.","line three: fix C."]}}}'),
+        ]
+        try:
+            path = _write_transcript(steps)
+            facts = extract_worker_facts(_load(path), path)
+        finally:
+            os.unlink(path)
+        self.assertNotIn("NOT SETTLED", facts)
+        self.assertIn("SETTLED", facts)
+
+    def test_exited_status_in_content_also_settles(self):
+        steps = [
+            _cmd("orca terminal create --command claude --worktree /tmp"),
+            _out("handle term_ab12cd34ef created"),
+            _out('orca terminal read term_ab12cd34ef: {"status":"exited"} tail [x]'),
+        ]
+        facts = extract_worker_facts(steps)
+        self.assertNotIn("NOT SETTLED", facts)
+
     def test_channel_configurable_via_env(self):
         steps = [_cmd("remote-cli run --session rs99 --detach")]
         with patch.dict(os.environ, {"AGY_SAGE_WORKER_SPAWN_RE": r"\bremote-cli\s+run\b.*--detach;;\borca\s+terminal\s+create\b"}):

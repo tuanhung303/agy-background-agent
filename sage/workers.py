@@ -1,10 +1,6 @@
 """
 sage.workers - Delegated-worker EVIDENCE for the sage prompt.
-
-Design (2026-08-26 rework):
-1. Channel-agnostic (one regex via AGY_SAGE_WORKER_SPAWN_RE).
-2. Primary evidence, not labels: RAW tail of the last captured output.
-3. Citable location: every fact carries the transcript LINE NUMBER.
+Channel-agnostic (AGY_SAGE_WORKER_SPAWN_RE); RAW tails + line citations.
 """
 
 import hashlib
@@ -92,19 +88,25 @@ def _fmt_age(age):
     return f"{age:.0f}s ago (~{int(age // 60)}m)" if age >= 60 else f"{age:.0f}s ago"  # noqa: E501
 
 
+_CLOSED_STATUS_RE = re.compile(r'"status"\s*:\s*"(exited|closed|exit|done)"')
+
+
 def _excerpt_from_out(out, idle_re):
-    """Decode JSON envelope -> tail array, head-first."""
+    """Decode JSON envelope -> tail array, head-first; also flags closed status."""
     exc, joined = out[:_EXCERPT_CHARS], out
-    i = out.find("{")
+    closed, i = False, out.find("{")
     if i != -1:
         try:
             env = json.loads(out[i:out.rfind("}") + 1], strict=False)
             term = (env.get("result") or {}).get("terminal") or {}
-            joined = "\n".join(term.get("tail") or [])
-            exc = joined[:_EXCERPT_CHARS]
+            tails = term.get("tail") or []
+            if tails:
+                joined = "\n".join(tails)
+                exc = joined[:_EXCERPT_CHARS]
+            closed = str(term.get("status") or "").lower() in ("exited", "closed", "exit", "done")
         except Exception:
             joined, exc = out, out[:_EXCERPT_CHARS]
-    return exc, bool(idle_re.search(joined)) and not _is_live(joined), _is_live(joined)
+    return (exc, bool(idle_re.search(joined)) and not _is_live(joined), _is_live(joined), closed)
 
 
 def extract_worker_facts(steps, transcript_path=None):
@@ -161,9 +163,8 @@ def extract_worker_facts(steps, transcript_path=None):
             if t.get("name") == "invoke_subagent":
                 for role in re.findall(r'"Role"\s*:\s*"([^"]+)"', args) or ["subagent"]:
                     _note(f"subagent:{role}", "subagent", f"invoke_subagent Role={role}", line_no)
-        # A pane-read call at step i produces its screen output in step i+1 —
-        # usually an orca JSON envelope with the real tail array inside.
-        # Prefer the decoded tail (worker's actual screen incl. idle ❯).
+        # A pane-read call at step i produces its screen output in step i+1
+        # (usually an orca JSON envelope with the real tail array inside).
         for t in (s.get("tool_calls") or []):
             args = str((t.get("args") or {}).get("CommandLine") or "")
             low_args = args.lower()
@@ -172,15 +173,13 @@ def extract_worker_facts(steps, transcript_path=None):
                 out = str(nxt.get("content") or "")
                 if not out.strip():
                     continue
-                excerpt, is_idle, is_live = _excerpt_from_out(out, idle_re)
+                excerpt, is_idle, is_live, closed = _excerpt_from_out(out, idle_re)
                 for tok in set(_TOKEN_RE.findall(args)):
-                    pending_reads.append((tok, excerpt, lmap.get(i + 1), _age(nxt.get("created_at")), is_idle, is_live))
+                    pending_reads.append((tok, excerpt, lmap.get(i + 1), _age(nxt.get("created_at")), is_idle, is_live, closed))
         toks_here = set(_TOKEN_RE.findall(content))
         if toks_here and content.strip():
-            # A create's JSON response arrives in the NEXT step's GENERIC output
-            # and carries the real handle; bind it to the most recent fallback-
-            # keyed worker (w-*) that has not been bound yet, then keep updating
-            # last_output for the handle-keyed worker from every later mention.
+            # A create's JSON response arrives in the NEXT GENERIC step with the
+            # real handle; bind it to the most recent fallback-keyed worker.
             unbound = [t2 for t2 in order if t2.startswith("w-") and not workers[t2].get("bound_handle")]
             if len(toks_here) == 1 and unbound:
                 fb = unbound[-1]
@@ -196,12 +195,16 @@ def extract_worker_facts(steps, transcript_path=None):
                             target = t2
                             break
                 if workers.get(tok):
-                    exc, _, live = _excerpt_from_out(content, idle_re)
+                    exc, _, live, closed = _excerpt_from_out(content, idle_re)
                     if not workers[tok].get("last"):
                         workers[tok]["last"] = (exc, line_no, _age(s.get("created_at")), False)
-                    if live or not exc:
+                    if closed:
+                        settled.add(tok)
+                    elif live or not exc:
                         settled.discard(tok)
-            if not _is_live(content) and (idle_re.search(content) and "orca terminal" in low
+            if _CLOSED_STATUS_RE.search(content):
+                settled.update(toks_here)
+            elif not _is_live(content) and (idle_re.search(content) and "orca terminal" in low
                                           or ("exited with code" in low and "--screen" in low)):
                 settled.update(toks_here)
         if any(h in low for h in _CLOSE_HINTS):
@@ -213,21 +216,17 @@ def extract_worker_facts(steps, transcript_path=None):
         return ""
 
     # Resolve pending pane-read outputs onto their (possibly re-keyed) workers.
-    handle_to_key = {}
-    for t2, w2 in workers.items():
-        bh = w2.get("bound_handle")
-        if bh:
-            handle_to_key.setdefault(bh, t2)
-        else:
-            handle_to_key[t2] = t2
-    for tok, excerpt, ln, age, is_idle, is_live in pending_reads:
+    handle_to_key = {w2.get("bound_handle") or t2: t2 for t2, w2 in workers.items()}
+    for tok, excerpt, ln, age, is_idle, is_live, closed in pending_reads:
         target = handle_to_key.get(tok) or tok
         if target not in workers:
             continue
         prev = workers[target].get("last")
         if prev is None or not prev[3] or (ln or 0) >= (prev[1] or 0):
             workers[target]["last"] = (excerpt, ln, age, True)  # authoritative screen
-        if is_live:
+        if closed:
+            settled.add(target)
+        elif is_live:
             settled.discard(target)
         elif is_idle:
             settled.add(target)
@@ -235,7 +234,7 @@ def extract_worker_facts(steps, transcript_path=None):
     lines = []
     for tok in order:
         w = workers[tok]
-        state = "SETTLED (idle/close observed)" if tok in settled else "NOT SETTLED (no idle/completion evidence)"
+        state = ("SETTLED (idle/close observed)" if tok in settled else "NOT SETTLED (no idle/completion evidence)")
         lines.append(f"worker[{tok}] kind={w['kind']} spawned@line{w['spawn_line']}: {w['cmd']}")
         last = w.get("last")
         delivered = "unknown"
@@ -248,8 +247,8 @@ def extract_worker_facts(steps, transcript_path=None):
     if final_claim:
         lines.append(f"executor_final_claim@line{claim_line}: \"{final_claim[:160]}\"")
     warnings = [(t, msg) for t in order for msg in (
-        *(("NOT SETTLED — read full output before approving",) if t not in settled else ()),
-        *(("output partial — review truncated before completion",) if workers[t].get("_delivered") == "partial" else ()),
-        *(("no delivered output — a stopped pane is not a finished review",) if workers[t].get("_delivered") == "no" else ()))]
+        ("NOT SETTLED — read full output before approving",) if t not in settled else (),
+        ("output partial — review truncated before completion",) if workers[t].get("_delivered") == "partial" else (),
+        ("no delivered output — a stopped pane is not a finished review",) if workers[t].get("_delivered") == "no" else ())]  # noqa: E501
     lines += [f"WARNING: {toks}: {why}" for toks, why in warnings[:4]]
     return "\n".join(lines)
