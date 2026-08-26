@@ -195,3 +195,31 @@ def detect_transcript_deferral(steps: Any) -> Dict[str, Any]:
         "raw_preview": turn_responses[0][:200],
     }
 
+
+
+_LIVE_MARKERS = ("✻", "✽", "✶", "Sprouting", "Churning", "Sautéing", "Baking",
+                 "Pollinating", "almost done thinking", "Running…")
+
+
+def is_live(text):
+    """Busy = spinner/thinking marker anywhere (TUI shows prompt always)."""
+    return bool(text.strip()) and any(m in text for m in _LIVE_MARKERS)
+
+
+_CHROME_RE = re.compile(r"^[^\n]*(?:⏺|⎿|─{6,}|⏵⏵|Tip: |✻|✽|Sprouting|Churning|Sautéing"
+                        r"|Baking|still thinking|Running…|Working…|Claude Team"
+                        r"|[▝▖▗▘▙▚▛▜▟██]).*?$", re.M)
+
+
+def delivered_state(excerpt):
+    """Strip chrome; a LIVE tail with prose is partial, not a clean yes."""
+    if not excerpt.strip():
+        return "no"
+    if "<truncated" in excerpt:
+        return "partial"
+    stripped = _CHROME_RE.sub("", re.sub(r"<(?:USER_REQUEST|ADDITIONAL_METADATA)>[\s\S]*?(?:</|$)", "", excerpt))
+    prose = re.sub(r"\s+", " ", re.sub(r"<(?:USER_REQUEST|ADDITIONAL_METADATA)>[\s\S]*?(?:</|$)", "", stripped)).strip(" ─-\n❯⏵")
+    prose = re.sub(r"bypass permissions on.*$", "", prose).strip(" ─-")
+    if len(prose) < 80 or len(re.findall(r"[.!?](?:\s|$)", prose)) < 3:
+        return "no"
+    return "partial" if prose[-1:] in (":", "-", "…") or is_live(excerpt) else "yes"

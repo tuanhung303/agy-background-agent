@@ -127,11 +127,52 @@ class TestExtractWorkerFacts(unittest.TestCase):
         self.assertNotIn("NOT SETTLED", facts)
         self.assertIn("SETTLED", facts)
 
+    def test_mixed_status_list_settles_only_exited(self):
+        # P0-3: `orca terminal list --json` returns many handles in ONE output —
+        # only the handle whose own status is exited may settle (running stays).
+        steps = [
+            _cmd("orca terminal create --command claude --json"),
+            _out('{"result":{"terminal":{"handle":"term_aa11bb22cc"}}}'),
+            _cmd("orca terminal create --command claude --json"),
+            _out('{"result":{"terminal":{"handle":"term_aa11bb22dd"}}}'),
+            _out('{"result":{"terminals":[{"handle":"term_aa11bb22cc","status":"exited"},'
+                 '{"handle":"term_aa11bb22dd","status":"running"}]}}'),
+        ]
+        facts = extract_worker_facts(steps)
+        self.assertNotIn("NOT SETTLED", facts.split("WARNING")[0].split("term_aa11bb22cc")[1][:200]
+                         .split("term_aa11bb22dd")[0])  # cc settled
+        self.assertIn("term_aa11bb22dd", facts)
+        self.assertIn("NOT SETTLED", facts)  # dd still running
+
+    def test_running_status_with_idle_tail_settles(self):
+        # Real `read --screen` carries status=running even when idle at ❯ (it is
+        # process liveness, not "actively streaming"); idle = no live markers.
+        steps = [
+            _cmd("orca terminal create --command claude --json"),
+            _out('{"result":{"terminal":{"handle":"term_ab12cd34ef"}}}'),
+            _cmd("orca terminal read --terminal term_ab12cd34ef --screen --json"),
+            _out('{"result":{"terminal":{"handle":"term_ab12cd34ef","status":"running",'
+                 '"tail":["$ ", "❯"]}}}'),
+        ]
+        facts = extract_worker_facts(steps)
+        self.assertNotIn("NOT SETTLED", facts)
+
+    def test_warnings_are_flat_strings_not_tuples(self):
+        steps = [
+            _cmd("orca terminal create --command claude --json"),
+            _out('{"result":{"terminal":{"handle":"term_ab12cd34ef"}}}'),
+            _cmd("orca terminal read --terminal term_ab12cd34ef --screen --json"),
+            _out('{"result":{"terminal":{"handle":"term_ab12cd34ef","status":"exited",'
+                 '"tail":[]}}}'),
+        ]
+        facts = extract_worker_facts(steps)
+        self.assertNotIn("('", facts)
+
     def test_exited_status_in_content_also_settles(self):
         steps = [
             _cmd("orca terminal create --command claude --worktree /tmp"),
             _out("handle term_ab12cd34ef created"),
-            _out('orca terminal read term_ab12cd34ef: {"status":"exited"} tail [x]'),
+            _out('read result: {"handle":"term_ab12cd34ef","status":"exited"} tail [x]'),
         ]
         facts = extract_worker_facts(steps)
         self.assertNotIn("NOT SETTLED", facts)

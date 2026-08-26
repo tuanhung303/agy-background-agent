@@ -55,11 +55,13 @@ def _hammer_suppressed(state, category, turn_tools):
     already acted (new tools) since our last steer of this category, let that
     evidence land before hammering again.
     """
-    if not category:
+    if not category or category in ("loop_detection", "irreversible_risk", "confused_goal"):
         return False
     prev_cat = state.get("last_steer_category")
     prev_tools = state.get("last_steer_tools", 0)
-    return prev_cat == category and turn_tools > prev_tools
+    if prev_cat != category or turn_tools - prev_tools < 2:
+        return False
+    return state.get("steer_suppress_count", 0) < 2
 
 
 def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
@@ -177,7 +179,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         res["action"] = "hold_dedup"
         return res
     prior_texts = state.get("sage_emitted_texts") or state.get("advisor_emitted_texts") or []
-    if dec in ("steer", "watchout") and classified.get("category"):
+    if dec in ("steer", "watchout") and classified.get("category") and mode != "final":
         if _hammer_suppressed(state, classified["category"], latest[3]):
             res["action"] = "hold_dedup"
             res["hammer_suppressed"] = True

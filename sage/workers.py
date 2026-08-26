@@ -9,7 +9,7 @@ import os
 import re
 from datetime import datetime, timezone
 
-from sage.sanitizer import sanitize_tool_output
+from sage.sanitizer import sanitize_tool_output, delivered_state, is_live
 
 _SPAWN_ENV = "AGY_SAGE_WORKER_SPAWN_RE"
 _DEFAULT_SPAWN_PATTERNS = (
@@ -21,13 +21,6 @@ _DEFAULT_IDLE = r"(?:^|\n)[^\S\n]*(?:❯|\$|%|#)\s*(?:\n|$)"
 _TOKEN_RE = re.compile(r"(?:term_[0-9a-f-]{8,}|task-[0-9]+|%[0-9]+)")
 _CLOSE_HINTS = ("terminal close", "kill-session", "tmux kill")
 _EXCERPT_CHARS = 4000
-_LIVE_MARKERS = ("✻", "✽", "✶", "Sprouting", "Churning", "Sautéing", "Baking",
-                 "Pollinating", "almost done thinking", "Running…")
-
-
-def _is_live(text):
-    """Busy = spinner/thinking marker anywhere (TUI shows prompt always)."""
-    return bool(text.strip()) and any(m in text for m in _LIVE_MARKERS)
 
 
 def _compiled_spawn():
@@ -88,13 +81,13 @@ def _fmt_age(age):
     return f"{age:.0f}s ago (~{int(age // 60)}m)" if age >= 60 else f"{age:.0f}s ago"  # noqa: E501
 
 
-_CLOSED_STATUS_RE = re.compile(r'"status"\s*:\s*"(exited|closed|exit|done)"')
+_HANDLE_STATUS_RE = re.compile(r'"handle"\s*:\s*"([^"]+)"[^}]*?"status"\s*:\s*"(exited|closed)"')
 
 
 def _excerpt_from_out(out, idle_re):
-    """Decode JSON envelope -> tail array, head-first; also flags closed status."""
+    """Decode JSON envelope -> tail array, head-first; explicit status wins."""
     exc, joined = out[:_EXCERPT_CHARS], out
-    closed, i = False, out.find("{")
+    closed, status, i = False, "", out.find("{")
     if i != -1:
         try:
             env = json.loads(out[i:out.rfind("}") + 1], strict=False)
@@ -103,10 +96,15 @@ def _excerpt_from_out(out, idle_re):
             if tails:
                 joined = "\n".join(tails)
                 exc = joined[:_EXCERPT_CHARS]
-            closed = str(term.get("status") or "").lower() in ("exited", "closed", "exit", "done")
+            status = str(term.get("status") or "").lower()
+            closed = status in ("exited", "closed")
         except Exception:
             joined, exc = out, out[:_EXCERPT_CHARS]
-    return (exc, bool(idle_re.search(joined)) and not _is_live(joined), _is_live(joined), closed)
+    live = is_live(joined)
+    idle = bool(idle_re.search(joined)) and not live
+    if closed:
+        idle = False  # process ended: none of the idle-prompt semantics apply
+    return exc, idle, live, closed
 
 
 def extract_worker_facts(steps, transcript_path=None):
@@ -128,23 +126,6 @@ def extract_worker_facts(steps, transcript_path=None):
         if tok not in workers:
             workers[tok] = {"kind": kind, "cmd": cmd[:150], "spawn_line": line}
             order.append(tok)
-
-    chrome_re = re.compile(r"^[^\n]*(?:⏺|⎿|─{6,}|⏵⏵|Tip: |✻|✽|Sprouting|Churning|Sautéing"
-                          r"|Baking|still thinking|Running…|Working…|Claude Team"
-                          r"|[▝▖▗▘▙▚▛▜▟██]).*?$", re.M)
-
-    def _delivered_state(excerpt):
-        """Strip chrome; a LIVE tail with prose is partial, not a clean yes."""
-        if not excerpt.strip():
-            return "no"
-        if "<truncated" in excerpt:
-            return "partial"
-        stripped = chrome_re.sub("", re.sub(r"<(?:USER_REQUEST|ADDITIONAL_METADATA)>[\s\S]*?(?:</|$)", "", excerpt))
-        prose = re.sub(r"\s+", " ", re.sub(r"<(?:USER_REQUEST|ADDITIONAL_METADATA)>[\s\S]*?(?:</|$)", "", stripped)).strip(" ─-\n❯⏵")
-        prose = re.sub(r"bypass permissions on.*$", "", prose).strip(" ─-")
-        if len(prose) < 80 or len(re.findall(r"[.!?](?:\s|$)", prose)) < 3:
-            return "no"
-        return "partial" if prose[-1:] in (":", "-", "…") or _is_live(excerpt) else "yes"
 
     for i, s in enumerate(steps):
         content = str(s.get("content") or "")
@@ -173,9 +154,9 @@ def extract_worker_facts(steps, transcript_path=None):
                 out = str(nxt.get("content") or "")
                 if not out.strip():
                     continue
-                excerpt, is_idle, is_live, closed = _excerpt_from_out(out, idle_re)
+                excerpt, is_idle, busy, closed = _excerpt_from_out(out, idle_re)
                 for tok in set(_TOKEN_RE.findall(args)):
-                    pending_reads.append((tok, excerpt, lmap.get(i + 1), _age(nxt.get("created_at")), is_idle, is_live, closed))
+                    pending_reads.append((tok, excerpt, lmap.get(i + 1), _age(nxt.get("created_at")), is_idle, busy, closed))
         toks_here = set(_TOKEN_RE.findall(content))
         if toks_here and content.strip():
             # A create's JSON response arrives in the NEXT GENERIC step with the
@@ -202,9 +183,8 @@ def extract_worker_facts(steps, transcript_path=None):
                         settled.add(tok)
                     elif live or not exc:
                         settled.discard(tok)
-            if _CLOSED_STATUS_RE.search(content):
-                settled.update(toks_here)
-            elif not _is_live(content) and (idle_re.search(content) and "orca terminal" in low
+            settled.update(h for h, _ in _HANDLE_STATUS_RE.findall(content))
+            if not is_live(content) and (idle_re.search(content) and ("orca terminal" in low or "tmux" in low)
                                           or ("exited with code" in low and "--screen" in low)):
                 settled.update(toks_here)
         if any(h in low for h in _CLOSE_HINTS):
@@ -217,16 +197,23 @@ def extract_worker_facts(steps, transcript_path=None):
 
     # Resolve pending pane-read outputs onto their (possibly re-keyed) workers.
     handle_to_key = {w2.get("bound_handle") or t2: t2 for t2, w2 in workers.items()}
-    for tok, excerpt, ln, age, is_idle, is_live, closed in pending_reads:
+    for tok, excerpt, ln, age, is_idle, busy, closed in pending_reads:
         target = handle_to_key.get(tok) or tok
         if target not in workers:
-            continue
+            fb = next((t2 for t2 in order if t2.startswith("w-") and not workers[t2].get("bound_handle")), None)
+            if fb:
+                workers[fb]["bound_handle"] = tok
+                workers[tok] = workers.pop(fb)
+                order[order.index(fb)] = tok
+                target = tok
+            else:
+                continue
         prev = workers[target].get("last")
         if prev is None or not prev[3] or (ln or 0) >= (prev[1] or 0):
             workers[target]["last"] = (excerpt, ln, age, True)  # authoritative screen
         if closed:
             settled.add(target)
-        elif is_live:
+        if busy:
             settled.discard(target)
         elif is_idle:
             settled.add(target)
@@ -240,15 +227,20 @@ def extract_worker_facts(steps, transcript_path=None):
         delivered = "unknown"
         if last:
             exc, ln, age, _auth = last
-            delivered = _delivered_state(exc)
+            delivered = delivered_state(exc)
             lines.append(f"  last_output@line{ln} ({_fmt_age(age)}): {exc}")
         lines.append(f"  state: {state} | delivered: {delivered}")
         w["_delivered"] = delivered
     if final_claim:
         lines.append(f"executor_final_claim@line{claim_line}: \"{final_claim[:160]}\"")
-    warnings = [(t, msg) for t in order for msg in (
-        ("NOT SETTLED — read full output before approving",) if t not in settled else (),
-        ("output partial — review truncated before completion",) if workers[t].get("_delivered") == "partial" else (),
-        ("no delivered output — a stopped pane is not a finished review",) if workers[t].get("_delivered") == "no" else ())]  # noqa: E501
-    lines += [f"WARNING: {toks}: {why}" for toks, why in warnings[:4]]
+    warns = []
+    for t in order:
+        for msg in (
+            "NOT SETTLED — read full output before approving" if t not in settled else "",
+            "output partial — review truncated before completion" if workers[t].get("_delivered") == "partial" else "",
+            "no delivered output — a stopped pane is not a finished review" if workers[t].get("_delivered") == "no" else "",
+        ):
+            if msg:
+                warns.append((t, msg))
+    lines += [f"WARNING: {toks}: {why}" for toks, why in warns[:6]]
     return "\n".join(lines)

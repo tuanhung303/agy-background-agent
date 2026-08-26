@@ -164,6 +164,9 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     recap_emitted, bg_watch_count, last_lines = (raw_state.get("recap_emitted", False), raw_state.get("bg_watch_count", 0), raw_state.get("last_audited_line_count", 0)) if is_same else (False, 0, 0)
     sage_status = (raw_state.get("sage_status") or raw_state.get("advisor_status", "hold")) if is_same else "hold"
     last_sage_text = (raw_state.get("last_sage_text") or raw_state.get("last_advisor_text", "")) if is_same else ""
+    last_steer_category = raw_state.get("last_steer_category") if is_same else None
+    last_steer_tools = raw_state.get("last_steer_tools", 0) if is_same else 0
+    steer_suppress_count = raw_state.get("steer_suppress_count", 0) if is_same else 0
     sage_recap = (raw_state.get("sage_recap") or raw_state.get("advisor_recap", "")) if is_same else ""
 
     # Preserved across turns:
@@ -191,6 +194,8 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "pinned_goal": pinned_goal, "anchor_goal": pinned_goal, "revised_goal": revised_goal, "derived_tasks": derived_tasks,
         "goal_revisions": goal_revisions, "sage_recap": sage_recap, "advisor_recap": sage_recap,
         "pinned_emitted": pinned_emitted, "anchor_emitted": pinned_emitted, "task_complexity": task_complexity,
+        "last_steer_category": last_steer_category, "last_steer_tools": last_steer_tools,
+        "steer_suppress_count": steer_suppress_count,
         "last_par_cats": last_par_cats, "last_par_fp": last_par_fp,
     }
 

@@ -119,7 +119,7 @@ def _step_to_text(s):
     return ""
 
 
-def render_turn_steps_slice(transcript_path, since_tools, max_n=10, min_keep=4):
+def render_turn_steps_slice(transcript_path, since_tools):
     """Steps the sage has NOT seen yet (cumulative tool calls passed since_tools),
     rendered identically to extract_session_and_turn_data. Returns
     (step_strings, unchanged_count) or None when the whole window is new/stale."""
@@ -130,7 +130,7 @@ def render_turn_steps_slice(transcript_path, since_tools, max_n=10, min_keep=4):
         return None
     start = 0
     for i, s in enumerate(steps):
-        if s.get("type") == "USER_INPUT":
+        if is_explicit_user_input(s):
             start = i + 1
     cum, end = 0, len(steps)
     for j in range(start, len(steps)):

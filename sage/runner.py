@@ -115,6 +115,8 @@ def run_session_stop_audit(raw_payload=None):
             save_session_state(state_file, state, sage_status="error", sage_error_streak=err_streak, last_audited_line_count=initial_line_count)
             fail_safe_exit("Mid-turn sage unavailable (empty or model cascade failed); window preserved")
         elif aact == "hold_dedup":
+            if act.get("hammer_suppressed"):
+                save_session_state(state_file, state, steer_suppress_count=state.get("steer_suppress_count", 0) + 1)
             (record_advisor_hold if record_advisor_hold != record_sage_hold else record_sage_hold)(state_file, state, total_tool_calls, initial_line_count, act.get("seen"))
             fail_safe_exit("Sage advice deduplicated")
         elif aact == "emit":

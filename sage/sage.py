@@ -88,7 +88,7 @@ def _dedupe_pane_reads(steps, worker_facts):
     out = []
     for st in steps:
         hit = next((h for h in handles if h in st), None)
-        if hit and len(st) > 200 and ("Output:" in st or "tail" in st):
+        if hit and len(st) > 200 and ('"tail"' in st or '"terminal"' in st or "Output:" in st):
             out.append(f"[pane read {hit} — full screen content lives in DELEGATED WORKERS below]")
         else:
             out.append(st)

@@ -23,10 +23,20 @@ class TestHammerGuard(unittest.TestCase):
         state = {"last_steer_category": "fake_verification", "last_steer_tools": 17}
         self.assertFalse(_hammer_suppressed(state, "fake_verification", 17))
         self.assertFalse(_hammer_suppressed(state, "fake_verification", 16))
+        self.assertFalse(_hammer_suppressed(state, "fake_verification", 18))  # delta < 2
 
-    def test_different_category_is_allowed(self):
+    def test_escalation_categories_are_exempt(self):
         state = {"last_steer_category": "loop_detection", "last_steer_tools": 3}
+        self.assertFalse(_hammer_suppressed(state, "loop_detection", 9))
+        self.assertFalse(_hammer_suppressed(state, "irreversible_risk", 9))
+        self.assertFalse(_hammer_suppressed(state, "confused_goal", 9))
+
+    def test_suppression_cap_of_two(self):
+        state = {"last_steer_category": "fake_verification", "last_steer_tools": 5,
+                 "steer_suppress_count": 2}
         self.assertFalse(_hammer_suppressed(state, "fake_verification", 9))
+        state["steer_suppress_count"] = 1
+        self.assertTrue(_hammer_suppressed(state, "fake_verification", 9))
 
     def test_no_history_is_allowed(self):
         self.assertFalse(_hammer_suppressed({}, "fake_verification", 5))
