@@ -74,7 +74,7 @@ class TestConfig(unittest.TestCase):
         # Reload back to clean state
         with patch.dict(os.environ, {}, clear=True):
             importlib.reload(config)
-            self.assertEqual(config.REVIEWER_MODEL_SPEC, "Gemini 3.7 Flash (Medium)")
+            self.assertEqual(config.REVIEWER_MODEL_SPEC, "Gemini 3.7 Flash (High)")
             self.assertEqual(config.REVIEWER_EFFORT, "high")
 
 

@@ -60,6 +60,29 @@ class TestDeferrals(unittest.TestCase):
         self.assertTrue(res["matched"])
         self.assertTrue(len(res["phrases"]) > 0)
 
+    def test_permission_seeking_endings_are_question_dumping(self):
+        # Regression (2026-08-26): "tell me if you want me to incorporate these
+        # revisions next" slipped past the gate and the sage recapped healthy
+        # while critical/major PRD fixes were still unapplied.
+        cases = [
+            "you can review the working prd at kb.md. tell me if you want me to incorporate these revisions into the specification next.",
+            "the draft is ready. do you want me to apply it?",
+            "all findings are listed above; let me know if you want me to fix them.",
+        ]
+        for text in cases:
+            res = detect_transcript_deferral([{"type": "PLANNER_RESPONSE", "content": text}])
+            self.assertTrue(res["matched"], f"deferral missed: {text[:60]}")
+            self.assertEqual(res["category"], "question_dumping")
+
+    def test_informational_tell_me_is_not_flagged(self):
+        clean = [
+            "tell me about the storage hierarchy in the PRD.",
+            "incorporated all revisions into the specification next morning.",
+        ]
+        for text in clean:
+            res = detect_transcript_deferral([{"type": "PLANNER_RESPONSE", "content": text}])
+            self.assertFalse(res["matched"], f"false positive: {text[:60]}")
+
     def test_classify_advice_overrides_on_track_when_deferral_present(self):
         ver_res = {
             "status": "on_track",

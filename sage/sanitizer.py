@@ -101,7 +101,7 @@ def clamp_diff(git_diff: Optional[str], budget: int = 4000) -> str:
 
 DEFERRAL_TAXONOMY = (
     ("question_dumping", (
-        re.compile(r"\b(?:would you like me to|do you want me to|should (?:i|we)|shall (?:i|we)|let me know if you would like|how would you like to proceed|what would you like to do next)\b", re.I),
+        re.compile(r"\b(?:would you like me to|do you want me to|tell me if you(?:'d| would)?(?: like| want me to)?|let me know if (?:you(?:'d| would)?(?: like| want)|it helps)|should (?:i|we)|shall (?:i|we)|how would you like to proceed|what would you like to do next)\b", re.I),
         re.compile(r"\b(?:bạn|anh|chị|senpai)\s*(?:có\s+)?(?:muốn|cần|muốn em|muốn mình)\b.*(?:\?|không\??)", re.I),
         re.compile(r"\b(?:có\s+)?(?:muốn|cần)\s+(?:mình|em|tôi|tiếp tục|làm tiếp|triển khai|chạy|fix|sửa|test|address)\b.*(?:\?|không\??)", re.I),
         re.compile(r"\bcòn\s+.*\s+(?:có\s+)?(?:muốn|cần|muốn em)\s+.*(?:\?|không\??)", re.I),
