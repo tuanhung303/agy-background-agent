@@ -124,6 +124,7 @@ def run_session_stop_audit(raw_payload=None):
             gu = {k: act[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in act and act[k] is not None}
             gu["last_steer_category"] = act.get("category")
             gu["last_steer_tools"] = total_tool_calls
+            gu["steer_suppress_count"] = 0  # budget: ≤2 suppressions per emitted steer
             (record_advisor_emit if record_advisor_emit != record_sage_emit else record_sage_emit)(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, act.get("seen", state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))), **gu)
             log_audit(f"Mid-turn sage {('triggered steer' if fdec == 'steer' else 'watchout emitted')}: {ftext}")
             emit_continue_response(format_hook_message("sage", ftext), is_post=True)

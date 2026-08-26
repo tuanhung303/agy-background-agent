@@ -168,6 +168,45 @@ class TestExtractWorkerFacts(unittest.TestCase):
         facts = extract_worker_facts(steps)
         self.assertNotIn("('", facts)
 
+    def test_exited_with_spinner_still_settles(self):
+        # Round-2 P1-A: exited + stale spinner in final screen must SETTLE on the
+        # authoritative read path (closed wins; busy only matters while alive).
+        steps = [
+            _cmd("orca terminal create --command claude --json"),
+            _out('{"result":{"terminal":{"handle":"term_ab12cd34ef"}}}'),
+            _cmd("orca terminal read --terminal term_ab12cd34ef --screen --json"),
+            _out('{"result":{"terminal":{"handle":"term_ab12cd34ef","status":"exited",'
+                 '"tail":["✻ Sprouting… still thinking with high effort"]}}}'),
+        ]
+        facts = extract_worker_facts(steps)
+        self.assertNotIn("NOT SETTLED", facts)
+
+    def test_multiple_workers_binding_preserves_both(self):
+        # Round-2 P2-C: create A -> handle aaaa -> create B -> mention aaaa again
+        # must NOT clobber A or duplicate its row.
+        steps = [
+            _cmd("orca terminal create --command claudeA --json"),
+            _out('{"result":{"terminal":{"handle":"term_aaaa111111"}}}'),
+            _cmd("orca terminal create --command claudeB --json"),
+            _out('{"result":{"terminal":{"handle":"term_bbbb222222"}}}'),
+            _out("checking term_aaaa111111 again"),
+        ]
+        facts = extract_worker_facts(steps)
+        self.assertIn("term_aaaa111111", facts)
+        self.assertIn("term_bbbb222222", facts)
+        self.assertEqual(facts.count("worker[term_aaaa111111]"), 1)
+        self.assertEqual(facts.count("worker[term_bbbb222222]"), 1)
+
+    def test_status_before_handle_matches(self):
+        # Round-2 P3-D: reversed key order `{"status":"exited","handle":"..."}`.
+        steps = [
+            _cmd("orca terminal create --command claude --json"),
+            _out('{"result":{"terminal":{"handle":"term_ab12cd34ef"}}}'),
+            _out('read result: {"status":"exited","handle":"term_ab12cd34ef","tail":["x"]}'),
+        ]
+        facts = extract_worker_facts(steps)
+        self.assertNotIn("NOT SETTLED", facts)
+
     def test_exited_status_in_content_also_settles(self):
         steps = [
             _cmd("orca terminal create --command claude --worktree /tmp"),

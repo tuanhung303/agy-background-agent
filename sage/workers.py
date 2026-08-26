@@ -81,7 +81,8 @@ def _fmt_age(age):
     return f"{age:.0f}s ago (~{int(age // 60)}m)" if age >= 60 else f"{age:.0f}s ago"  # noqa: E501
 
 
-_HANDLE_STATUS_RE = re.compile(r'"handle"\s*:\s*"([^"]+)"[^}]*?"status"\s*:\s*"(exited|closed)"')
+_HANDLE_STATUS_RE = re.compile(r'"handle"\s*:\s*"([^"]+)"[^}]*?"status"\s*:\s*"(exited|closed)"|'
+                               r'"status"\s*:\s*"(?:exited|closed)"[^}]*?"handle"\s*:\s*"([^"]+)"')
 
 
 def _excerpt_from_out(out, idle_re):
@@ -162,9 +163,10 @@ def extract_worker_facts(steps, transcript_path=None):
             # A create's JSON response arrives in the NEXT GENERIC step with the
             # real handle; bind it to the most recent fallback-keyed worker.
             unbound = [t2 for t2 in order if t2.startswith("w-") and not workers[t2].get("bound_handle")]
-            if len(toks_here) == 1 and unbound:
+            first = next(iter(toks_here), None)
+            if first and len(toks_here) == 1 and unbound and first not in workers:
                 fb = unbound[-1]
-                workers[fb]["bound_handle"] = tok_here = next(iter(toks_here))
+                workers[fb]["bound_handle"] = tok_here = first
                 workers[tok_here] = workers.pop(fb)
                 order[order.index(fb)] = tok_here
                 workers[tok_here]["handle_line"] = line_no
@@ -183,7 +185,8 @@ def extract_worker_facts(steps, transcript_path=None):
                         settled.add(tok)
                     elif live or not exc:
                         settled.discard(tok)
-            settled.update(h for h, _ in _HANDLE_STATUS_RE.findall(content))
+            for tup in _HANDLE_STATUS_RE.findall(content):
+                settled.update(h for h in (tup[0], tup[2]) if h)
             if not is_live(content) and (idle_re.search(content) and ("orca terminal" in low or "tmux" in low)
                                           or ("exited with code" in low and "--screen" in low)):
                 settled.update(toks_here)
@@ -211,11 +214,9 @@ def extract_worker_facts(steps, transcript_path=None):
         prev = workers[target].get("last")
         if prev is None or not prev[3] or (ln or 0) >= (prev[1] or 0):
             workers[target]["last"] = (excerpt, ln, age, True)  # authoritative screen
-        if closed:
-            settled.add(target)
-        if busy:
+        if busy and not closed:
             settled.discard(target)
-        elif is_idle:
+        elif closed or is_idle:
             settled.add(target)
 
     lines = []
