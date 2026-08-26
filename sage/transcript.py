@@ -105,6 +105,45 @@ def extract_session_and_turn_data(transcript_path):
     return user_prompt, raw_user_prompt, agent_steps, total_tools, tool_names, first_ts, user_ts, len(steps)
 
 
+def _step_to_text(s):
+    """Render one transcript step the same way extract_session_and_turn_data does."""
+    stype, scontent = s.get("type"), str(s.get("content") or "")
+    stools = _safe_tool_calls(s)
+    if stype == "PLANNER_RESPONSE":
+        snip = scontent if len(scontent) <= 1000 else f"{scontent[:500]}\n...\n{scontent[-500:]}"
+        return f"Response: {snip} | Tools: {[t.get('name') for t in stools]}"
+    if stype == "GENERIC":
+        return f"Tool output: {sanitize_tool_output(scontent)}"
+    if scontent and not is_steering_message(scontent):
+        return f"{stype}: {sanitize_tool_output(scontent, max_chars=400)}"
+    return ""
+
+
+def render_turn_steps_slice(transcript_path, since_tools, max_n=10, min_keep=4):
+    """Steps the sage has NOT seen yet (cumulative tool calls passed since_tools),
+    rendered identically to extract_session_and_turn_data. Returns
+    (step_strings, unchanged_count) or None when the whole window is new/stale."""
+    if since_tools <= 0 or not transcript_path or not os.path.exists(transcript_path):
+        return None
+    steps = _read_transcript_steps(transcript_path)
+    if not steps:
+        return None
+    start = 0
+    for i, s in enumerate(steps):
+        if s.get("type") == "USER_INPUT":
+            start = i + 1
+    cum, end = 0, len(steps)
+    for j in range(start, len(steps)):
+        cum += len(_safe_tool_calls(steps[j]))
+        if cum >= since_tools:
+            end = j + 1
+            break
+    tail = steps[end:]
+    if not tail:
+        return None
+    return [_step_to_text(s) for s in tail if _step_to_text(s)], end
+
+
 def has_new_user_activity(transcript_path, original_user_prompt, original_line_count=0):
     try:
         steps = _read_transcript_steps(transcript_path)

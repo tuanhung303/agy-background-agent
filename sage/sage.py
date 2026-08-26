@@ -78,6 +78,23 @@ def extract_target_goal(user_prompt, limit=500):
     return text[-limit:].strip()
 
 
+def _dedupe_pane_reads(steps, worker_facts):
+    """Collapse full terminal-read envelopes into one-line pointers; raw screens
+    stay byte-identical in the DELEGATED WORKERS block below. Line count is
+    preserved so loop/cadence signals keep their shape."""
+    handles = set(re.findall(r"worker\[(\S+?)\]", worker_facts))
+    if not handles or not steps:
+        return steps
+    out = []
+    for st in steps:
+        hit = next((h for h in handles if h in st), None)
+        if hit and len(st) > 200 and ("Output:" in st or "tail" in st):
+            out.append(f"[pane read {hit} — full screen content lives in DELEGATED WORKERS below]")
+        else:
+            out.append(st)
+    return out
+
+
 def build_sage_prompt(conv_id, user_prompt, agent_steps_summary, is_update=False, git_diff="", signals="", pinned_goal=None, revised_goal=None, derived_tasks=None, **kwargs):
     steps_txt = agent_steps_summary[-4000:] if len(agent_steps_summary) > 4000 else agent_steps_summary
     workers_block = ""
@@ -182,11 +199,19 @@ def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_
     delta_score, _ = calculate_turn_tool_score(transcript_path, last_verified) if transcript_path and os.path.exists(transcript_path) else (0.0, 0)
     if not is_forced and delta < SAGE_TOOL_INTERVAL and delta_score < SAGE_TOOL_SCORE_THRESHOLD:
         return {"healthy": True, "skipped": True, "tool_delta": delta, "score_delta": delta_score}
-    steps_summary = "\n".join(agent_steps[-10:]) if agent_steps else "No step details recorded."
-    from sage.transcript import _read_transcript_steps
+    from sage.transcript import _read_transcript_steps, render_turn_steps_slice
     from sage.workers import extract_worker_facts
     worker_facts = extract_worker_facts(
         _read_transcript_steps(transcript_path), transcript_path) if transcript_path and os.path.exists(transcript_path) else ""
+    steps_list = agent_steps[-10:] if agent_steps else []
+    sliced = render_turn_steps_slice(transcript_path, last_verified) if transcript_path and os.path.exists(transcript_path) else None
+    if sliced:
+        steps_list, unchanged = sliced
+        if unchanged > 0:
+            steps_list = [f"(…{unchanged} earlier steps unchanged — already assessed in a previous check)"] + steps_list
+    elif last_verified > 0:
+        steps_list = ["(…no new tool activity since the previous check — steps already assessed; new facts below)"]
+    steps_summary = "\n".join(_dedupe_pane_reads(steps_list, worker_facts)) if steps_list else "No step details recorded."
     log_audit(f"Running mid-turn sage (tools={total_tool_calls}, delta={delta}, model={REVIEWER_MODEL})...")
     _run_fn = run_sage_model if run_sage_model is not _ORIG_RUN else (run_advisor_model if run_advisor_model is not _ORIG_RUN else (run_verifier_model if run_verifier_model is not _ORIG_RUN else run_sage_model))
     return _run_fn(
