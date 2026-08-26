@@ -66,7 +66,7 @@ def _hammer_suppressed(state, category, turn_tools):
 
 def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
               total_tool_calls, turn_tool_names, user_prompt, agent_steps,
-              git_diff, state, forced=False, signal_note=""):
+              git_diff, state, forced=False, signal_note="", workspace_root=None):
     """Unified policy flow for sage decisions (mid-turn or final).
 
     Returns an action dict:
@@ -146,7 +146,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     verdict = evaluate_mid_turn_progress(
         conv_id, transcript_path, total_tool_calls, turn_tool_names,
         user_prompt, agent_steps, git_diff, state, is_forced=(forced or final or deferral.get("matched", False)),
-        signals=active_signal)
+        signals=active_signal, workspace_root=workspace_root)
     if has_new_user_activity(transcript_path, clean_prompt, initial_line_count):
         return {"action": "yield", "reason": ("Fresh user input detected during final sage; yielding" if final else "Fresh user input detected during sage; yielding")}
     if not verdict or verdict.get("status") == "error":
@@ -203,7 +203,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
 
 def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
                     total_tool_calls, turn_tool_names, user_prompt,
-                    agent_steps, git_diff, state):
+                    agent_steps, git_diff, state, workspace_root=None):
     """Sage assessment at a finishing stop — the sole terminal gate.
 
     Thin wrapper over sage_flow(mode="final"); a healthy hold carries a
@@ -214,7 +214,7 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
                 clean_prompt=clean_prompt, initial_line_count=initial_line_count,
                 total_tool_calls=total_tool_calls, turn_tool_names=turn_tool_names,
                 user_prompt=user_prompt, agent_steps=agent_steps,
-                git_diff=git_diff, state=state)
+                git_diff=git_diff, state=state, workspace_root=workspace_root)
     if act.get("action") == "healthy":
         recap_txt = act.get("recap") or act.get("text") or "Work completed and verified successfully."
         act["recap"] = recap_txt

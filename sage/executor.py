@@ -137,8 +137,12 @@ def run_model_cascade(
     label="Sage", timeout_budget=SAGE_TIMEOUT_BUDGET, schema_keys=(),
     acquire_lock_fn=acquire_spawn_lock, release_lock_fn=release_spawn_lock,
     resolve_candidates_fn=resolve_model_candidates, clean_resume_fn=clean_resume_history,
+    cwd=None,
 ):
     primary_prefix = prefixes[0] if isinstance(prefixes, (list, tuple)) else prefixes
+    # Run inside the workspace so the sage's read tools resolve project-relative
+    # paths; HOME stays rebound to the isolated home for session/auth isolation.
+    run_cwd = cwd if cwd and os.path.isdir(cwd) else None
     existing_session, start_t = load_session_id(parent_conv_id, prefixes), time.time()
     agy_bin, candidates = (shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")), (resolve_candidates_fn() or [])[:4]
     iso_home = ensure_isolated_home()
@@ -164,7 +168,7 @@ def run_model_cascade(
                 spawn_lock_fh, before_dbs = acquire_lock_fn(), set(os.listdir(conv_dir))
             try:
                 cmd = [agy_bin] + (["--conversation", existing_session] if existing_session else []) + ["-p", prompt, "--model", model, "--disable-slash-commands"]
-                res = subprocess.run(cmd, input="", capture_output=True, text=True, timeout=min(ADVISOR_EXEC_TIMEOUT, max(5.0, rem)), env=env)
+                res = subprocess.run(cmd, input="", capture_output=True, text=True, timeout=min(ADVISOR_EXEC_TIMEOUT, max(5.0, rem)), env=env, cwd=run_cwd)
                 if res.returncode != 0 or not res.stdout.strip():
                     log_audit(f"{label} '{model}' failed ({res.returncode}) in {round(time.time() - start_t, 2)}s")
                     _reset_bad()

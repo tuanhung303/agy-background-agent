@@ -78,39 +78,43 @@ def extract_target_goal(user_prompt, limit=500):
     return text[-limit:].strip()
 
 
+def format_session_pointers(conv_id, transcript_path=None, workspace_root=None):
+    _abs = lambda p: os.path.abspath(os.path.expanduser(str(p))) if p else ""
+    lines = [f"- parent conversation: {conv_id or 'default'}"]
+    if transcript_path:
+        lines.append(f"- parent transcript (jsonl; full turn history): {_abs(transcript_path)}")
+    if workspace_root:
+        lines.append(f"- workspace root (your cwd): {_abs(workspace_root)}")
+    lines.append("- verify deliverables on live state: `view_file <path> <start_line> <end_line>`, `grep_search`, `git status`, read-only test runs. Never mutate.")
+    return "SESSION POINTERS (read what you need — nothing is pre-extracted):\n" + "\n".join(lines)
+
+
 def _dedupe_pane_reads(steps, worker_facts):
-    """Collapse full terminal-read envelopes into one-line pointers; raw screens
-    stay byte-identical in the DELEGATED WORKERS block below. Line count is
-    preserved so loop/cadence signals keep their shape."""
     handles = set(re.findall(r"worker\[(\S+?)\]", worker_facts))
     if not handles or not steps:
         return steps
-    out = []
-    for st in steps:
-        hit = next((h for h in handles if h in st), None)
-        if hit and len(st) > 200 and ('"tail"' in st or '"terminal"' in st or "Output:" in st):
-            out.append(f"[pane read {hit} — full screen content lives in DELEGATED WORKERS below]")
-        else:
-            out.append(st)
-    return out
+    return [
+        (f"[pane read {next((h for h in handles if h in st), '')} — full screen content lives in DELEGATED WORKERS below]"
+         if any(h in st for h in handles) and len(st) > 200 and ('"tail"' in st or '"terminal"' in st or "Output:" in st) else st)
+        for st in steps
+    ]
 
 
-def build_sage_prompt(conv_id, user_prompt, agent_steps_summary, is_update=False, git_diff="", signals="", pinned_goal=None, revised_goal=None, derived_tasks=None, **kwargs):
+def build_sage_prompt(conv_id, user_prompt, agent_steps_summary, is_update=False, git_diff="", signals="", pinned_goal=None, revised_goal=None, derived_tasks=None, transcript_path=None, workspace_root=None, **kwargs):
     steps_txt = agent_steps_summary[-4000:] if len(agent_steps_summary) > 4000 else agent_steps_summary
-    workers_block = ""
-    workers_facts = str(kwargs.get("worker_facts") or "")
-    if workers_facts:
-        workers_block = f"\n\nDELEGATED WORKERS (deterministic facts — trust these over any 'completed' claim):\n{workers_facts}\n"
+    pointers = format_session_pointers(conv_id, transcript_path, workspace_root)
+    workers_block = f"\n\nDELEGATED WORKERS (deterministic facts — trust these over any 'completed' claim):\n{kwargs.get('worker_facts')}\n" if kwargs.get("worker_facts") else ""
     diff_txt, sig_txt = clamp_diff(git_diff), (f"\n\nACTIVE SIGNALS:\n{signals}" if signals else "")
     base_goal = pinned_goal or kwargs.get("anchor_goal")
     goal_block = format_goal_context(base_goal, revised_goal, derived_tasks)
     if is_update:
         goal_txt = f"{goal_block}\n\n" if goal_block else (f"TARGET GOAL (unchanged): {extract_target_goal(user_prompt)}\n\n" if extract_target_goal(user_prompt) else "")
-        return f"SAGE UPDATE (Follow-up Check for conversation {conv_id or 'default'}):\n{goal_txt}Evaluate recent agent actions against TARGET GOAL. If this is your first check in this conversation, evaluate the actions as-is.\n\nAGENT ACTIONS (RECENT):\n{steps_txt}{workers_block}\n\nGIT DIFF / MODIFICATIONS:\n{diff_txt}\n\n{STATUS_LEGEND}{sig_txt}"
+        return f"SAGE UPDATE (Follow-up Check for conversation {conv_id or 'default'}):\n{pointers}\n\n{goal_txt}Evaluate recent agent actions against TARGET GOAL. If this is your first check in this conversation, evaluate the actions as-is.\n\nAGENT ACTIONS (RECENT):\n{steps_txt}{workers_block}\n\nWORKSPACE CHANGE SHAPE (no patch text — slice ranges yourself with `view_file <path> <start> <end>` or `git -C <root> diff -- <path>`):\n{diff_txt}\n\n{STATUS_LEGEND}{sig_txt}"
     tpl = load_sage_template().replace("{update_marker}", "")
     goal = extract_target_goal(user_prompt, limit=2000)
     prompt_txt = f"{user_prompt[:2000]}\n\n{goal_block}" if goal_block else (user_prompt[:2000] if goal in user_prompt[:2000] else f"[TARGET GOAL]:\n{goal}")
     tpl = tpl.replace("{agent_steps}", f"{steps_txt}{workers_block}")
+    tpl = tpl.replace("{session_pointers}", pointers) if "{session_pointers}" in tpl else f"{tpl}\n\n{pointers}"
     return tpl.replace("{conv_id}", str(conv_id or "default")).replace("{user_prompt}", prompt_txt).replace("{git_diff}", diff_txt) + sig_txt
 
 
@@ -177,9 +181,11 @@ def run_sage_model(parent_conv_id, user_prompt, agent_steps_summary, git_diff=""
     existing_session = get_or_create_sage_session(parent_conv_id)
     log_audit(f"Sage prompt mode: {'update' if existing_session else 'initial'} [{parent_conv_id}]")
     base_goal = pinned_goal or kwargs.get("anchor_goal")
+    transcript_path, workspace_root = kwargs.get("transcript_path"), kwargs.get("workspace_root")
     prompt = build_sage_prompt(
         parent_conv_id, user_prompt, agent_steps_summary, bool(existing_session),
         git_diff, signals=signals, pinned_goal=base_goal, revised_goal=revised_goal, derived_tasks=derived_tasks,
+        transcript_path=transcript_path, workspace_root=workspace_root,
         worker_facts=kwargs.get("worker_facts"),
     )
     default_res = {"healthy": True, "blind_spots": [], "guidance": "", "status": "error"}
@@ -189,13 +195,14 @@ def run_sage_model(parent_conv_id, user_prompt, agent_steps_summary, git_diff=""
         schema_keys=("status", "healthy", "recap", "guidance"),
         acquire_lock_fn=acquire_spawn_lock, release_lock_fn=release_spawn_lock,
         resolve_candidates_fn=resolve_model_candidates, clean_resume_fn=clean_resume_history,
+        cwd=workspace_root,
     )
 
 
 _ORIG_RUN = run_sage_model
 
 
-def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state, is_forced=False, signals=""):
+def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state, is_forced=False, signals="", workspace_root=None):
     last_verified = state.get("last_verified_tools", 0)
     delta = total_tool_calls - last_verified
     delta_score, _ = calculate_turn_tool_score(transcript_path, last_verified) if transcript_path and os.path.exists(transcript_path) else (0.0, 0)
@@ -220,6 +227,7 @@ def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_
         conv_id, user_prompt, steps_summary, git_diff=git_diff, signals=signals,
         pinned_goal=state.get("pinned_goal") or state.get("anchor_goal"), revised_goal=state.get("revised_goal"),
         derived_tasks=state.get("derived_tasks"), worker_facts=worker_facts,
+        transcript_path=transcript_path, workspace_root=workspace_root,
     )
 
 

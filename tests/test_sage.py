@@ -623,3 +623,126 @@ class TestSage(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSessionSelfDiscovery(unittest.TestCase):
+    """Session pointers + workspace binding: Sage discovers context itself."""
+
+    def test_pointers_are_absolute_because_sage_home_is_rebound(self):
+        from sage.sage import format_session_pointers
+        blk = format_session_pointers("conv-1", "~/t/transcript.jsonl", "~/ws")
+        self.assertNotIn("~", blk)
+        self.assertIn(os.path.expanduser("~/t/transcript.jsonl"), blk)
+        self.assertIn(os.path.expanduser("~/ws"), blk)
+        self.assertIn("conv-1", blk)
+
+    def test_pointers_omit_missing_values(self):
+        from sage.sage import format_session_pointers
+        blk = format_session_pointers("conv-1")
+        self.assertNotIn("parent transcript", blk)
+        self.assertNotIn("workspace root", blk)
+        self.assertIn("conv-1", blk)
+
+    def test_both_prompt_paths_carry_pointers(self):
+        from sage.sage import build_sage_prompt
+        for is_update in (False, True):
+            with self.subTest(is_update=is_update):
+                p = build_sage_prompt(
+                    "conv-9", "goal text", "steps", is_update=is_update,
+                    transcript_path="/abs/t.jsonl", workspace_root="/abs/ws")
+                self.assertIn("/abs/t.jsonl", p)
+                self.assertIn("/abs/ws", p)
+                self.assertIn("SESSION POINTERS", p)
+
+    def test_no_placeholder_leaks_in_rendered_prompt(self):
+        from sage.sage import build_sage_prompt
+        p = build_sage_prompt("c", "goal", "steps", is_update=False,
+                              transcript_path="/abs/t.jsonl", workspace_root="/abs/ws")
+        for tok in ("{conv_id}", "{user_prompt}", "{git_diff}", "{agent_steps}",
+                    "{session_pointers}", "{update_marker}"):
+            self.assertNotIn(tok, p)
+
+    def test_pointers_survive_a_template_without_the_placeholder(self):
+        """A user override at ~/.config/agy/sage_prompt.md may predate the placeholder."""
+        from unittest.mock import patch
+        import sage.sage as sg
+        with patch.object(sg, "load_sage_template", return_value="Legacy template {conv_id} {user_prompt} {git_diff} {agent_steps}"):
+            p = sg.build_sage_prompt("c", "goal", "steps", is_update=False,
+                                     transcript_path="/abs/t.jsonl", workspace_root="/abs/ws")
+        self.assertIn("SESSION POINTERS", p)
+        self.assertIn("/abs/t.jsonl", p)
+
+    def test_update_prompt_never_replays_the_full_user_prompt(self):
+        from sage.sage import build_sage_prompt
+        bulky = "PRIOR CONTEXT " + "z" * 3000 + "\n[LATEST ACTIVE USER REQUEST]:\nship feature X"
+        p = build_sage_prompt("c", bulky, "steps", is_update=True, workspace_root="/abs/ws")
+        self.assertIn("ship feature X", p)
+        self.assertNotIn("z" * 200, p)
+
+    def test_sage_subprocess_is_bound_to_the_workspace(self):
+        from unittest.mock import MagicMock, patch
+        import sage.sage as sg
+        proc = MagicMock(returncode=0, stdout='{"status": "on_track"}', stderr="")
+        ws = tempfile.mkdtemp()
+        try:
+            with patch("subprocess.run", return_value=proc) as mock_run:
+                sg.run_sage_model("conv-cwd", "goal", "steps", workspace_root=ws)
+            self.assertEqual(mock_run.call_args.kwargs.get("cwd"), ws)
+        finally:
+            shutil.rmtree(ws, ignore_errors=True)
+
+    def test_nonexistent_workspace_root_falls_back_to_inherited_cwd(self):
+        from unittest.mock import MagicMock, patch
+        import sage.sage as sg
+        proc = MagicMock(returncode=0, stdout='{"status": "on_track"}', stderr="")
+        with patch("subprocess.run", return_value=proc) as mock_run:
+            sg.run_sage_model("conv-cwd2", "goal", "steps", workspace_root="/no/such/dir/xyz")
+        self.assertIsNone(mock_run.call_args.kwargs.get("cwd"))
+
+    def test_pointers_reach_the_prompt_through_the_full_runner_chain(self):
+        """runner -> policies.sage_flow -> evaluate_mid_turn_progress -> run_sage_model -> prompt."""
+        from unittest.mock import patch
+        import sage.policies as policies
+        captured = {}
+
+        def fake_run(conv_id, user_prompt, steps, **kw):
+            captured.update(kw)
+            return {"status": "on_track", "healthy": True}
+
+        ws = tempfile.mkdtemp()
+        try:
+            with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", side_effect=fake_run), \
+                 patch.object(policies, "has_new_user_activity", return_value=False), \
+                 patch.object(policies, "extract_session_and_turn_data", return_value=("", "", [], 5, set(), 0, 0, 0)), \
+                 patch.object(policies, "classify_advice", return_value={"decision": "healthy", "text": "ok", "seen": {}}):
+                policies.final_sage_gate(
+                    conv_id="c", transcript_path="/tmp/x.jsonl", clean_prompt="p",
+                    initial_line_count=0, total_tool_calls=5, turn_tool_names={"write_to_file"},
+                    user_prompt="u", agent_steps=[], git_diff="", state={},
+                    workspace_root=ws,
+                )
+            self.assertEqual(captured.get("workspace_root"), ws)
+            self.assertEqual(captured.get("transcript_path"), "/tmp/x.jsonl")
+        finally:
+            shutil.rmtree(ws, ignore_errors=True)
+
+    def test_run_sage_model_forwards_pointers_into_the_built_prompt(self):
+        """Closes the run_sage_model -> build_sage_prompt hop, not just the caller's kwargs."""
+        import sage.sage as sg
+        captured = {}
+
+        def fake_cascade(conv, prompt, prefixes, norm, **kw):
+            captured["prompt"], captured["cwd"] = prompt, kw.get("cwd")
+            return {"status": "on_track"}
+
+        orig = sg.run_model_cascade
+        sg.run_model_cascade = fake_cascade
+        try:
+            sg.run_sage_model("conv-fw", "goal", "steps",
+                              transcript_path="/abs/t.jsonl", workspace_root="/abs/ws")
+        finally:
+            sg.run_model_cascade = orig
+        self.assertIn("/abs/t.jsonl", captured["prompt"])
+        self.assertIn("/abs/ws", captured["prompt"])
+        self.assertEqual(captured["cwd"], "/abs/ws")

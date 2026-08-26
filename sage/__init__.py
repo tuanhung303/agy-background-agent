@@ -73,7 +73,7 @@ from sage.transcript import (
     has_new_user_activity,
     is_post_invocation_completion_candidate,
 )
-from sage.git import get_git_diff
+from sage.git import get_git_diff, resolve_workspace_root
 from sage.executor import clean_resume_history
 from sage.sage import (
     evaluate_mid_turn_progress,
@@ -140,6 +140,7 @@ __all__ = [
     "has_new_user_activity",
     "is_post_invocation_completion_candidate",
     "get_git_diff",
+    "resolve_workspace_root",
     "clean_resume_history",
     "evaluate_mid_turn_progress",
     "get_or_create_sage_session",

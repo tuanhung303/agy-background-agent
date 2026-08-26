@@ -36,8 +36,9 @@ class TestGit(unittest.TestCase):
             f.write("Modified content\n")
 
         diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
-        self.assertIn("Modified content", diff)
         self.assertIn("sample.txt", diff)
+        self.assertIn("Changed lines: 2", diff)  # 1 added + 1 removed, from numstat
+        self.assertNotIn("Modified content", diff)  # no patch body is ever inlined
 
     def test_get_git_diff_staged_and_untracked(self):
         # Init test git repo
@@ -55,10 +56,11 @@ class TestGit(unittest.TestCase):
             f.write("Untracked content\n")
 
         diff = get_git_diff([self.test_dir], turn_tool_names={"multi_replace_file_content"})
-        self.assertIn("Staged changes", diff)
         self.assertIn("staged.txt", diff)
         self.assertIn("untracked.txt", diff)
-        self.assertIn("Changed lines: 2", diff)
+        self.assertIn("Changed lines: 1", diff)  # staged.txt: 1 added line
+        self.assertIn("Untracked files: 1", diff)
+        self.assertNotIn("Staged content", diff)
 
     def test_get_git_diff_untracked_multiline_and_binary(self):
         subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
@@ -81,7 +83,11 @@ class TestGit(unittest.TestCase):
             f.write("a = 1\nb = 2\nc = 3\n")
 
         diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
-        self.assertIn("Changed lines: 10 + (partial: 1 skipped)", diff)  # 7 + 3, 1 binary skipped
+        # No untracked file is opened, so binary/unicode content never reaches the summary.
+        self.assertIn("Untracked files: 3", diff)
+        self.assertIn("Changed lines: 0", diff)
+        self.assertNotIn("line 3", diff)
+        self.assertNotIn("binary", diff)
 
     def test_get_git_diff_untracked_trailing_newline_accounting(self):
         subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
@@ -96,9 +102,11 @@ class TestGit(unittest.TestCase):
             f.write("line1\nline2")
 
         diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
-        self.assertIn("Changed lines: 3", diff)
+        self.assertIn("Untracked files: 2", diff)
+        self.assertIn("Changed lines: 0", diff)
+        self.assertNotIn("line1", diff)
 
-    def test_get_git_diff_untracked_size_cap_and_symlink(self):
+    def test_get_git_diff_untracked_oversized_and_symlink_not_read(self):
         subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
         subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
         subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
@@ -119,9 +127,12 @@ class TestGit(unittest.TestCase):
         os.symlink(target_file, link_file)
 
         diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
-        self.assertIn("Changed lines: 0 + (partial: 2 skipped)", diff)
+        # Oversized file and symlink need no special-casing: nothing is opened.
+        self.assertIn("Untracked files: 2", diff)
+        self.assertIn("Changed lines: 0", diff)
+        self.assertNotIn("xxxxxxxxxx", diff)
 
-    def test_get_git_diff_untracked_50_file_cap(self):
+    def test_get_git_diff_untracked_status_entry_cap(self):
         subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
         subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
         subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
@@ -131,7 +142,9 @@ class TestGit(unittest.TestCase):
                 f.write(f"content {i}\n")
 
         diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
-        self.assertIn("Changed lines: 50 + (partial: >50 untracked files)", diff)
+        # All 55 are counted; only the first 12 status entries are listed verbatim.
+        self.assertIn("Untracked files: 55", diff)
+        self.assertIn("+43 more entries", diff)
 
     def test_get_git_diff_with_string_workspace_path(self):
         # Passing string path instead of list must not crash or iterate characters
@@ -143,7 +156,7 @@ class TestGit(unittest.TestCase):
         self.assertEqual(get_git_diff([], turn_tool_names={"write_to_file"}), "")
         self.assertEqual(get_git_diff("", turn_tool_names={"write_to_file"}), "")
 
-    def test_get_git_diff_redacts_tracked_secrets(self):
+    def test_get_git_diff_never_exposes_tracked_secrets(self):
         subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
         subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.test_dir, capture_output=True)
         subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.test_dir, capture_output=True)
@@ -158,8 +171,9 @@ class TestGit(unittest.TestCase):
             f.write("API_KEY = 'SECRET_TOKEN_9999'\n")
 
         diff = get_git_diff([self.test_dir], turn_tool_names={"write_to_file"})
+        # Stronger than redaction: no patch body means the secret is never read at all.
         self.assertNotIn("SECRET_TOKEN_9999", diff)
-        self.assertIn("[redacted]", diff)
+        self.assertIn("config.py", diff)
 
     def test_get_git_diff_with_shell_aliases(self):
         subprocess.run(["git", "init"], cwd=self.test_dir, capture_output=True)
@@ -229,3 +243,64 @@ class TestGit(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWorkspaceRoot(unittest.TestCase):
+    def test_resolve_workspace_root_picks_first_real_dir_absolute(self):
+        from sage.git import resolve_workspace_root
+        real = tempfile.mkdtemp()
+        try:
+            self.assertEqual(resolve_workspace_root(["/no/such/dir", real]), os.path.abspath(real))
+            self.assertEqual(resolve_workspace_root(real), os.path.abspath(real))
+            self.assertEqual(resolve_workspace_root(["/no/such/dir"]), "")
+            self.assertEqual(resolve_workspace_root([]), "")
+            self.assertEqual(resolve_workspace_root(None), "")
+        finally:
+            shutil.rmtree(real, ignore_errors=True)
+
+    def test_summary_reports_absolute_workspace_path(self):
+        """Sage runs with HOME rebound; a relative label would be unusable to it."""
+        from sage.git import get_git_diff
+        d = tempfile.mkdtemp()
+        try:
+            subprocess.run(["git", "init"], cwd=d, capture_output=True)
+            with open(os.path.join(d, "a.txt"), "w") as f:
+                f.write("x\n")
+            cwd = os.getcwd()
+            try:
+                os.chdir(d)
+                diff = get_git_diff(["."], turn_tool_names={"write_to_file"})
+            finally:
+                os.chdir(cwd)
+            self.assertNotIn("Workspace (.)", diff)
+            self.assertIn(f"Workspace ({os.sep}", diff)
+            self.assertIn(os.path.basename(d), diff)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_summary_reads_no_file_contents(self):
+        """The untracked line-count loop is gone: no untracked file is ever opened."""
+        from sage.git import get_git_diff
+        d = tempfile.mkdtemp()
+        try:
+            subprocess.run(["git", "init"], cwd=d, capture_output=True)
+            with open(os.path.join(d, "big.txt"), "w") as f:
+                f.write("SENTINEL_CONTENT\n" * 1000)
+            opened = []
+            real_open = open
+
+            def tracking_open(path, *a, **k):
+                opened.append(str(path))
+                return real_open(path, *a, **k)
+
+            import builtins
+            builtins.open = tracking_open
+            try:
+                diff = get_git_diff([d], turn_tool_names={"write_to_file"})
+            finally:
+                builtins.open = real_open
+            self.assertNotIn("SENTINEL_CONTENT", diff)
+            self.assertEqual([p for p in opened if "big.txt" in p], [])
+            self.assertIn("Untracked files: 1", diff)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)

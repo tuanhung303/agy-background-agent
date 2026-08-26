@@ -5,7 +5,7 @@ sage.runner - Main execution flow for the session stop audit hook.
 import json
 
 from sage.events import EVENT_ERROR_LOOP, format_summon_message
-from sage.git import get_git_diff
+from sage.git import get_git_diff, resolve_workspace_root
 from sage.goals import sync_goal_state
 from sage.guards import (
     check_payload_and_lifecycle, emit_continue_response, emit_recap_response,
@@ -85,6 +85,7 @@ def run_session_stop_audit(raw_payload=None):
         fail_safe_exit("Recap already emitted or transcript unchanged")
 
     ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths") or []
+    workspace_root = resolve_workspace_root(ws_paths)
     if is_post_invocation() and not is_post_invocation_completion_candidate(transcript_path, conv_id):
         has_err, has_loop = has_recent_tool_errors(transcript_path), has_repeated_tool_calls(transcript_path)
         sig_kwargs = {}
@@ -101,6 +102,7 @@ def run_session_stop_audit(raw_payload=None):
             total_tool_calls=total_tool_calls, turn_tool_names=turn_tool_names,
             user_prompt=user_prompt, agent_steps=agent_steps, git_diff=get_git_diff(ws_paths, turn_tool_names),
             state=state, forced=(has_err or has_loop), signal_note=sig.strip(),
+            workspace_root=workspace_root,
         )
         aact = act.get("action")
         if aact in ("exit", "yield"):
@@ -134,7 +136,7 @@ def run_session_stop_audit(raw_payload=None):
 
     git_diff = get_git_diff(ws_paths, turn_tool_names)
     _gate_fn = final_advisor_gate if final_advisor_gate != final_sage_gate else final_sage_gate
-    gate = _gate_fn(conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state)
+    gate = _gate_fn(conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state, workspace_root=workspace_root)
     gact = gate.get("action")
     log_audit(f"Final sage gate: {gact}" + (f" ({gate.get('reason', '')})" if gate.get("reason") else ""))
     if state.get("pending_clarify") and not state.get("clarify_asked"):
