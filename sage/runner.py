@@ -50,6 +50,7 @@ def run_session_stop_audit(raw_payload=None):
 
     clean_prompt, state_file, state, is_same = load_and_sync_session_state(conv_id, transcript_path, raw_user_prompt)
     sync_goal_state(state, user_prompt, total_tool_calls, turn_tool_names)
+    save_session_state(state_file, state)
 
     active_subagents = get_active_subagents(transcript_path, conv_id)
     if active_subagents:

@@ -186,7 +186,7 @@ def is_post_invocation_completion_candidate(transcript_path, conv_id=None):
         return False
     steps = _read_transcript_steps(transcript_path)
     latest_idx = next((i for i in range(len(steps) - 1, -1, -1) if steps[i].get("type") == "PLANNER_RESPONSE"), -1)
-    if latest_idx == -1 or any(s.get("type") not in ("CHECKPOINT", "SYSTEM_MESSAGE") for s in steps[latest_idx + 1:]):
+    if latest_idx == -1 or any(s.get("type") not in ("CHECKPOINT", "SYSTEM_MESSAGE", "EPHEMERAL_MESSAGE", "ERROR_MESSAGE") for s in steps[latest_idx + 1:]):
         return False
     latest = steps[latest_idx]
     return bool(str(latest.get("content") or "").strip() and not latest.get("tool_calls"))

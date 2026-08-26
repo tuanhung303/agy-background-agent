@@ -125,14 +125,8 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         signals=active_signal)
     if has_new_user_activity(transcript_path, clean_prompt, initial_line_count):
         return {"action": "yield", "reason": ("Fresh user input detected during final sage; yielding" if final else "Fresh user input detected during sage; yielding")}
-    latest = extract_session_and_turn_data(transcript_path)
-    progressed = (not final and is_post_invocation_completion_candidate(transcript_path, conv_id)) \
-        or latest[3] > total_tool_calls or latest[7] > initial_line_count
-    if progressed:
-        return {"action": "progressed", "tools": latest[3], "lines": latest[7]}
     if not verdict or verdict.get("status") == "error":
         return {"action": "error"}
-
     seen_adv = state.get("sage_advice_counts") or state.get("advisor_advice_counts", {})
     classified = classify_advice(
         verdict, seen_advice=seen_adv,
@@ -141,6 +135,11 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         anchor_emitted=bool(state.get("pinned_emitted", state.get("anchor_emitted", False))),
         mode="final" if final else "midturn",
         deferral=deferral)
+    latest = extract_session_and_turn_data(transcript_path)
+    progressed = (not final and is_post_invocation_completion_candidate(transcript_path, conv_id)) \
+        or latest[3] > total_tool_calls or latest[7] > initial_line_count
+    if progressed and not classified.get("pinned_emitted") and classified.get("category") != "pinned_goal":
+        return {"action": "progressed", "tools": latest[3], "lines": latest[7]}
     dec, text = classified.get("decision"), classified.get("text", "")
     res = {"seen": classified.get("seen")}
     if "recap" in classified and classified["recap"]:

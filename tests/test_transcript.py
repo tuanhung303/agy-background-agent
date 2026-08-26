@@ -35,6 +35,12 @@ class TestTranscript(unittest.TestCase):
         cleaned = clean_user_prompt(raw)
         self.assertEqual(cleaned, "Fix the bug")
 
+        nested = "<USER_REQUEST>\nreview this:\n<USER_REQUEST>\ninner\n</USER_REQUEST>\n</USER_REQUEST>"
+        c1 = clean_user_prompt(nested)
+        c2 = clean_user_prompt(c1)
+        self.assertEqual(c1, c2)
+        self.assertEqual(c1, "review this:\n\ninner")
+
         raw_settings = "<USER_SETTINGS_CHANGE>debug=1</USER_SETTINGS_CHANGE>Hello"
         self.assertEqual(clean_user_prompt(raw_settings), "Hello")
         self.assertEqual(clean_user_prompt(None), "")
@@ -378,6 +384,10 @@ class TestTranscript(unittest.TestCase):
                 "type": "PLANNER_RESPONSE",
                 "content": "Implemented and verified the fix.",
                 "tool_calls": [],
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "EPHEMERAL_MESSAGE",
+                "content": "Command Timer - IMPROVE_NEXT_TIME: view_file took 12s",
             }) + "\n")
         self.assertTrue(is_post_invocation_completion_candidate(self.transcript_path))
 

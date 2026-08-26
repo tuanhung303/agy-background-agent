@@ -60,7 +60,8 @@ def emit_recap_response(recap, is_post=None, kind="recap"):
     """Releases conversation lock and emits recap termination or stop decision."""
     post = is_post if is_post is not None else is_post_invocation()
     release_lock()
-    payload = {"injectSteps": [{"userMessage": format_hook_message(kind, recap)}], "terminationBehavior": "terminate"} if post else {"decision": "stop"}
+    msg = format_hook_message(kind, recap)
+    payload = {"injectSteps": [{"userMessage": msg}], "terminationBehavior": "terminate"} if post else {"decision": "stop", "reason": msg}
     print(json.dumps(payload))
     sys.exit(0)
 
