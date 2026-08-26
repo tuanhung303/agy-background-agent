@@ -161,7 +161,7 @@ def resolve_model_candidates(spec=None, effort=None, max_candidates=4):
     if is_auto or not expanded:
         expanded.extend(DEFAULT_MODEL_FALLBACKS)
     else:
-        expanded.extend(m for m in DEFAULT_MODEL_FALLBACKS if m not in expanded)
+        expanded.extend(_retier_model(m, effort) for m in DEFAULT_MODEL_FALLBACKS if m not in expanded)
     candidates, seen = [], set()
     cached = get_cached_working_model()
     if is_auto and cached and cached in expanded:
