@@ -1,0 +1,19 @@
+{
+  "id": "prompt_dedup_bytes",
+  "desc": "pane-read dedup shrinks sage prompt without losing worker facts",
+  "user_prompt": "Watch the workers and summarize their state.",
+  "tools": [
+    ["manage_task", "status check 0"],
+    ["manage_task", "status check 1"]
+  ],
+  "script": [null],
+  "expect": {"prompt_byte_ratio_lt": 0.85},
+  "dedup_probe": {
+    "worker_facts": "worker[term_ab12cd34ef] spawned@line1: orca create\n  last_output@line3: {\"tail\": [\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"]} \n  state: x | delivered: no",
+    "steps": [
+      "Tool output: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx term_ab12cd34ef tail Output:",
+      "Response: plain | Tools: ['read']"
+    ],
+    "pad": ["Tool output: ", " term_ab12cd34ef tail Output:", "x", 900, 4]
+  }
+}

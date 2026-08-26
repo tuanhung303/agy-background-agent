@@ -1,0 +1,23 @@
+{
+  "id": "hammer_same_cat",
+  "desc": "reworded advice must not hammer (advice-key + hammer guard)",
+  "user_prompt": "Build 4 independent modules with unittests (fib, roman, brackets, caesar).",
+  "tools": [
+    ["write_to_file", "creating fib_0.py test stub"],
+    ["write_to_file", "creating fib_1.py test stub"],
+    ["write_to_file", "creating fib_2.py test stub"],
+    ["write_to_file", "creating fib_3.py test stub"],
+    ["invoke_subagent", "spawn worker leg 1"],
+    ["run_command", "python -m unittest fib_0 -v 2>&1 | tail -3 && echo done0"],
+    ["run_command", "python -m unittest fib_1 -v 2>&1 | tail -3 && echo done1"],
+    ["run_command", "python -m unittest fib_2 -v 2>&1 | tail -3 && echo done2"],
+    ["run_command", "python -m unittest fib_3 -v 2>&1 | tail -3 && echo done3"]
+  ],
+  "script": [
+    {"status": "watchout", "category": "parallelize_subagent", "confidence": 0.9, "action": "invoke_subagent: dispatch remaining legs concurrently", "guidance": "Legs are independent; delegate."},
+    {"status": "watchout", "category": "parallelize_subagent", "confidence": 0.9, "action": "call subagent pool for legs", "guidance": "Dispatch remaining legs in parallel now."},
+    null, null, null
+  ],
+  "expect": {"max_parallel_emissions": 1},
+  "final_script": {"status": "on_track", "recap": "All four modules tested.", "confidence": 0.9}
+}

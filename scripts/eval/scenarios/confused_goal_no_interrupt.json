@@ -1,0 +1,19 @@
+{
+  "id": "confused_goal_no_interrupt",
+  "desc": "confused-goal held until final; final asks once via pending_clarify",
+  "user_prompt": "Just do the thing we discussed earlier with the pipeline config stuff.",
+  "tools": [
+    ["view_file", "listing conf dir 0"],
+    ["view_file", "listing conf dir 1"],
+    ["view_file", "listing conf dir 2"],
+    ["view_file", "listing conf dir 3"],
+    ["view_file", "listing conf dir 4"],
+    ["view_file", "listing conf dir 5"]
+  ],
+  "script": [
+    {"status": "watchout", "category": "confused_goal", "confidence": 0.92, "guidance": "Ask which pipeline config was meant."},
+    null, null
+  ],
+  "expect": {"midturn_interrupts": 0, "final_pending_clarify_ok": true},
+  "final_script": {"status": "watchout", "category": "confused_goal", "confidence": 0.92, "guidance": "Which pipeline config did you mean?"}
+}

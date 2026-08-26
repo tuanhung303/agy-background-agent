@@ -1,0 +1,26 @@
+{
+  "id": "loop_early",
+  "desc": "retry loop fires early",
+  "user_prompt": "Fix the flaky auth tests in /tmp/agy_eval/ws and run them green.",
+  "tools": [
+    ["run_command", "pytest /tmp/agy_eval/ws/test_auth.py -x 2>&1 | tail -20 && echo i0 FAILED"],
+    ["run_command", "pytest /tmp/agy_eval/ws/test_auth.py -x 2>&1 | tail -20 && echo i1 FAILED"],
+    ["run_command", "pytest /tmp/agy_eval/ws/test_auth.py -x 2>&1 | tail -20 && echo i2 FAILED"],
+    ["run_command", "pytest /tmp/agy_eval/ws/test_auth.py -x 2>&1 | tail -20 && echo i3 FAILED"],
+    ["run_command", "pytest /tmp/agy_eval/ws/test_auth.py -x 2>&1 | tail -20 && echo i4 FAILED"],
+    ["run_command", "pytest /tmp/agy_eval/ws/test_auth.py -x 2>&1 | tail -20 && echo i5 FAILED"],
+    ["run_command", "pytest /tmp/agy_eval/ws/test_auth.py -x 2>&1 | tail -20 && echo i6 FAILED"],
+    ["run_command", "pytest /tmp/agy_eval/ws/test_auth.py -x 2>&1 | tail -20 && echo i7 FAILED"],
+    ["view_file", "reading test_auth.py helpers"],
+    ["grep_search", "grep fixture autouse"]
+  ],
+  "script": [
+    {"status": "off_track", "category": "loop_detection", "action": "Break the pytest retry loop; diagnose the flaky fixture first", "evidence": "identical failing pytest command repeated", "confidence": 0.95, "guidance": "Stop rerunning the same command.", "task_complexity": "complex_code"},
+    null, null, null, null
+  ],
+  "expect": {
+    "first_fire_cp": 4,
+    "decision_category": "loop_detection"
+  },
+  "final_script": {"status": "on_track", "recap": "Auth tests fixed and verified green.", "confidence": 0.9}
+}
