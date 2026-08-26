@@ -686,6 +686,7 @@ class TestIntegration(unittest.TestCase):
                 "prompt_hash": "hash123",
                 "recap_emitted": False,
                 "last_audited_line_count": 2,
+                "last_final_gate_lines": 2,
             }, sf)
 
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}

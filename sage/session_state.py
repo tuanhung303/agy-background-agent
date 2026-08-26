@@ -162,6 +162,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     emitted_texts = (raw_state.get("sage_emitted_texts") or raw_state.get("advisor_emitted_texts", [])) if is_same else []
     mid_turn_steers, last_verified = (raw_state.get("mid_turn_steers", 0), raw_state.get("last_verified_tools", 0)) if is_same else (0, 0)
     recap_emitted, bg_watch_count, last_lines = (raw_state.get("recap_emitted", False), raw_state.get("bg_watch_count", 0), raw_state.get("last_audited_line_count", 0)) if is_same else (False, 0, 0)
+    last_final_lines = raw_state.get("last_final_gate_lines", 0) if is_same else 0
     sage_status = (raw_state.get("sage_status") or raw_state.get("advisor_status", "hold")) if is_same else "hold"
     last_sage_text = (raw_state.get("last_sage_text") or raw_state.get("last_advisor_text", "")) if is_same else ""
     last_steer_category = raw_state.get("last_steer_category") if is_same else None
@@ -184,7 +185,8 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     state = {
         "turn_key": turn_key, "prompt_hash": prompt_hash,
         "mid_turn_steers": mid_turn_steers, "last_verified_tools": last_verified, "recap_emitted": recap_emitted,
-        "last_audited_line_count": last_lines, "background_steered_tasks": sorted(bg_steered),
+        "last_audited_line_count": last_lines, "last_final_gate_lines": last_final_lines,
+        "background_steered_tasks": sorted(bg_steered),
         "bg_watch_count": bg_watch_count, "sage_status": sage_status, "advisor_status": sage_status,
         "sage_holds": sage_holds, "advisor_holds": sage_holds, "recap_count": recap_count,
         "session_mid_turn_steers": sm_steers, "last_sage_text": last_sage_text, "last_advisor_text": last_sage_text,

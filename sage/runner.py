@@ -80,9 +80,17 @@ def run_session_stop_audit(raw_payload=None):
     if not user_prompt.strip() or payload.get("fullyIdle") is False or payload.get("fully_idle") is False:
         fail_safe_exit("No user prompt or runtime reports active background work")
 
+    if state.get("recap_emitted"):
+        fail_safe_exit("Recap already emitted")
     last_lines = state.get("last_audited_line_count", 0)
-    if state.get("recap_emitted") or (last_lines > 0 and last_lines == initial_line_count):
-        fail_safe_exit("Recap already emitted or transcript unchanged")
+    if is_post_invocation():
+        if last_lines > 0 and last_lines == initial_line_count:
+            fail_safe_exit("Mid-turn transcript unchanged")
+    else:
+        last_final_lines = state.get("last_final_gate_lines", 0)
+        if last_final_lines > 0 and last_final_lines == initial_line_count:
+            fail_safe_exit("Final stop already audited at current line count")
+        save_session_state(state_file, state, last_final_gate_lines=initial_line_count)
 
     ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths") or []
     workspace_root = resolve_workspace_root(ws_paths)
