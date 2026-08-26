@@ -177,6 +177,12 @@ def parse_sage_output(raw_text):
     return _normalize_sage_dict(d) if d is not None else {"healthy": True, "blind_spots": [], "guidance": "", "status": "on_track"}
 
 
+def _routine_effort():
+    """Tier for routine (unforced) checks: low|medium|high, whitelisted w/ fallback."""
+    val = os.environ.get("AGY_SAGE_ROUTINE_EFFORT", "medium").strip().lower()
+    return val if val in ("low", "medium", "high") else "medium"
+
+
 def run_sage_model(parent_conv_id, user_prompt, agent_steps_summary, git_diff="", signals="", pinned_goal=None, revised_goal=None, derived_tasks=None, **kwargs):
     existing_session = get_or_create_sage_session(parent_conv_id)
     log_audit(f"Sage prompt mode: {'update' if existing_session else 'initial'} [{parent_conv_id}]")
@@ -194,7 +200,8 @@ def run_sage_model(parent_conv_id, user_prompt, agent_steps_summary, git_diff=""
         _normalize_sage_dict, default_on_failure=default_res, label="Sage",
         schema_keys=("status", "healthy", "recap", "guidance"),
         acquire_lock_fn=acquire_spawn_lock, release_lock_fn=release_spawn_lock,
-        resolve_candidates_fn=resolve_model_candidates, clean_resume_fn=clean_resume_history,
+        resolve_candidates_fn=(lambda: resolve_model_candidates(effort=kwargs.get("model_effort"))),
+        clean_resume_fn=clean_resume_history,
         cwd=workspace_root,
     )
 
@@ -222,12 +229,17 @@ def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_
         steps_list = ["(…no new tool activity since the previous check — steps already assessed; new facts below)"]
     steps_summary = "\n".join(_dedupe_pane_reads(steps_list, worker_facts)) if steps_list else "No step details recorded."
     log_audit(f"Running mid-turn sage (tools={total_tool_calls}, delta={delta}, model={REVIEWER_MODEL})...")
+    # Effort ladder: agy bakes the tier into the MODEL NAME and REJECTS a
+    # mismatched --effort flag, so route through model selection — routine
+    # unforced checks resolve "(Medium)", forced/final/deferral keep High.
+    effort = "high" if is_forced else _routine_effort()
     _run_fn = run_sage_model if run_sage_model is not _ORIG_RUN else (run_advisor_model if run_advisor_model is not _ORIG_RUN else (run_verifier_model if run_verifier_model is not _ORIG_RUN else run_sage_model))
     return _run_fn(
         conv_id, user_prompt, steps_summary, git_diff=git_diff, signals=signals,
         pinned_goal=state.get("pinned_goal") or state.get("anchor_goal"), revised_goal=state.get("revised_goal"),
         derived_tasks=state.get("derived_tasks"), worker_facts=worker_facts,
         transcript_path=transcript_path, workspace_root=workspace_root,
+        model_effort=effort,
     )
 
 

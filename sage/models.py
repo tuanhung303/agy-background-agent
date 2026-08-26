@@ -125,6 +125,22 @@ def _expand_alias(alias, available, effort):
     return [alias]
 
 
+def _retier_model(name, effort):
+    """Swap the effort suffix of a concrete model name to the requested tier.
+
+    agy bakes reasoning effort into the model name ("... (High)"); a concrete
+    spec like "Gemini 3.7 Flash (High)" therefore ignores any requested effort.
+    Retier it so a routine call asking for medium resolves "(Medium)" first.
+    Unknown/absent effort leaves the name untouched.
+    """
+    if not effort:
+        return name
+    low = str(effort).strip().lower()
+    if low not in ("low", "medium", "high"):
+        return name
+    return re.sub(r"\((?:high|medium|low)\)\s*$", f"({low.capitalize()})", str(name).strip(), flags=re.I)
+
+
 def resolve_model_candidates(spec=None, effort=None, max_candidates=4):
     """Resolves model spec, aliases, and fallback chain capped to max_candidates."""
     if spec is None:
@@ -141,7 +157,7 @@ def resolve_model_candidates(spec=None, effort=None, max_candidates=4):
         if tok.lower() in aliases:
             expanded.extend(_expand_alias(tok, available, effort))
         else:
-            expanded.append(tok)
+            expanded.append(_retier_model(tok, effort))
     if is_auto or not expanded:
         expanded.extend(DEFAULT_MODEL_FALLBACKS)
     else:

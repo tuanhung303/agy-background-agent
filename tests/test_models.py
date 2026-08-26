@@ -109,8 +109,10 @@ class TestModels(unittest.TestCase):
         self.assertEqual(candidates[2], "Gemini 3.7 Flash (High)")
 
     def test_explicit_spec_keeps_cascade_fallbacks(self):
+        # An explicit spec pins the model BUT the requested effort re-tiers it
+        # (agy encodes effort in the model name). The fallback chain survives.
         candidates = resolve_model_candidates(spec="Gemini 3.7 Flash (Medium)", effort="high")
-        self.assertEqual(candidates[0], "Gemini 3.7 Flash (Medium)")
+        self.assertEqual(candidates[0], "Gemini 3.7 Flash (High)")
         self.assertGreaterEqual(len(candidates), 3, "explicit spec must retain fallback chain")
 
     @patch("subprocess.run")
