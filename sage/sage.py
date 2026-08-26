@@ -185,7 +185,8 @@ def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_
     steps_summary = "\n".join(agent_steps[-10:]) if agent_steps else "No step details recorded."
     from sage.transcript import _read_transcript_steps
     from sage.workers import extract_worker_facts
-    worker_facts = extract_worker_facts(_read_transcript_steps(transcript_path)) if transcript_path and os.path.exists(transcript_path) else ""
+    worker_facts = extract_worker_facts(
+        _read_transcript_steps(transcript_path), transcript_path) if transcript_path and os.path.exists(transcript_path) else ""
     log_audit(f"Running mid-turn sage (tools={total_tool_calls}, delta={delta}, model={REVIEWER_MODEL})...")
     _run_fn = run_sage_model if run_sage_model is not _ORIG_RUN else (run_advisor_model if run_advisor_model is not _ORIG_RUN else (run_verifier_model if run_verifier_model is not _ORIG_RUN else run_sage_model))
     return _run_fn(

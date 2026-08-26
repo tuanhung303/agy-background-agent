@@ -91,6 +91,23 @@ class TestExtractWorkerFacts(unittest.TestCase):
         self.assertIn("executor_final_claim@line3", facts)
         self.assertIn("NOT SETTLED", facts)
 
+    def test_prefers_head_of_screen_over_tail(self):
+        # Opus review finding: the useful content sits at the HEAD of a review;
+        # the tail is usually chrome. Long screens must keep the head.
+        tails = ["HEAD_SIGNATURE " + "a" * 4500, "TAIL_CHROME ❯"]
+        path = _write_transcript([
+            _cmd('orca terminal create --command "claude" --json'),
+            _out(json.dumps({"result": {"terminal": {
+                "handle": "term_0123456789", "status": "running", "tail": tails}}},
+                ensure_ascii=False)),
+        ])
+        try:
+            facts = extract_worker_facts(_load(path), path)
+        finally:
+            os.unlink(path)
+        self.assertIn("HEAD_SIGNATURE", facts)
+        self.assertNotIn("TAIL_CHROME", facts)
+
     def test_channel_configurable_via_env(self):
         steps = [_cmd("remote-cli run --session rs99 --detach")]
         with patch.dict(os.environ, {"AGY_SAGE_WORKER_SPAWN_RE": r"\bremote-cli\s+run\b.*--detach;;\borca\s+terminal\s+create\b"}):
