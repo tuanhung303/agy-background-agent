@@ -1,5 +1,5 @@
 """
-sage.sage - Mid-turn slow-thinking strategic sage steering the fast-executing agent.
+sage.sage - Mid-turn slow-thinking strategic sage steering the fast executor.
 """
 
 import os
@@ -80,16 +80,21 @@ def extract_target_goal(user_prompt, limit=500):
 
 def build_sage_prompt(conv_id, user_prompt, agent_steps_summary, is_update=False, git_diff="", signals="", pinned_goal=None, revised_goal=None, derived_tasks=None, **kwargs):
     steps_txt = agent_steps_summary[-4000:] if len(agent_steps_summary) > 4000 else agent_steps_summary
+    workers_block = ""
+    workers_facts = str(kwargs.get("worker_facts") or "")
+    if workers_facts:
+        workers_block = f"\n\nDELEGATED WORKERS (deterministic facts — trust these over any 'completed' claim):\n{workers_facts}\n"
     diff_txt, sig_txt = clamp_diff(git_diff), (f"\n\nACTIVE SIGNALS:\n{signals}" if signals else "")
     base_goal = pinned_goal or kwargs.get("anchor_goal")
     goal_block = format_goal_context(base_goal, revised_goal, derived_tasks)
     if is_update:
         goal_txt = f"{goal_block}\n\n" if goal_block else (f"TARGET GOAL (unchanged): {extract_target_goal(user_prompt)}\n\n" if extract_target_goal(user_prompt) else "")
-        return f"SAGE UPDATE (Follow-up Check for conversation {conv_id or 'default'}):\n{goal_txt}Evaluate recent agent actions against TARGET GOAL. If this is your first check in this conversation, evaluate the actions as-is.\n\nAGENT ACTIONS (RECENT):\n{steps_txt}\n\nGIT DIFF / MODIFICATIONS:\n{diff_txt}\n\n{STATUS_LEGEND}{sig_txt}"
+        return f"SAGE UPDATE (Follow-up Check for conversation {conv_id or 'default'}):\n{goal_txt}Evaluate recent agent actions against TARGET GOAL. If this is your first check in this conversation, evaluate the actions as-is.\n\nAGENT ACTIONS (RECENT):\n{steps_txt}{workers_block}\n\nGIT DIFF / MODIFICATIONS:\n{diff_txt}\n\n{STATUS_LEGEND}{sig_txt}"
     tpl = load_sage_template().replace("{update_marker}", "")
     goal = extract_target_goal(user_prompt, limit=2000)
     prompt_txt = f"{user_prompt[:2000]}\n\n{goal_block}" if goal_block else (user_prompt[:2000] if goal in user_prompt[:2000] else f"[TARGET GOAL]:\n{goal}")
-    return tpl.replace("{conv_id}", str(conv_id or "default")).replace("{user_prompt}", prompt_txt).replace("{agent_steps}", steps_txt).replace("{git_diff}", diff_txt) + sig_txt
+    tpl = tpl.replace("{agent_steps}", f"{steps_txt}{workers_block}")
+    return tpl.replace("{conv_id}", str(conv_id or "default")).replace("{user_prompt}", prompt_txt).replace("{git_diff}", diff_txt) + sig_txt
 
 
 def _normalize_sage_dict(d):
@@ -156,6 +161,7 @@ def run_sage_model(parent_conv_id, user_prompt, agent_steps_summary, git_diff=""
     prompt = build_sage_prompt(
         parent_conv_id, user_prompt, agent_steps_summary, bool(existing_session),
         git_diff, signals=signals, pinned_goal=base_goal, revised_goal=revised_goal, derived_tasks=derived_tasks,
+        worker_facts=kwargs.get("worker_facts"),
     )
     default_res = {"healthy": True, "blind_spots": [], "guidance": "", "status": "error"}
     return run_model_cascade(
@@ -177,16 +183,19 @@ def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_
     if not is_forced and delta < SAGE_TOOL_INTERVAL and delta_score < SAGE_TOOL_SCORE_THRESHOLD:
         return {"healthy": True, "skipped": True, "tool_delta": delta, "score_delta": delta_score}
     steps_summary = "\n".join(agent_steps[-10:]) if agent_steps else "No step details recorded."
+    from sage.transcript import _read_transcript_steps
+    from sage.workers import extract_worker_facts
+    worker_facts = extract_worker_facts(_read_transcript_steps(transcript_path)) if transcript_path and os.path.exists(transcript_path) else ""
     log_audit(f"Running mid-turn sage (tools={total_tool_calls}, delta={delta}, model={REVIEWER_MODEL})...")
     _run_fn = run_sage_model if run_sage_model is not _ORIG_RUN else (run_advisor_model if run_advisor_model is not _ORIG_RUN else (run_verifier_model if run_verifier_model is not _ORIG_RUN else run_sage_model))
     return _run_fn(
         conv_id, user_prompt, steps_summary, git_diff=git_diff, signals=signals,
         pinned_goal=state.get("pinned_goal") or state.get("anchor_goal"), revised_goal=state.get("revised_goal"),
-        derived_tasks=state.get("derived_tasks"),
+        derived_tasks=state.get("derived_tasks"), worker_facts=worker_facts,
     )
 
 
-# Backward-compatibility aliases
+# Backward-compat aliases
 get_or_create_advisor_session = get_or_create_verifier_session = get_or_create_sage_session
 save_advisor_session = save_verifier_session = save_sage_session
 _clear_advisor_session = _clear_verifier_session = _clear_sage_session
