@@ -163,6 +163,15 @@ def grade(res, expect):
     if cat is not None:
         if cat not in res["steered_cats"]:
             problems.append(f"missing {cat} emission; cats={res['steered_cats']}")
+    fire_before = expect.get("fire_before_tool_index")
+    if fire_before is not None:
+        fires = [o for o in res["midturn"] if o["action"] == "emit"]
+        # Tool-index semantics: tool at index cp-1 is IN FLIGHT when the hook
+        # fires at checkpoint cp. Advice landing after index N cannot influence
+        # tools 0..N — a dead-on-arrival steer for the decision it targets.
+        got = fires[0]["checkpoint"] - 1 if fires else None
+        if got is None or got > fire_before:
+            problems.append(f"advice lands at tool {got}, must be <= {fire_before} (in-flight index)")
     maxp = expect.get("max_parallel_emissions")
     if maxp is not None:
         n = sum(1 for o in res["midturn"] if o["action"] == "emit")
