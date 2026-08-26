@@ -119,8 +119,13 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         diff_cnt = sum(int(m) for m in re.findall(r"^Changed lines: (\d+)", git_diff or "", re.M))
         if not diff_cnt and git_diff:
             diff_cnt = sum(1 for ln in git_diff.splitlines() if ln.startswith(("+", "-")) and not ln.startswith(("+++", "---")))
+        is_plan_turn = bool(
+            re.search(r"(?i)\b/plan\b", str(user_prompt or ""))
+            or re.search(r"(?i)\bplan\b", str(clean_prompt or ""))
+        )
         active_signal = format_summon_message(
             EVENT_FINAL_STOP, total_tools=total_tool_calls, diff=diff_cnt if diff_cnt else None,
+            is_plan=is_plan_turn if is_plan_turn else None,
             deferral=deferral.get("snippet") if deferral.get("matched") else None,
             deferral_cat=deferral.get("category") if deferral.get("matched") else None,
             delegated_cmd=deferral.get("delegated_cmd") if deferral.get("matched") else None,

@@ -61,7 +61,7 @@ STATUS_LEGEND = (
     "whenever needed to verify evidence, ground realistic goals, and steer accurately. Never emit `passed`; never answer the user's request yourself or continue the agent's task. "
     'Judge the context and tool outputs, address the agent as "you", and reply with exactly one JSON object -- no preamble, no fence.\n'
     "Status legend: `on_track` = clean progress; `watchout` = trap/risk/missing deliverable; `off_track` = error loop/drift.\n"
-    'Respond JSON: `{"status": "on_track"|"watchout"|"off_track", "task_complexity": "simple_qa"|"complex_code"|"multi_file", "category": "pinned_goal"|"loop_detection"|"irreversible_risk"|"missing_deliverable"|"algorithmic_bottleneck"|"scope_drift"|"fake_verification"|"parallelize_subagent"|"parallelize"|"architectural_trap"|"general", "action": "exact command/path", "evidence": "...", "confidence": 0.0-1.0, "guidance": "...", "recap": "...", "escalation": "first_warning"|"ignored_advice", "pinned_goal": "optional", "revised_goal": "optional", "derived_tasks": ["optional"]}`.'
+    'Respond JSON: `{"status": "on_track"|"watchout"|"off_track", "task_complexity": "simple_qa"|"complex_code"|"multi_file", "category": "pinned_goal"|"confused_goal"|"grill_me"|"loop_detection"|"irreversible_risk"|"missing_deliverable"|"algorithmic_bottleneck"|"scope_drift"|"fake_verification"|"parallelize_subagent"|"parallelize"|"architectural_trap"|"general", "action": "exact command/path", "evidence": "...", "confidence": 0.0-1.0, "guidance": "...", "recap": "...", "escalation": "first_warning"|"ignored_advice", "pinned_goal": "optional", "revised_goal": "optional", "derived_tasks": ["optional"]}`.'
 )
 
 
@@ -161,6 +161,8 @@ def _normalize_sage_dict(d):
         res["task_complexity"] = "simple_qa" if ("simple" in tc or "qa" in tc) else ("multi_file" if "multi" in tc else ("complex_code" if ("complex" in tc or "code" in tc) else tc))
     if "derived_tasks" in d and isinstance(d["derived_tasks"], list):
         res["derived_tasks"] = [sanitize(t) for t in d["derived_tasks"] if str(t or "").strip()][:10]
+    if "questions" in d and isinstance(d["questions"], list):
+        res["questions"] = [sanitize(q) for q in d["questions"] if str(q or "").strip()][:10]
     return res
 
 

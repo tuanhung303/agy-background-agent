@@ -26,15 +26,25 @@ class TestAdvisorEvents(unittest.TestCase):
         self.assertIn("[EVT·final_stop s3]", msg)
         self.assertIn("Final stop:", msg)
         self.assertIn("Final Stop Gate", msg)
-        self.assertIn("live empirical evidence", msg)
-        self.assertIn("ship this code to production", msg)
-        self.assertIn("distribute this to the customer", msg)
+        self.assertIn("Prove-It-Works", msg)
+        self.assertIn("verify outputs directly against real artifacts", msg)
+        self.assertIn("reject proxies, self-reports, or 'it compiles'", msg)
+        self.assertTrue(assert_polarity_intact(msg))
 
     def test_format_final_stop_event_with_facts(self):
         msg = format_summon_message(EVENT_FINAL_STOP, total_tools=24, diff=150)
         self.assertIn("[EVT·final_stop s3] tools=24 · diff=~100L", msg)
         self.assertIn("Final stop:", msg)
-        self.assertIn("Final Stop Gate", msg)
+        self.assertIn("Prove-It-Works", msg)
+
+    def test_format_final_stop_event_plan_mode(self):
+        msg = format_summon_message(EVENT_FINAL_STOP, total_tools=5, is_plan=True)
+        self.assertIn("[EVT·final_stop s3] plan=1 · tools=5", msg)
+        self.assertIn("Final stop in /plan mode:", msg)
+        self.assertIn("adversarial grill-me audit", msg)
+        self.assertIn("category='grill_me'", msg)
+        self.assertIn("ask_question", msg)
+        self.assertTrue(assert_polarity_intact(msg))
 
     def test_format_heartbeat_event(self):
         msg = format_summon_message(EVENT_HEARTBEAT, duration=180.0, total_tools=18)

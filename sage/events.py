@@ -25,7 +25,7 @@ SEVERITY = {
 
 FACT_RANK = (
     "why", "sig", "cmd", "kw", "tool", "fails", "loop", "err", "bg", "age", "task",
-    "sub", "deferral", "deferral_cat", "delegated_cmd", "tail_todo", "exec_after_edit",
+    "sub", "plan", "deferral", "deferral_cat", "delegated_cmd", "tail_todo", "exec_after_edit",
     "test_cmd", "tools", "mix", "diff", "steers", "rep", "dur",
 )
 
@@ -39,11 +39,20 @@ _WS_RE = re.compile(r"\s{2,}")
 _SECRET_RE = re.compile(r"(?i)\b(?:token|secret|password|api[_-]?key|bearer)\b\s*[:=]?\s*\S+")
 
 FINAL_STOP_DIRECTIVE = (
-    "Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate and live empirical evidence: "
-    "verify full proof and reject passive question-dumping ('Shall I...', 'có muốn... không') "
+    "Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate, Prove-It-Works principle, and live empirical evidence: "
+    "verify outputs directly against real artifacts (run feature, read actual values, inspect diff), "
+    "reject proxies, self-reports, or 'it compiles' assumptions. Reject passive question-dumping ('Shall I...', 'có muốn... không') "
     "or banned deferral phrases ('out of scope', 'left for user judgment', 'future change', 'good enough for now', 'non-blocking'). "
-    "Ask before permitting completion: 'Can the user confidently ship this code to production, or distribute this to the customer right now without defects?' "
-    "If deferral or passive dumping is detected, do NOT recap; steer agent to execute directly."
+    "Ask BEFORE permitting completion: 'Did the agent actually run and prove the real output, and can the user ship this to production right now without defects?' "
+    "If unrun checks or fake proxy verification is detected, do NOT recap; steer agent to execute and verify directly."
+)
+
+PLAN_FINAL_STOP_DIRECTIVE = (
+    "Final stop in /plan mode: perform adversarial grill-me audit on the proposed implementation plan. "
+    "Reject premature stop if the plan contains unvalidated blind spots, unconfirmed design trade-offs, "
+    "or critical choices the agent cannot unilaterally decide. "
+    "Do NOT recap with 'on_track'. Emit 'watchout' with category='grill_me' and list the exact decision-critical "
+    "questions with recommended options for the executing agent to ask the user via `ask_question`."
 )
 
 ASK = {
@@ -138,7 +147,7 @@ def _normalize_kwargs(kwargs):
         "error_streak": "fails", "tool_name": "tool", "error_sig": "sig",
         "command_snippet": "cmd", "keyword": "kw", "task_id": "task",
         "task_desc": "bg", "age_seconds": "age", "duration": "dur",
-        "signal_text": "why",
+        "signal_text": "why", "is_plan": "plan",
     }
     for old_k, new_k in mapping.items():
         if old_k in kwargs and new_k not in norm:
@@ -169,7 +178,9 @@ def format_summon_message(event_type, style=STYLE_BALANCED, **kwargs):
     except (TypeError, ValueError):
         rep_val = 0
     ask = ""
-    if sev >= 2:
+    if event_type == EVENT_FINAL_STOP and (merged.get("is_plan") or merged.get("plan")):
+        ask = PLAN_FINAL_STOP_DIRECTIVE
+    elif sev >= 2:
         escalated = ESCALATED_ASK.get(event_type) if rep_val > 1 else ""
         ask = escalated or ASK.get(event_type, "")
     facts_str = render_facts(merged, style)
@@ -183,7 +194,7 @@ def format_summon_message(event_type, style=STYLE_BALANCED, **kwargs):
 def assert_polarity_intact(rendered):
     """Guards that critical negation and constraint operators remain explicit."""
     for line in str(rendered or "").splitlines():
-        if not line.startswith("ASK ") and not line.startswith("Final stop:"):
+        if not line.startswith("ASK ") and not line.startswith("Final stop"):
             continue
         lowered = line.lower()
         risky = any(word in lowered for word in ("not ", "no ", "only", "unless", "before"))

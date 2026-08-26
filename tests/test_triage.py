@@ -223,6 +223,10 @@ class TestTriage(unittest.TestCase):
             "pinned_goal": "Optimize AGY stop audit latency under 100ms",
             "goal_status": "drift_detected",
         }
+        res = classify_advice(ver_res)
+        self.assertEqual(res["decision"], "steer")
+        self.assertIn("Pinned: Optimize AGY stop audit latency under 100ms", res["text"])
+
     def test_advice_key_deduplication_across_guidance_variations(self):
         ver_res1 = {
             "status": "watchout",
@@ -240,6 +244,61 @@ class TestTriage(unittest.TestCase):
         self.assertEqual(r1["decision"], "watchout")
         r2 = classify_advice(ver_res2, r1["seen"])
         self.assertEqual(r2["decision"], "hold_dedup")
+
+    def test_classify_advice_grill_me(self):
+        ver_res = {
+            "status": "watchout",
+            "category": "grill_me",
+            "action": "Use ask_question to interview user on plan blind spots",
+            "evidence": "Plan contains unverified DB migration assumption",
+            "confidence": 0.95,
+            "guidance": "Grill-me on migration strategy and rollback plan.",
+            "questions": ["Which migration tool to use? (Recommended: Alembic)", "Should we support SQLite fallback?"],
+        }
+        res = classify_advice(ver_res)
+        self.assertEqual(res["decision"], "watchout")
+        self.assertEqual(res["category"], "grill_me")
+        self.assertIn("[WATCH·grill_me]", res["text"])
+        self.assertIn("Use ask_question to interview user on plan blind spots", res["text"])
+        self.assertIn("Questions: Which migration tool to use? (Recommended: Alembic); Should we support SQLite fallback?", res["text"])
+        self.assertIn("Why: Grill-me on migration strategy and rollback plan.", res["text"])
+
+        # Verify grill_me is not dedup-suppressed
+        res2 = classify_advice(ver_res, seen_advice=res["seen"])
+        self.assertEqual(res2["decision"], "watchout")
+
+    def test_classify_advice_confused_goal_recall(self):
+        ver_res = {
+            "status": "watchout",
+            "category": "confused_goal",
+            "action": "Apply recall workflow to inspect recent transcripts and git history",
+            "evidence": "User prompt refers vaguely to past task 'làm nốt hôm trước'",
+            "confidence": 0.9,
+            "guidance": "Search recent transcript logs and commits to reconstruct context before asking user.",
+        }
+        res = classify_advice(ver_res)
+        self.assertEqual(res["decision"], "watchout")
+        self.assertEqual(res["category"], "confused_goal")
+        self.assertIn("[WATCH·confused_goal]", res["text"])
+        self.assertIn("Apply recall workflow to inspect recent transcripts", res["text"])
+        self.assertIn("Search recent transcript logs and commits", res["text"])
+
+    def test_classify_advice_prove_it_works_fake_verification(self):
+        ver_res = {
+            "status": "off_track",
+            "category": "fake_verification",
+            "action": "Run `uv run pytest tests/test_api.py` and inspect real output",
+            "evidence": "Agent claimed tests passed without executing command",
+            "confidence": 0.98,
+            "guidance": "Prove-it-works doctrine: reject self-report claims. Run test binary and verify stdout directly.",
+        }
+        res = classify_advice(ver_res)
+        self.assertEqual(res["decision"], "steer")
+        self.assertEqual(res["status"], "off_track")
+        self.assertEqual(res["category"], "fake_verification")
+        self.assertIn("[STEER·fake_verification]", res["text"])
+        self.assertIn("Run `uv run pytest tests/test_api.py`", res["text"])
+        self.assertIn("Prove-it-works doctrine", res["text"])
 
 
 if __name__ == "__main__":

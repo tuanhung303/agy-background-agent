@@ -83,6 +83,8 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
 
     if is_pinned and status == "on_track" and not action and not guidance:
         status = "watchout"
+    if category == "grill_me" and status == "on_track" and (action or guidance or ver_res.get("questions") or ver_res.get("blind_spots")):
+        status = "watchout"
 
     if status == "off_track" and conf is not None and conf < steer_min_conf:
         status = "watchout"
@@ -91,7 +93,7 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
 
     wouts = [_safe_emission_text(item) for item in (ver_res.get("watchouts") or [])]
     is_steer = status == "off_track"
-    is_watch = status == "watchout" or (not is_steer and bool(wouts)) or is_pinned
+    is_watch = status == "watchout" or (not is_steer and bool(wouts)) or is_pinned or category == "grill_me"
     if not is_steer and not is_watch:
         res = {"decision": "hold", "status": "on_track", "category": category, "confidence": conf, "advice_key": "", "seen": seen}
         if "recap" in ver_res and ver_res["recap"] is not None and str(ver_res["recap"]).strip():
@@ -111,8 +113,8 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     repeatable = category in ("loop_detection", "irreversible_risk")
     effective_max = max_emissions * 2 if category == "irreversible_risk" else max_emissions
     is_deferral = bool(deferral and deferral.get("matched"))
-    if category == "confused_goal":
-        # Clarify-the-user fires exactly once per session; never dedup-suppressed.
+    if category in ("confused_goal", "grill_me"):
+        # Clarify-the-user and grill-me fire without dedup suppression
         pass
     elif count >= effective_max or (count >= 1 and not escalating and not repeatable and not is_deferral and not is_steer and not is_pinned):
         return {"decision": "hold_dedup", "status": status, "category": category, "confidence": conf, "advice_key": advice_key, "seen": seen}
@@ -131,10 +133,13 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         tag_prefix = "STEER" if is_steer else "WATCH"
         tag = f"[{tag_prefix}·{category}]"
         blind_spots = [_safe_emission_text(item) for item in (ver_res.get("blind_spots") or [])]
-        head = action or "; ".join(blind_spots if is_steer else wouts) or guidance or "Course correction required."
+        questions = [_safe_emission_text(item) for item in (ver_res.get("questions") or [])]
+        head = action or "; ".join(questions if questions else (blind_spots if is_steer else wouts)) or guidance or "Course correction required."
         parts = [f"{tag} {head}"]
         if evidence:
             parts.append(f"Ev: {evidence}")
+        if questions and action:
+            parts.append(f"Questions: {'; '.join(questions)}")
         if guidance and action and guidance != action:
             parts.append(f"Why: {guidance}")
         if pinned and (category == "scope_drift" or "drift" in str(ver_res.get("goal_status") or "").lower()):
