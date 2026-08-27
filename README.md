@@ -97,6 +97,10 @@ Two workers ran in parallel Orca split panes via `orca-agy.sh` on Gemini 3.7 Fla
 | **Global Unique Shapes Used** | $\le 8$ | 8 | 7 shapes | **8 shapes (optimal)** | Full budget utilization |
 | **Unit & Integration Tests** | 6/6 pass | 0/6 | 6/6 PASS | **6/6 PASS** | Full verification |
 
+**Winner Selection:**
+- [x] **Arm 1: Sage ON (Better Overall)** — 2.3% lower cost ($2.8765 \times 10^{11}$ vs $2.9445 \times 10^{11}$), 13.8% faster sequential timecost ($2.3102 \times 10^8$ ms vs $2.6788 \times 10^8$ ms), full utilization of the 8-shape budget, and clean modular artifact generation.
+- [ ] **Arm 2: Sage OFF** — Suboptimal 7-shape partition causing over-padding and slower sequential execution; transient unversioned shell scripts.
+
 ### Key Findings
 
 1. **Better algorithmic exploration**: Sage ON utilized all 8 allowed shape slots `[64, 128, 192, 256, 384, 512, 640, 2048]`, incorporating shape `256` to avoid over-padding medium-length prompts. Sage OFF stopped at 7 shapes, resulting in **13.8% slower sequential execution**.

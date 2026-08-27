@@ -50,6 +50,10 @@ Both workers were given identical self-contained task briefs and clean worktrees
 | **Global Unique Shapes Used** | $\le 8$ | 8 | 7 shapes | **8 shapes (optimal)** | Full budget utilization |
 | **Unit & Integration Tests** | 6/6 pass | 0/6 | 6/6 PASS | **6/6 PASS** | Full verification |
 
+**Winner Decision:**
+- [x] **Arm 1: Sage ON (Winner)** — Lower primary compute cost ($-2.3\%$), significantly faster sequential latency ($-13.8\%$), optimal 8-shape allocation, and persistent modular codebase (`optimize_scheduler.py`).
+- [ ] **Arm 2: Sage OFF** — Missed shape allocation opportunities resulting in higher padding and slower latency.
+
 ---
 
 ## Qualitative & Execution Analysis
