@@ -155,6 +155,27 @@ def get_active_background_tasks(steps, conv_id=None, parse_ts_func=None):
                 if not tasks.get(tid) or age > tasks[tid].get("age_seconds", 0.0):
                     tasks[tid] = {"task_id": tid, "description": desc, "age_seconds": age}
         if stype in ("GENERIC", "SYSTEM_MESSAGE") or (stype == "USER_INPUT" and ("sender=" in content or "[Message]" in content)):
-            for cid_m in (re.findall(r"sender=([a-zA-Z0-9_-]+/task-[0-9]+|task-[0-9]+)", content, re.I) + (re.findall(r"(?:Background\s+)?task(?:\s+id|:)?\s*['\"]?([a-zA-Z0-9_-]+/task-[0-9]+|task-[0-9]+)['\"]?", content, re.I) if any(w in clow for w in ("was canceled", "was cancelled", "finished with result", "completed", "terminated", "killed", "finished", "status: done", "status: failed", "timer cancelled", "timer canceled")) else [])):
+            # Status-aware completion. Two traps both observed live (2026-08-27
+            # premature recap while ServiceNow queries streamed):
+            #   1. manage_task POLL blocks print "Completed At:" (a timestamp)
+            #      with "Status: RUNNING" — never a completion.
+            #   2. view_file of a task LOG echoes "Completed At:" and the task
+            #      id path (`tasks/task-51.log`) without any status change.
+            # Retire an id ONLY on sender= messages or an explicit
+            # finished/canceled phrase about the task itself.
+            if re.search(r"Status:\s*RUNNING\b", content, re.I):
+                continue
+            explicit_done = ("finished with result" in clow or "was canceled" in clow
+                             or "was cancelled" in clow or "status: done" in clow
+                             or "status: failed" in clow or "status: completed" in clow
+                             or "terminated" in clow or "killed" in clow
+                             or "timer cancelled" in clow or "timer canceled" in clow)
+            # Bare "Task X completed" phrasing (no status block): retire only
+            # when the sentence is ABOUT the task, not a "Completed At:"
+            # timestamp header echoed inside a log/poll dump.
+            quoted_done = ("completed" in clow and not re.search(r"Completed At:", content))
+            for cid_m in (re.findall(r"sender=([a-zA-Z0-9_-]+/task-[0-9]+|task-[0-9]+)", content, re.I)
+                          + (re.findall(r"[Tt]ask(?:\s+id)?\s*['\"]?([a-zA-Z0-9_-]+/task-[0-9]+|task-[0-9]+)['\"]?\s+(?:was\s+)?completed", content) if quoted_done else [])
+                          + (re.findall(r"(?:Background\s+)?task(?:\s+id|:)?\s*['\"]?([a-zA-Z0-9_-]+/task-[0-9]+|task-[0-9]+)['\"]?", content, re.I) if explicit_done else [])):
                 completed_ids.update([cid_m.strip(), cid_m.strip().split("/")[-1]])
     return [t for tid, t in tasks.items() if tid not in completed_ids and tid.split("/")[-1] not in completed_ids]
