@@ -179,10 +179,11 @@ def get_sage_steer_badges(data):
                 state = {}
 
     sage_status = str(state.get("sage_status", state.get("advisor_status", "hold"))).lower()
+    recap_emitted = bool(state.get("recap_emitted", False))
 
     if sage_status in {"evaluating", "running"}:
         glyph_str = "\033[1;34m● sage\033[0m"
-    elif sage_status in {"fired", "watchout", "injecting"}:
+    elif not recap_emitted and sage_status in {"fired", "watchout", "recap", "injecting"}:
         glyph_str = "\033[38;2;255;127;80m◐ sage\033[0m"
     else:
         glyph_str = "\033[90m○ sage\033[0m"

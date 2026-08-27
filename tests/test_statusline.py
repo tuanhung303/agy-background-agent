@@ -152,16 +152,29 @@ class TestStatusline(unittest.TestCase):
                     "turn_key": "tk1",
                     "session_mid_turn_steers": 2,
                     "sage_status": "fired",
+                    "recap_emitted": False,
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertEqual(clean(badges[0]), "◐ sage")
             self.assertEqual(badges[0], "\033[38;2;255;127;80m◐ sage\033[0m")
 
-            # 3. Post-recap state -> ○ sage (dim gray idle state)
+            # 3. Active Recap Injection -> ◐ sage (coral)
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
                     "sage_status": "recap",
+                    "recap_emitted": False,
+                }, f)
+            badges = get_advisor_steer_badges({"conversation_id": conv_id})
+            self.assertEqual(clean(badges[0]), "◐ sage")
+            self.assertEqual(badges[0], "\033[38;2;255;127;80m◐ sage\033[0m")
+
+            # 4. Post-recap completed state -> ○ sage (dim gray idle state)
+            with open(state_file, "w") as f:
+                json.dump({
+                    "turn_key": "tk1",
+                    "sage_status": "recap",
+                    "recap_emitted": True,
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertEqual(clean(badges[0]), "○ sage")

@@ -90,7 +90,7 @@ def run_session_stop_audit(raw_payload=None):
         last_final_lines = state.get("last_final_gate_lines", 0)
         if last_final_lines > 0 and last_final_lines == initial_line_count:
             fail_safe_exit("Final stop already audited at current line count")
-        save_session_state(state_file, state, last_final_gate_lines=initial_line_count)
+        save_session_state(state_file, state, sage_status="evaluating", last_final_gate_lines=initial_line_count)
 
     ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths") or []
     workspace_root = resolve_workspace_root(ws_paths)
@@ -115,10 +115,12 @@ def run_session_stop_audit(raw_payload=None):
         aact = act.get("action")
         if aact in ("exit", "yield"):
             if act.get("pending_clarify"):
-                save_session_state(state_file, state, pending_clarify=act["pending_clarify"])
+                save_session_state(state_file, state, sage_status="hold", pending_clarify=act["pending_clarify"])
+            else:
+                save_session_state(state_file, state, sage_status="hold")
             fail_safe_exit(act["reason"])
         elif aact == "progressed":
-            save_session_state(state_file, state, last_verified_tools=act["tools"], last_audited_line_count=act["lines"])
+            save_session_state(state_file, state, sage_status="hold", last_verified_tools=act["tools"], last_audited_line_count=act["lines"])
             fail_safe_exit("Agent progressed during sage evaluation; discarding stale advice")
         elif aact == "error":
             err_streak = state.get("sage_error_streak", state.get("advisor_error_streak", 0)) + 1
@@ -154,9 +156,10 @@ def run_session_stop_audit(raw_payload=None):
         save_session_state(state_file, state, clarify_asked=True, pending_clarify=None)
         emit_recap_response(f"[CLARIFY] {q}", kind="sage")
     if gact == "yield":
+        save_session_state(state_file, state, sage_status="hold")
         fail_safe_exit(gate["reason"])
     elif gact == "progressed":
-        save_session_state(state_file, state, last_verified_tools=gate["tools"], last_audited_line_count=gate["lines"])
+        save_session_state(state_file, state, sage_status="hold", last_verified_tools=gate["tools"], last_audited_line_count=gate["lines"])
         fail_safe_exit("Agent progressed during final sage; discarding stale advice")
     elif gact == "emit":
         fdec, ftext = gate["decision"], gate["text"]
@@ -181,6 +184,7 @@ def run_session_stop_audit(raw_payload=None):
         save_session_state(state_file, state, sage_status="error", sage_error_streak=err_streak, last_audited_line_count=initial_line_count)
         fail_safe_exit("Final sage unavailable (empty or model cascade failed); allowing clean termination")
     else:  # skip — sage disabled, max steers reached, or circuit breaker open
+        save_session_state(state_file, state, sage_status="hold")
         fail_safe_exit(f"Final sage gate skipped: {gate.get('reason', 'no reason')}")
 
 
