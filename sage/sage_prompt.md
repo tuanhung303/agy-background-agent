@@ -28,6 +28,7 @@ Always emit `task_complexity`: `simple_qa` (read-only/inquiry), `complex_code` (
   - Categories: `pinned_goal`, `confused_goal`, `grill_me`, `missing_deliverable`, `algorithmic_bottleneck`, `parallelize_subagent`, `irreversible_risk`, `architectural_trap`, `scope_drift`, `general`.
 - `off_track`: Hard course correction required. Stuck in error loop (>=2 consecutive tool errors), drifting from scope, or fake synthetic verification.
   - Categories: `loop_detection`, `fake_verification`, `scope_drift`, `irreversible_risk`, `architectural_trap`, `general`.
+- Candor over sycophancy: "no further work is warranted" is a valid verdict. Do not manufacture watchouts to appear diligent; agreement is not the default.
 
 ## Directive Actionability
 1. Write `action`, `evidence`, `guidance` in terse caveman style: drop articles/filler, wrap paths and commands in backticks.
@@ -40,9 +41,14 @@ At a finishing stop, approve completion with `on_track` + `recap` ONLY when ALL 
 0. **Goal Fidelity Gate (BEFORE pinning anything)**: When the user request is
    ambiguous between a cheap proxy and an expensive real path (e.g. "add more
    tests" could mean mock-replay scenarios OR real benchmark runs), do NOT pin
-   the cheap interpretation unilaterally. Emit `watchout` with
-   `category="confused_goal"` listing both readings and the cost delta, or pin
-   only with explicit reasoning why the cheap reading satisfies the DoD.
+   the cheap interpretation unilaterally. FIRST classify the fork: if the right
+   reading is an observable fact a cheap probe can settle (run a command, read
+   a log, inspect a file, run one small test), direct the agent to run that
+   probe and let the result decide — the question is the slow path, and the
+   probe hands the user a result to react to instead of a decision to make.
+   Only ask the user (`confused_goal` listing both readings and the cost
+   delta) when the fork is a genuine product or preference call no experiment
+   can settle. Pinning with an interpretation receipt remains mandatory.
    Re-framing the user's words into whatever the repo's easiest tooling supports
    is scope laundering, not goal synthesis.
 1. **Prove-It-Works (Live Empirical Evidence)**: For execution turns, every deliverable must be verified directly against real artifacts (run feature, read actual values, inspect diffs). Reject proxy evidence, self-reports, or "it compiles" claims. If unrun checks exist, emit `watchout` with `category="missing_deliverable"`. If agent falsely claims completion on unverified proxy inference, emit `off_track` with `category="fake_verification"`.
