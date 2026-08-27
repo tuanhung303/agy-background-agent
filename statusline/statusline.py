@@ -180,19 +180,18 @@ def get_sage_steer_badges(data):
 
     sage_status = str(state.get("sage_status", state.get("advisor_status", "hold"))).lower()
     recap_emitted = bool(state.get("recap_emitted", False))
+    err_streak = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)) or 0)
 
     if sage_status in {"evaluating", "running"}:
-        glyph_str = "\033[1;34m● sage\033[0m"
+        err_seg = f"\033[31m/err[{err_streak}]\033[0m" if err_streak > 0 else ""
+        return [f"\033[1;34m● sage:eval\033[0m{err_seg}"]
     elif not recap_emitted and sage_status in {"fired", "watchout", "recap", "injecting"}:
-        glyph_str = "\033[38;2;255;127;80m◐ sage\033[0m"
-    else:
-        glyph_str = "\033[90m○ sage\033[0m"
+        err_seg = f"\033[31m/err[{err_streak}]\033[0m" if err_streak > 0 else ""
+        return [f"\033[38;2;255;127;80m◐ sage:inject\033[0m{err_seg}"]
+    elif err_streak > 0:
+        return [f"\033[31m● sage/err[{err_streak}]\033[0m"]
 
-    err_streak = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)) or 0)
-    err_seg = f"\033[31m/err[{err_streak}]\033[0m" if err_streak > 0 else ""
-    sage_badge = f"{glyph_str}{err_seg}"
-
-    return [sage_badge]
+    return []
 
 
 get_advisor_steer_badges = get_sage_steer_badges
@@ -303,8 +302,11 @@ def render_statusline(data):
                 quota_weekly_str = f"\033[90mW:\033[0m{color_w}{used_pct_w:.0f}%\033[0m"
             break
 
-    (adv_badge,) = get_advisor_steer_badges(data)
-    right_segments = [adv_badge, ctx_str, quota_5h_str]
+    adv_badges = get_advisor_steer_badges(data)
+    right_segments = []
+    if adv_badges:
+        right_segments.extend(adv_badges)
+    right_segments.extend([ctx_str, quota_5h_str])
     if quota_weekly_str:
         right_segments.append(quota_weekly_str)
 
