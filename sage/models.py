@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import time
 
-from sage.config import DEFAULT_MODEL_FALLBACKS
+from sage.config import DEFAULT_MODEL_FALLBACKS, SAGE_MODELS_DISCOVERY_TIMEOUT
 from sage.locking import log_audit
 
 _MODEL_CACHE = {"models": [], "timestamp": 0.0}
@@ -59,7 +59,7 @@ def get_available_models(refresh=False):
     try:
         env = dict(os.environ, HOME=os.path.expanduser("~"))
         env["PATH"] = f"{os.path.expanduser('~/.local/bin')}:{os.environ.get('PATH', '')}"
-        res = subprocess.run([agy_bin, "models"], input="", capture_output=True, text=True, timeout=8, env=env)
+        res = subprocess.run([agy_bin, "models"], input="", capture_output=True, text=True, timeout=SAGE_MODELS_DISCOVERY_TIMEOUT, env=env)
         if res.returncode == 0 and res.stdout:
             for line in res.stdout.splitlines():
                 line = line.strip()
