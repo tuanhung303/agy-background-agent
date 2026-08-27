@@ -2,6 +2,7 @@
 sage.models - Dynamic model discovery, version cascade, and runtime fallbacks.
 """
 
+import json
 import os
 import re
 import shutil
@@ -15,7 +16,7 @@ _MODEL_CACHE = {"models": [], "timestamp": 0.0}
 _WORKING_MODEL = {"model": None}
 CACHE_TTL = 3600.0
 
-
+_MODEL_CACHE_FILE = "/tmp/agy_available_models.json"
 _WORKING_MODEL_FILE = "/tmp/agy_sage_working_model.txt"
 _LEGACY_WORKING_MODEL_FILE = "/tmp/agy_advisor_working_model.txt"
 
@@ -38,17 +39,27 @@ def model_sort_key(name):
 
 
 def get_available_models(refresh=False):
-    """Queries agy CLI for available models with TTL caching and fallback."""
+    """Queries agy CLI for available models with persistent disk cache and fallback."""
     global _MODEL_CACHE
     now = time.time()
     if not refresh and _MODEL_CACHE["models"] and (now - _MODEL_CACHE["timestamp"] < CACHE_TTL):
         return list(_MODEL_CACHE["models"])
+    if not refresh and os.path.exists(_MODEL_CACHE_FILE):
+        try:
+            with open(_MODEL_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict) and data.get("models") and (now - data.get("timestamp", 0) < CACHE_TTL):
+                _MODEL_CACHE["models"] = list(data["models"])
+                _MODEL_CACHE["timestamp"] = data.get("timestamp", now)
+                return list(data["models"])
+        except Exception:
+            pass
     models = []
     agy_bin = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
     try:
         env = dict(os.environ, HOME=os.path.expanduser("~"))
         env["PATH"] = f"{os.path.expanduser('~/.local/bin')}:{os.environ.get('PATH', '')}"
-        res = subprocess.run([agy_bin, "models"], input="", capture_output=True, text=True, timeout=5, env=env)
+        res = subprocess.run([agy_bin, "models"], input="", capture_output=True, text=True, timeout=8, env=env)
         if res.returncode == 0 and res.stdout:
             for line in res.stdout.splitlines():
                 line = line.strip()
@@ -64,6 +75,11 @@ def get_available_models(refresh=False):
         models = list(DEFAULT_MODEL_FALLBACKS)
     _MODEL_CACHE["models"] = list(models)
     _MODEL_CACHE["timestamp"] = now
+    try:
+        with open(_MODEL_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump({"models": models, "timestamp": now}, f)
+    except Exception:
+        pass
     return list(models)
 
 
