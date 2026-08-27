@@ -75,10 +75,16 @@ Shell latency, bucketed and coached in real time:
 | 90s – 15m | `HEAVY_RECOMMEND_BACKGROUND` (go async, paginate, cache) |
 | > 15m | `FORBIDDEN_EXCEEDED_LIMIT` (blocking too long) |
 
-A statusline shows the whole session at a glance, including model, live subagents, Sage counters, context burn against the 250k compaction ceiling, and quota countdowns:
+A stealth statusline shows session telemetry cleanly without visual noise — remaining hidden while Sage is idle, and dynamically surfacing when evaluating (`● sage:eval`) or injecting advice (`◐ sage:inject`):
 
 ```
-3.7 flash [h] | agents:2 | adv:g1/a3/p7/r1 | ctx:221k/250k[1] | 38%[3h] | W:49%[2d]
+3.7 flash [h] | agents:2                        ● sage:eval | ctx:221k/250k[1] | 38%[3h] | W:49%[2d]
+```
+
+When idle, the bar preserves space purely for token burn and quota tracking:
+
+```
+3.7 flash [h] | agents:2                                      ctx:221k/250k[1] | 38%[3h] | W:49%[2d]
 ```
 
 ## Quickstart
