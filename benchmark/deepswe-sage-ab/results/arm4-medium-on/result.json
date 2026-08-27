@@ -6,7 +6,8 @@
  "f2p": "250/254",
  "p2p": "22/22",
  "reward": 0.0,
- "turns": 34,
+ "turns": 142,
  "root_cause": "emitted 'grouping sets (' with stray space; expected 'grouping sets(' \u2014 cosmetic SQL string bug, not logic",
- "note": "graded official verifier frame"
+ "note": "graded official verifier frame",
+ "turns_note": "planner responses, verified per-session transcript mapping"
 }

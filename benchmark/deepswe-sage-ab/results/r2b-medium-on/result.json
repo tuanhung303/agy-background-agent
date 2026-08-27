@@ -1,0 +1,12 @@
+{
+ "arm": "r2b-medium-on",
+ "task": "kysely-window-grouping-helpers",
+ "model": "Gemini 3.7 Flash (Medium)",
+ "sage": "ON",
+ "f2p": "254/254",
+ "p2p": "22/22",
+ "reward": 1.0,
+ "turns": 165,
+ "note": "graded via official verifier frame; transcript session 231abdd9",
+ "turns_note": "planner responses, verified per-session transcript mapping"
+}

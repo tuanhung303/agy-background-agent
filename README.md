@@ -149,9 +149,9 @@ no shared hooks-file mutation, other live sessions unaffected.
 | Run | Sage | F2P | P2P | Reward | f2p frac | Turns |
 |---|---|---|---|---|---|---|
 | arm3 | OFF | 254/254 | 22/22 | 1.0 | 1.00 | 141 |
-| arm4 | ON | 250/254 | 22/22 | 0.0 | 0.984 | 34 |
-| r2a | OFF | 254/254 | 22/22 | 1.0 | 1.00 | ~120 |
-| r2b | ON | 254/254 | 22/22 | 1.0 | 1.00 | 44 |
+| arm4 | ON | 250/254 | 22/22 | 0.0 | 0.984 | 142 |
+| r2a | OFF | 254/254 | 22/22 | 1.0 | 1.00 | 201 |
+| r2b | ON | 254/254 | 22/22 | 1.0 | 1.00 | 165 |
 | r2c | ON | 254/254 | 22/22 | 1.0 | 1.00 | 154 |
 
 **Findings (pilot scale — not statistically significant):**
@@ -161,9 +161,10 @@ no shared hooks-file mutation, other live sessions unaffected.
 - The single failure (arm4) predates two harness fixes and was one stray-space
   SQL emission replicated across 4 dialect-shared assertions — binary reward
   collapses a 98.4% pass to 0.0, which is why `f2p frac` rides beside it.
-- With fixes applied, both sage states reach full reward; sage-ON runs show
-  fewer turns (44 vs ~120–154), hinting at shorter routes, but within
-  run-to-run variance at this sample size.
+- With fixes applied, both sage states reach full reward. Turn counts are in
+  the same band for both states (141–201 turns) — earlier "sage cuts turns"
+  reads were an artifact of transcript-to-session mis-mapping, now fixed by
+  mapping each worker to its brain transcript via brief-path matching.
 
 Known limitations: single task per cell (n ≤ 2 after grouping), no variance CI
 at this scale, model identified by provider tier label, brief text published in
