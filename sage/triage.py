@@ -129,6 +129,11 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         if action and action != pinned:
             head = f"{head} | Next: {action}"
         parts = [f"{tag} {head}"]
+        # Receipt surfacing: make the interpretation audit-visible in the
+        # emitted text, not just in internal state.
+        interp = _safe_emission_text(ver_res.get("interpretation"))
+        if interp:
+            parts.append(f"Rd: {interp}")
     else:
         tag_prefix = "STEER" if is_steer else "WATCH"
         tag = f"[{tag_prefix}·{category}]"
