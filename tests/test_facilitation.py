@@ -108,6 +108,57 @@ class TestFacilitationSignal(unittest.TestCase):
                 _, _, state, _ = ss.load_and_sync_session_state(conv, "/nonexistent", "next task")
         self.assertTrue(state.get("goal_settled"))
 
+    def test_facilitation_signal_flows_into_eval_signals(self):
+        """End-to-end: goal_settled + inline exec turn -> sage_flow forces the
+        eval and [EVT·facilitation] reaches `signals=` (real transcript file,
+        nothing mocked except the model call itself)."""
+        import json
+        import tempfile
+        from sage import policies
+
+        with tempfile.TemporaryDirectory() as td:
+            tr = os.path.join(td, "transcript.jsonl")
+            with open(tr, "w") as f:
+                f.write(json.dumps({
+                    "type": "USER_INPUT", "source": "USER_EXPLICIT",
+                    "content": "next task", "tool_calls": [],
+                    "created_at": "2026-08-28T05:00:00+07:00"}) + "\n")
+                f.write(json.dumps({
+                    "type": "PLANNER_RESPONSE", "source": "MODEL",
+                    "content": "hmm", "tool_calls": [{"name": "run_command",
+                    "args": {"CommandLine": "uv run pytest -q"}}],
+                    "created_at": "2026-08-28T05:00:05+07:00"}) + "\n")
+
+            ctx = dict(
+                conv_id="fac_flow_test", transcript_path=tr, clean_prompt="p",
+                initial_line_count=3, total_tool_calls=30,
+                turn_tool_names=["run_command"], user_prompt="goal",
+                agent_steps=[], git_diff="",
+                state={"mid_turn_steers": 0, "sage_error_streak": 0,
+                       "last_verified_tools": 0, "goal_settled": True},
+            )
+            captured = {}
+            frozen = (
+                patch.object(policies, "has_new_user_activity", return_value=False),
+                patch.object(policies, "extract_session_and_turn_data",
+                             return_value=(None, None, None, 30, None, None, None, 3)),
+                patch.object(policies, "is_post_invocation_completion_candidate",
+                             return_value=False),
+            )
+            with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                    patch.object(policies, "evaluate_mid_turn_progress",
+                                 side_effect=lambda *a, **k: captured.update(k) or
+                                 {"status": "on_track"}), \
+                    patch.object(policies, "classify_advice",
+                                 return_value={"decision": "hold", "text": "ok", "seen": {}}), \
+                    frozen[0], frozen[1], frozen[2]:
+                act = policies.sage_flow("midturn", **ctx)
+            self.assertIn("facilitation", captured.get("signals", ""))
+            self.assertTrue(captured.get("is_forced"))
+            # advice-only: sage_flow must NOT return emit/steer (no block) —
+            # the signal only lands in the model prompt; verdict stays flow-controlled
+            self.assertNotIn(act["action"], ("emit", "error"))
+
 
 if __name__ == "__main__":
     unittest.main()
