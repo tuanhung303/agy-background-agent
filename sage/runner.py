@@ -81,7 +81,13 @@ def run_session_stop_audit(raw_payload=None):
         fail_safe_exit("No user prompt or runtime reports active background work")
 
     if state.get("recap_emitted"):
-        fail_safe_exit("Recap already emitted")
+        last_verified = int(state.get("last_verified_tools", 0))
+        last_lines = int(state.get("last_audited_line_count", 0))
+        if total_tool_calls <= last_verified and initial_line_count <= last_lines:
+            fail_safe_exit("Recap already emitted")
+        else:
+            state["recap_emitted"] = False
+            save_session_state(state_file, state, recap_emitted=False)
     last_lines = state.get("last_audited_line_count", 0)
     if is_post_invocation():
         if last_lines > 0 and last_lines == initial_line_count:

@@ -93,6 +93,8 @@ def record_sage_recap(state_file: str, state: dict, total_tools: int, initial_li
         recap_count=recap_count,
         last_verified_tools=total_tools,
         last_audited_line_count=initial_lines,
+        sage_error_streak=0,
+        advisor_error_streak=0,
         sage_recap=recap_text,
         advisor_recap=recap_text,
         **extra,

@@ -267,6 +267,50 @@ class TestAdvisorIntegration(unittest.TestCase):
             if os.path.exists(state_file):
                 os.remove(state_file)
 
+    def test_recap_emitted_resets_when_agent_makes_new_progress(self):
+        conv_id = f"test_recap_reset_{int(time.time() * 1000)}"
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
+        self._write_transcript("Perform optimization", tool_calls_count=20, is_final=True)
+
+        from sage.transcript import get_active_turn_identity
+        turn_identity = get_active_turn_identity(self.transcript_path)
+        turn_key = hashlib.sha256((turn_identity + "\x00" + "Perform optimization").encode("utf-8")).hexdigest()
+
+        with open(state_file, "w") as sf:
+            json.dump({
+                "turn_key": turn_key,
+                "prompt_hash": "hash_opt",
+                "recap_emitted": True,
+                "last_verified_tools": 10,
+                "last_audited_line_count": 5,
+                "sage_status": "recap",
+            }, sf)
+
+        payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
+        gate_mock = {"healthy": True, "blind_spots": [], "guidance": "Optimization complete", "recap": "Optimization verified and passed."}
+
+        try:
+            with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
+                 patch("sys.stdin.read", return_value=json.dumps(payload)), \
+                 patch("sage.sage.run_advisor_model", return_value=gate_mock), \
+                 patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
+                 patch("sys.stdout") as mock_stdout, \
+                 self.assertRaises(SystemExit):
+                main()
+
+            written = "".join([c.args[0] for c in mock_stdout.write.mock_calls if c.args])
+            data = json.loads(written.strip())
+            self.assertEqual(data.get("terminationBehavior"), "terminate")
+            self.assertIn("Optimization verified and passed.", data["injectSteps"][0]["userMessage"])
+
+            with open(state_file, "r") as sf:
+                s_after = json.load(sf)
+            self.assertTrue(s_after.get("recap_emitted"))
+            self.assertEqual(s_after.get("last_verified_tools"), 20)
+        finally:
+            if os.path.exists(state_file):
+                os.remove(state_file)
+
 
 
     def test_mid_turn_unlimited_steers_allows_continuous_advising(self):
