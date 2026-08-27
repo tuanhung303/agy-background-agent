@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 import json
+import os
 import re
 
 
@@ -11,12 +12,26 @@ SUBAGENT_INVOKE_FAILURE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# External worker panes (e.g. `orca terminal create --command "claude ..."`).
-# The pane is "open" once created; it is only settled when a later transcript
-# step records an idle prompt (❯ / $) in that same handle's read/wait output.
-ORCA_TERMINAL_CREATE_RE = re.compile(r"orca\s+terminal\s+create\b[^\n]*?--command\b", re.I)
-_ORCA_HANDLE_RE = re.compile(r"term_[a-f0-9-]{8,}")
-ORCA_IDLE_PROMPT_RE = re.compile(r"(?:^|\n)[^\S\n]*(?:❯|❯|\$)\s*(?:\n|$)")
+# External worker panes spawned via run_command (default patterns cover the
+# common CLI pane managers; override with AGY_SAGE_PANE_SPAWN_RE using ';;'
+# as the pattern separator — see sage.workers for the same convention).
+# A pane is "open" once spawned; it settles when a later transcript step
+# records an idle prompt or terminal close for that handle.
+_DEFAULT_PANE_SPAWN_PATTERNS = (
+    r"\bterminal\s+create\b[^\n]*?--command\b",
+    r"\btmux\s+(?:new-session|new-window)\b",
+)
+PANE_SPAWN_RES = tuple(
+    re.compile(p, re.I)
+    for p in (os.environ.get("AGY_SAGE_PANE_SPAWN_RE", "").split(";;")
+              if os.environ.get("AGY_SAGE_PANE_SPAWN_RE", "").strip()
+              else _DEFAULT_PANE_SPAWN_PATTERNS)
+    if p.strip()
+)
+_PANE_HANDLE_RE = re.compile(r"term_[a-f0-9-]{8,}")
+PANE_IDLE_PROMPT_RE = re.compile(r"(?:^|\n)[^\S\n]*(?:❯|\$|%|#|➜|>)\s*(?:\n|$)|(?:exited with code|process finished|process completed|command exited with code|state:\s*idle|status:\s*idle|\"idle\":\s*true)", re.I)
+_PANE_SEND_RE = re.compile(r"terminal\s+send\b", re.I)
+_PANE_CLOSE_RE = re.compile(r"terminal\s+close\b", re.I)
 
 
 def _parse_iso_ts(ts_str):
@@ -30,34 +45,26 @@ def _parse_iso_ts(ts_str):
 
 
 def get_active_external_panes(steps):
-    """Tracks Orca worker panes spawned via run_command.
-
-    Returns handles whose pane was created and used as a delegated worker but
-    never observed idle. A premature "done!" claim while the worker is still
-    streaming is exactly the fake_verification this guards against.
-    """
+    """Tracks external worker panes spawned via run_command (channel-agnostic)."""
     open_handles, settled = [], set()
     for s in steps:
         content = str(s.get("content") or "")
         low = content.lower()
         for t in (s.get("tool_calls") or []):
             args = str((t.get("args") or {}).get("CommandLine") or "")
-            if ORCA_TERMINAL_CREATE_RE.search(args) or ("orca terminal send" in args.lower() and _ORCA_HANDLE_RE.search(args)):
-                open_handles.extend(_ORCA_HANDLE_RE.findall(args))
-            elif "orca terminal close" in args.lower():
-                settled.update(h.strip() for h in _ORCA_HANDLE_RE.findall(args))
-        if "orca terminal" in low:
-            handles = set(_ORCA_HANDLE_RE.findall(content))
-            if "orca terminal close" in low:
+            if any(p.search(args) for p in PANE_SPAWN_RES) or (_PANE_SEND_RE.search(args) and _PANE_HANDLE_RE.search(args)):
+                open_handles.extend(_PANE_HANDLE_RE.findall(args))
+            elif _PANE_CLOSE_RE.search(args):
+                settled.update(h.strip() for h in _PANE_HANDLE_RE.findall(args))
+        if "terminal" in low or any(p.search(content) for p in PANE_SPAWN_RES):
+            handles = set(_PANE_HANDLE_RE.findall(content))
+            if _PANE_CLOSE_RE.search(content) or "close" in low:
                 settled.update(h.strip() for h in handles)
-            elif handles and ORCA_IDLE_PROMPT_RE.search(content):
-                # a read of this pane showed its idle prompt -> worker settled
+            elif handles and PANE_IDLE_PROMPT_RE.search(content):
                 settled.update(h.strip() for h in handles)
-            elif "exited with code" in low and "--screen" in low:
+            elif "exited with code" in low or "completed" in low or "idle" in low:
                 settled.update(h.strip() for h in handles)
-        elif ORCA_IDLE_PROMPT_RE.search(content) and open_handles:
-            # latest captured screen (any read) shows an idle prompt: every
-            # pane still open at this point has gone idle.
+        elif PANE_IDLE_PROMPT_RE.search(content) and open_handles:
             settled.update(h.strip() for h in open_handles)
     return [h for h in dict.fromkeys(open_handles) if h not in settled]
 

@@ -271,6 +271,41 @@ class TestConfusedGoalGate(unittest.TestCase):
         self.assertEqual(first["decision"], "watchout")
 
 
+class TestAdaptiveCadence(unittest.TestCase):
+    def test_streak_progression(self):
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"consecutive_on_track": 0}), 10.0)
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"consecutive_on_track": 1}), 13.0)
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"consecutive_on_track": 2}), 16.0)
+
+    def test_complexity_modifiers(self):
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"consecutive_on_track": 2, "task_complexity": "simple_qa"}), 20.0)
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"consecutive_on_track": 2, "task_complexity": "complex_code"}), 13.0)
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"consecutive_on_track": 2, "task_complexity": "multi_file"}), 12.0)
+
+    def test_read_heavy_discount(self):
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"consecutive_on_track": 0}, read_ratio=1.0), 12.0)
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"consecutive_on_track": 1}, read_ratio=1.0), 15.6)
+
+    def test_diff_spike_reset(self):
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"consecutive_on_track": 2}, diff_cnt=35), 10.0)
+
+    def test_risk_status_collapse(self):
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"sage_status": "watchout", "consecutive_on_track": 3}), 7.0)
+        self.assertEqual(policies.compute_dynamic_tool_threshold({"sage_status": "fired", "consecutive_on_track": 3}), 7.0)
+
+    def test_disabled_cadence_toggle(self):
+        with patch("sage.policies.ADAPTIVE_CADENCE_ENABLED", False):
+            self.assertEqual(policies.compute_dynamic_tool_threshold({"consecutive_on_track": 3}), 10.0)
+
+    def test_sage_flow_respects_dynamic_threshold(self):
+        ctx = _ctx(state={"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0, "consecutive_on_track": 1})
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "calculate_turn_tool_score", return_value=(11.0, 5)):
+            act = policies.sage_flow("midturn", **{**ctx, "forced": False})
+        self.assertEqual(act["action"], "exit")
+        self.assertIn("score=11.0<13.0", act["reason"])
+
+
 TestFinalAdvisorGate = TestFinalSageGate
 
 

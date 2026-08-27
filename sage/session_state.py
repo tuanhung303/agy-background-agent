@@ -52,6 +52,7 @@ def record_sage_emit(state_file: str, state: dict, total_tools: int, initial_lin
         advisor_advice_counts=seen_advice,
         sage_error_streak=0,
         advisor_error_streak=0,
+        consecutive_on_track=0,
         sage_emitted_texts=emitted_texts,
         advisor_emitted_texts=emitted_texts,
         last_audited_line_count=initial_lines,
@@ -63,12 +64,14 @@ def record_sage_hold(state_file: str, state: dict, total_tools: int, initial_lin
     """Updates and saves state when sage decides to hold/pass."""
     sage_holds = state.get("sage_holds", state.get("advisor_holds", 0)) + 1
     seen = seen_advice if seen_advice is not None else state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))
+    consecutive = state.get("consecutive_on_track", 0) + 1
     save_session_state(
         state_file, state,
         sage_status="hold",
         advisor_status="hold",
         sage_holds=sage_holds,
         advisor_holds=sage_holds,
+        consecutive_on_track=consecutive,
         last_verified_tools=total_tools,
         sage_advice_counts=seen,
         advisor_advice_counts=seen,
@@ -83,6 +86,7 @@ def record_sage_recap(state_file: str, state: dict, total_tools: int, initial_li
     """Updates and saves state when sage approves and sage recap is emitted."""
     sage_holds = state.get("sage_holds", state.get("advisor_holds", 0)) + 1
     recap_count = state.get("recap_count", 0) + 1
+    consecutive = state.get("consecutive_on_track", 0) + 1
     save_session_state(
         state_file, state,
         sage_status="recap",
@@ -90,6 +94,7 @@ def record_sage_recap(state_file: str, state: dict, total_tools: int, initial_li
         recap_emitted=True,
         sage_holds=sage_holds,
         advisor_holds=sage_holds,
+        consecutive_on_track=consecutive,
         recap_count=recap_count,
         last_verified_tools=total_tools,
         last_audited_line_count=initial_lines,
@@ -171,6 +176,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     last_steer_tools = raw_state.get("last_steer_tools", 0) if is_same else 0
     steer_suppress_count = raw_state.get("steer_suppress_count", 0) if is_same else 0
     sage_recap = (raw_state.get("sage_recap") or raw_state.get("advisor_recap", "")) if is_same else ""
+    consecutive_on_track = raw_state.get("consecutive_on_track", 0) if is_same else 0
 
     # Preserved across turns:
     sage_holds = raw_state.get("sage_holds", raw_state.get("advisor_holds", 0))
@@ -195,6 +201,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "sage_advice_counts": seen_advice, "advisor_advice_counts": seen_advice,
         "sage_emitted_texts": emitted_texts, "advisor_emitted_texts": emitted_texts,
         "sage_error_streak": err_streak, "advisor_error_streak": err_streak,
+        "consecutive_on_track": consecutive_on_track,
         "pinned_goal": pinned_goal, "anchor_goal": pinned_goal, "revised_goal": revised_goal, "derived_tasks": derived_tasks,
         "goal_revisions": goal_revisions, "sage_recap": sage_recap, "advisor_recap": sage_recap,
         "pinned_emitted": pinned_emitted, "anchor_emitted": pinned_emitted, "task_complexity": task_complexity,

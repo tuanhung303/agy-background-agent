@@ -12,13 +12,14 @@ EVENT_ERROR_LOOP = "error_loop"
 EVENT_SENSITIVE_TOOL = "sensitive_tool"
 EVENT_STALE_TASK = "stale_task"
 EVENT_PARALLEL_OPP = "parallel_opportunity"
+EVENT_FACILITATION = "facilitation"
 
 STYLE_FULL = "full"
 STYLE_BALANCED = "balanced"
 STYLE_VERBOSE = "verbose"
 
 SEVERITY = {
-    EVENT_TOOL_THRESHOLD: 1, EVENT_PARALLEL_OPP: 1,
+    EVENT_TOOL_THRESHOLD: 1, EVENT_PARALLEL_OPP: 1, EVENT_FACILITATION: 2,
     EVENT_HEARTBEAT: 2, EVENT_STALE_TASK: 2,
     EVENT_ERROR_LOOP: 3, EVENT_SENSITIVE_TOOL: 3, EVENT_FINAL_STOP: 3,
 }
@@ -58,6 +59,7 @@ PLAN_FINAL_STOP_DIRECTIVE = (
 ASK = {
     EVENT_TOOL_THRESHOLD: "",
     EVENT_PARALLEL_OPP: "",
+    EVENT_FACILITATION: "goal settled. facilitation mode: delegate ALL execution+tests to subagents via invoke_subagent. distill full payload: goal/scope/context_files/required_tests/DoD. do NOT run inline.",
     EVENT_HEARTBEAT: "waiting on bg task, hung, or progressing? unblock cmd if hung.",
     EVENT_STALE_TASK: "producing output or hung? keep watch or kill.",
     EVENT_ERROR_LOOP: "root cause. exact fix cmd. NO blind retry.",

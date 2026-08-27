@@ -9,7 +9,7 @@
   "script": [null],
   "expect": {"prompt_byte_ratio_lt": 0.85},
   "dedup_probe": {
-    "worker_facts": "worker[term_ab12cd34ef] spawned@line1: orca create\n  last_output@line3: {\"tail\": [\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"]} \n  state: x | delivered: no",
+    "worker_facts": "worker[term_ab12cd34ef] spawned@line1: terminal create\n  last_output@line3: {\"tail\": [\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"]} \n  state: x | delivered: no",
     "steps": [
       "Tool output: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx term_ab12cd34ef tail Output:",
       "Response: plain | Tools: ['read']"

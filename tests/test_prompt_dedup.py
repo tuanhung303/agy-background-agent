@@ -77,7 +77,7 @@ class TestRenderSlice(unittest.TestCase):
 
 
 class TestPaneReadDedupe(unittest.TestCase):
-    FACTS = "worker[term_ab12cd34ef] spawned@line1: orca create\n" \
+    FACTS = "worker[term_ab12cd34ef] spawned@line1: terminal create\n" \
             "  last_output@line3: {\"tail\": [\"a\" * 3000]}\n  state: x | delivered: no"
 
     def test_big_read_envelope_becomes_pointer(self):

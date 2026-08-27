@@ -36,7 +36,7 @@ def _write_transcript(steps):
     return tmp.name
 
 
-ORCA_JSON_IDLE = json.dumps({"result": {"terminal": {
+PANE_JSON_IDLE = json.dumps({"result": {"terminal": {
     "handle": "term_abc12345", "status": "running",
     "tail": ["────", "❯", "⏵⏵ bypass permissions on"]}}}, ensure_ascii=False)
 
@@ -44,11 +44,11 @@ ORCA_JSON_IDLE = json.dumps({"result": {"terminal": {
 class TestExtractWorkerFacts(unittest.TestCase):
     def test_spawn_read_idle_cycle_with_line_citations(self):
         path = _write_transcript([
-            _cmd('orca terminal create --command "claude" --json'),   # spawn, no handle yet
+            _cmd('terminal create --command "claude" --json'),   # spawn, no handle yet
             _out('{"result":{"terminal":{"handle":"term_abc12345"}}}'),  # handle revealed
-            _cmd("orca terminal send --terminal term_abc12345 --text 'review'"),
-            _cmd("orca terminal read --terminal term_abc12345 --screen --json"),
-            _out(ORCA_JSON_IDLE),
+            _cmd("terminal send --terminal term_abc12345 --text 'review'"),
+            _cmd("terminal read --terminal term_abc12345 --screen --json"),
+            _out(PANE_JSON_IDLE),
         ])
         try:
             facts = extract_worker_facts(_load(path), path)
@@ -65,7 +65,7 @@ class TestExtractWorkerFacts(unittest.TestCase):
 
     def test_streaming_pane_blocks_completion(self):
         path = _write_transcript([
-            _cmd('orca terminal create --command "claude" --json'),
+            _cmd('terminal create --command "claude" --json'),
             _out(json.dumps({"result": {"terminal": {"handle": "term_ab12cd34ef",
                  "tail": ["✻ Sprouting… still thinking with high effort"]}}}, ensure_ascii=False)),
         ])
@@ -79,7 +79,7 @@ class TestExtractWorkerFacts(unittest.TestCase):
 
     def test_final_claim_is_cited(self):
         steps = [
-            _cmd('orca terminal create --command "claude" --json'),
+            _cmd('terminal create --command "claude" --json'),
             _out('{"result":{"terminal":{"handle":"term_ef56ab78cd"}}}'),
             {"type": "PLANNER_RESPONSE", "content": "opus completed its critique.", "created_at": "2026-08-26T17:01:00+07:00"},
         ]
@@ -96,7 +96,7 @@ class TestExtractWorkerFacts(unittest.TestCase):
         # the tail is usually chrome. Long screens must keep the head.
         tails = ["HEAD_SIGNATURE " + "a" * 4500, "TAIL_CHROME ❯"]
         path = _write_transcript([
-            _cmd('orca terminal create --command "claude" --json'),
+            _cmd('terminal create --command "claude" --json'),
             _out(json.dumps({"result": {"terminal": {
                 "handle": "term_0123456789", "status": "running", "tail": tails}}},
                 ensure_ascii=False)),
@@ -113,9 +113,9 @@ class TestExtractWorkerFacts(unittest.TestCase):
         # facts block must stop claiming NOT SETTLED (it caused sage to hammer
         # fake_verification steers while the pane was provably finished).
         steps = [
-            _cmd("orca terminal create --command claude --json"),
+            _cmd("terminal create --command claude --json"),
             _out('{"result":{"terminal":{"handle":"term_ab12cd34ef"}}}'),
-            _cmd("orca terminal read --terminal term_ab12cd34ef --limit 10 --json"),
+            _cmd("terminal read --terminal term_ab12cd34ef --limit 10 --json"),
             _out('{"result":{"terminal":{"handle":"term_ab12cd34ef","status":"exited",'
                  '"tail":["verdict: LGTM with 2 nits","line one: fix A.","line two: fix B.","line three: fix C."]}}}'),
         ]
@@ -128,12 +128,12 @@ class TestExtractWorkerFacts(unittest.TestCase):
         self.assertIn("SETTLED", facts)
 
     def test_mixed_status_list_settles_only_exited(self):
-        # P0-3: `orca terminal list --json` returns many handles in ONE output —
+        # P0-3: `terminal list --json` returns many handles in ONE output —
         # only the handle whose own status is exited may settle (running stays).
         steps = [
-            _cmd("orca terminal create --command claude --json"),
+            _cmd("terminal create --command claude --json"),
             _out('{"result":{"terminal":{"handle":"term_aa11bb22cc"}}}'),
-            _cmd("orca terminal create --command claude --json"),
+            _cmd("terminal create --command claude --json"),
             _out('{"result":{"terminal":{"handle":"term_aa11bb22dd"}}}'),
             _out('{"result":{"terminals":[{"handle":"term_aa11bb22cc","status":"exited"},'
                  '{"handle":"term_aa11bb22dd","status":"running"}]}}'),
@@ -148,9 +148,9 @@ class TestExtractWorkerFacts(unittest.TestCase):
         # Real `read --screen` carries status=running even when idle at ❯ (it is
         # process liveness, not "actively streaming"); idle = no live markers.
         steps = [
-            _cmd("orca terminal create --command claude --json"),
+            _cmd("terminal create --command claude --json"),
             _out('{"result":{"terminal":{"handle":"term_ab12cd34ef"}}}'),
-            _cmd("orca terminal read --terminal term_ab12cd34ef --screen --json"),
+            _cmd("terminal read --terminal term_ab12cd34ef --screen --json"),
             _out('{"result":{"terminal":{"handle":"term_ab12cd34ef","status":"running",'
                  '"tail":["$ ", "❯"]}}}'),
         ]
@@ -159,9 +159,9 @@ class TestExtractWorkerFacts(unittest.TestCase):
 
     def test_warnings_are_flat_strings_not_tuples(self):
         steps = [
-            _cmd("orca terminal create --command claude --json"),
+            _cmd("terminal create --command claude --json"),
             _out('{"result":{"terminal":{"handle":"term_ab12cd34ef"}}}'),
-            _cmd("orca terminal read --terminal term_ab12cd34ef --screen --json"),
+            _cmd("terminal read --terminal term_ab12cd34ef --screen --json"),
             _out('{"result":{"terminal":{"handle":"term_ab12cd34ef","status":"exited",'
                  '"tail":[]}}}'),
         ]
@@ -172,9 +172,9 @@ class TestExtractWorkerFacts(unittest.TestCase):
         # Round-2 P1-A: exited + stale spinner in final screen must SETTLE on the
         # authoritative read path (closed wins; busy only matters while alive).
         steps = [
-            _cmd("orca terminal create --command claude --json"),
+            _cmd("terminal create --command claude --json"),
             _out('{"result":{"terminal":{"handle":"term_ab12cd34ef"}}}'),
-            _cmd("orca terminal read --terminal term_ab12cd34ef --screen --json"),
+            _cmd("terminal read --terminal term_ab12cd34ef --screen --json"),
             _out('{"result":{"terminal":{"handle":"term_ab12cd34ef","status":"exited",'
                  '"tail":["✻ Sprouting… still thinking with high effort"]}}}'),
         ]
@@ -185,9 +185,9 @@ class TestExtractWorkerFacts(unittest.TestCase):
         # Round-2 P2-C: create A -> handle aaaa -> create B -> mention aaaa again
         # must NOT clobber A or duplicate its row.
         steps = [
-            _cmd("orca terminal create --command claudeA --json"),
+            _cmd("terminal create --command claudeA --json"),
             _out('{"result":{"terminal":{"handle":"term_aaaa111111"}}}'),
-            _cmd("orca terminal create --command claudeB --json"),
+            _cmd("terminal create --command claudeB --json"),
             _out('{"result":{"terminal":{"handle":"term_bbbb222222"}}}'),
             _out("checking term_aaaa111111 again"),
         ]
@@ -200,7 +200,7 @@ class TestExtractWorkerFacts(unittest.TestCase):
     def test_status_before_handle_matches(self):
         # Round-2 P3-D: reversed key order `{"status":"exited","handle":"..."}`.
         steps = [
-            _cmd("orca terminal create --command claude --json"),
+            _cmd("terminal create --command claude --json"),
             _out('{"result":{"terminal":{"handle":"term_ab12cd34ef"}}}'),
             _out('read result: {"status":"exited","handle":"term_ab12cd34ef","tail":["x"]}'),
         ]
@@ -209,7 +209,7 @@ class TestExtractWorkerFacts(unittest.TestCase):
 
     def test_exited_status_in_content_also_settles(self):
         steps = [
-            _cmd("orca terminal create --command claude --worktree /tmp"),
+            _cmd("terminal create --command claude --worktree /tmp"),
             _out("handle term_ab12cd34ef created"),
             _out('read result: {"handle":"term_ab12cd34ef","status":"exited"} tail [x]'),
         ]
@@ -218,7 +218,7 @@ class TestExtractWorkerFacts(unittest.TestCase):
 
     def test_channel_configurable_via_env(self):
         steps = [_cmd("remote-cli run --session rs99 --detach")]
-        with patch.dict(os.environ, {"AGY_SAGE_WORKER_SPAWN_RE": r"\bremote-cli\s+run\b.*--detach;;\borca\s+terminal\s+create\b"}):
+        with patch.dict(os.environ, {"AGY_SAGE_WORKER_SPAWN_RE": r"\bremote-cli\s+run\b.*--detach;;\bterminal\s+create\b"}):
             path = _write_transcript(steps)
             try:
                 facts = extract_worker_facts(_load(path), path)
@@ -227,7 +227,7 @@ class TestExtractWorkerFacts(unittest.TestCase):
         self.assertIn("rs99", facts)
 
     def test_help_probes_are_not_workers(self):
-        path = _write_transcript([_cmd("orca terminal create --help")])
+        path = _write_transcript([_cmd("terminal create --help")])
         try:
             self.assertEqual(extract_worker_facts(_load(path), path), "")
         finally:

@@ -13,7 +13,7 @@ from sage.sanitizer import sanitize_tool_output, delivered_state, is_live
 
 _SPAWN_ENV = "AGY_SAGE_WORKER_SPAWN_RE"
 _DEFAULT_SPAWN_PATTERNS = (
-    r"\borca\s+terminal\s+(?:create|split)\b",
+    r"\bterminal\s+(?:create|split)\b",
     r"\btmux\s+(?:new-session|new-window|send-keys)\b",
     r"\bscreen\s+-[dm]m?S\b")
 _IDLE_ENV = "AGY_SAGE_WORKER_IDLE_RE"
@@ -146,7 +146,7 @@ def extract_worker_facts(steps, transcript_path=None):
                 for role in re.findall(r'"Role"\s*:\s*"([^"]+)"', args) or ["subagent"]:
                     _note(f"subagent:{role}", "subagent", f"invoke_subagent Role={role}", line_no)
         # A pane-read call at step i produces its screen output in step i+1
-        # (usually an orca JSON envelope with the real tail array inside).
+        # (usually a pane-manager JSON envelope with the real tail array inside).
         for t in (s.get("tool_calls") or []):
             args = str((t.get("args") or {}).get("CommandLine") or "")
             low_args = args.lower()
@@ -187,7 +187,7 @@ def extract_worker_facts(steps, transcript_path=None):
                         settled.discard(tok)
             for tup in _HANDLE_STATUS_RE.findall(content):
                 settled.update(h for h in (tup[0], tup[2]) if h)
-            if not is_live(content) and (idle_re.search(content) and ("orca terminal" in low or "tmux" in low)
+            if not is_live(content) and (idle_re.search(content) and ("terminal" in low or "tmux" in low)
                                           or ("exited with code" in low and "--screen" in low)):
                 settled.update(toks_here)
         if any(h in low for h in _CLOSE_HINTS):

@@ -166,13 +166,13 @@ def run_model_cascade(
         env = dict(os.environ, AGY_STOP_AUDIT_ACTIVE="1", HOME=iso_home, PATH=f"{os.path.expanduser('~/.local/bin')}:{os.environ.get('PATH', '')}")
         for idx, model in enumerate(candidates):
             rem = timeout_budget - (time.time() - start_t)
-            if rem <= 2.0:
+            if rem <= 6.0:
                 log_audit(f"{label} timeout reached; halting fallbacks")
                 break
             if not existing_session and not spawn_lock_fh:
                 spawn_lock_fh, before_dbs = acquire_lock_fn(), set(os.listdir(conv_dir))
             try:
-                cand_timeout = min(ADVISOR_EXEC_TIMEOUT, max(5.0, rem * 0.7 if (len(candidates) - idx) > 1 else rem))
+                cand_timeout = min(ADVISOR_EXEC_TIMEOUT, max(8.0, rem * 0.7 if (len(candidates) - idx) > 1 else rem))
                 cmd = [agy_bin] + (["--conversation", existing_session] if existing_session else []) + ["-p", prompt, "--model", model, "--disable-slash-commands"]
                 res = subprocess.run(cmd, input="", capture_output=True, text=True, timeout=cand_timeout, env=env, cwd=run_cwd)
                 if res.returncode != 0 or not res.stdout.strip():

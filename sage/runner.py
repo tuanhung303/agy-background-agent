@@ -62,12 +62,20 @@ def run_session_stop_audit(raw_payload=None):
 
     active_panes = get_active_external_panes(transcript_path)
     if active_panes:
-        log_audit(f"Active external worker pane(s) detected: {active_panes}")
-        emit_continue_response(
-            "External worker pane(s) still streaming (" + ", ".join(active_panes) + "); "
-            "wait for the idle prompt and read full output before concluding.",
-            is_post=is_post_invocation(),
-        )
+        pane_steers = state.get("external_pane_steers", {})
+        unsteered = [p for p in active_panes if pane_steers.get(p, 0) < 2]
+        if unsteered:
+            for p in unsteered:
+                pane_steers[p] = pane_steers.get(p, 0) + 1
+            save_session_state(state_file, state, external_pane_steers=pane_steers)
+            log_audit(f"Active external worker pane(s) detected: {unsteered}")
+            if not is_post_invocation():
+                emit_continue_response(
+                    "External worker pane(s) still streaming (" + ", ".join(unsteered) + "); "
+                    "wait for the idle prompt and read full output before concluding.",
+                    is_post=False,
+                )
+            fail_safe_exit("External worker pane(s) in progress; waiting for idle prompt")
 
     active_tasks = get_active_background_tasks(transcript_path, conv_id)
     bgp = background_watch(active_tasks, state.get("background_steered_tasks", []))
@@ -181,7 +189,7 @@ def run_session_stop_audit(raw_payload=None):
         cat = gate.get("category", "on_track")
         sage_recap = f"[RECAP·{cat}] {recap}" if not recap.startswith("[RECAP") else recap
         gu = {k: gate[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in gate and gate[k] is not None}
-        (record_advisor_recap if record_advisor_recap != record_sage_recap else record_sage_recap)(state_file, state, total_tool_calls, initial_line_count, recap_text=sage_recap, **gu)
+        (record_advisor_recap if record_advisor_recap != record_sage_recap else record_sage_recap)(state_file, state, total_tool_calls, initial_line_count, recap_text=sage_recap, goal_settled=True, **gu)
         log_audit(f"Sage passed cleanly. Sage recap recorded: {sage_recap}")
         _clear_sage_session(conv_id)
         emit_recap_response(sage_recap, kind="sage")
