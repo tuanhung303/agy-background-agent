@@ -10,6 +10,19 @@ import json
 import os
 import sys
 
+# Hot unplug: when AGY_SAGE_DISABLED is set in the agy process environment
+# (per-spawn, not global), the sage hook no-ops immediately — emitting a
+# neutral pass-through payload instead of running the audit. This lets a
+# benchmark arm disable sage for ITS worker only, without mv-ing the shared
+# hooks.json (which silently disables sage for every other live thread).
+if os.environ.get("AGY_SAGE_DISABLED") == "1":
+    _is_post = any(
+        a.lower() in ("post_invocation", "postinvocation", "post-invocation", "post")
+        for a in sys.argv[1:]
+    )
+    print(json.dumps({"injectSteps": []} if _is_post else {"decision": "stop"}))
+    sys.exit(0)
+
 # Resolve real script location even when invoked via symlinks
 _HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
 _REPO_DIR = os.path.abspath(os.path.join(_HOOK_DIR, ".."))

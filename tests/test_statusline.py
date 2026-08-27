@@ -114,7 +114,7 @@ class TestStatusline(unittest.TestCase):
         plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
         self.assertIn("0/250k", plain)
         self.assertIn("0%", plain)
-        self.assertIn("sage:g[0]/a[0]/p[0]/r[0]", plain)
+        self.assertIn("○ sage", plain)
         self.assertNotIn("str[", plain)
         self.assertNotIn("rcp[", plain)
 
@@ -131,60 +131,53 @@ class TestStatusline(unittest.TestCase):
             return re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", s)
 
         try:
-            # 1. Idle/Hold state: goal unpinned, holds and one recap recorded (muted metric numbers)
+            # 1. Idle/Hold state -> ○ sage (dim gray)
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
                     "mid_turn_steers": 0,
                     "advisor_holds": 2,
                     "recap_count": 1,
-                    "advisor_status": "hold",
+                    "sage_status": "hold",
                 }, f)
 
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertEqual(len(badges), 1)
-            self.assertEqual(clean(badges[0]), "sage:g[0]/a[0]/p[2]/r[1]")
-            self.assertIn("\033[90msage:\033[0m\033[90mg[0]/a[0]/p[2]/r[1]\033[0m", badges[0])
+            self.assertEqual(clean(badges[0]), "○ sage")
+            self.assertEqual(badges[0], "\033[90m○ sage\033[0m")
 
-            # 2. Advisor Fired (session_mid_turn_steers drives a[], badge metrics stay muted)
+            # 2. Injecting/Fired state -> ◐ sage (coral)
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
                     "session_mid_turn_steers": 2,
-                    "advisor_holds": 3,
-                    "recap_count": 0,
+                    "sage_status": "fired",
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
-            self.assertEqual(clean(badges[0]), "sage:g[0]/a[2]/p[3]/r[0]")
-            self.assertIn("\033[90msage:\033[0m\033[90mg[0]/a[2]/p[3]/r[0]\033[0m", badges[0])
+            self.assertEqual(clean(badges[0]), "◐ sage")
+            self.assertEqual(badges[0], "\033[38;2;255;127;80m◐ sage\033[0m")
 
-            # 3. Goal pinned -> g[1], badge metrics stay muted
+            # 3. Post-recap state -> ○ sage (dim gray idle state)
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
-                    "pinned_goal": "Ship the refactor",
-                    "mid_turn_steers": 1,
-                    "advisor_holds": 0,
-                    "recap_count": 0,
+                    "sage_status": "recap",
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
-            self.assertEqual(clean(badges[0]), "sage:g[1]/a[1]/p[0]/r[0]")
-            self.assertIn("\033[90msage:\033[0m\033[90mg[1]/a[1]/p[0]/r[0]\033[0m", badges[0])
+            self.assertEqual(clean(badges[0]), "○ sage")
+            self.assertEqual(badges[0], "\033[90m○ sage\033[0m")
 
-            # 4. Evaluating State (Active Blue label on 'sage:') + error streak suffix
+            # 4. Evaluating State -> ● sage (bright blue) + error streak suffix
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
-                    "mid_turn_steers": 0,
-                    "advisor_holds": 1,
-                    "recap_count": 2,
-                    "advisor_status": "evaluating",
-                    "advisor_error_streak": 3,
+                    "sage_status": "evaluating",
+                    "sage_error_streak": 3,
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
-            self.assertIn("\033[1;34msage:\033[0m", badges[0])
+            self.assertIn("\033[1;34m● sage\033[0m", badges[0])
             self.assertIn("\033[31m/err[3]\033[0m", badges[0])
-            self.assertEqual(clean(badges[0]), "sage:g[0]/a[0]/p[1]/r[2]/err[3]")
+            self.assertEqual(clean(badges[0]), "● sage/err[3]")
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)

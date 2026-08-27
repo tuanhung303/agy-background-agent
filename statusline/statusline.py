@@ -178,43 +178,18 @@ def get_sage_steer_badges(data):
             except Exception:
                 state = {}
 
-    goal_c = 1 if (state.get("pinned_goal") or state.get("anchor_goal")) else 0
-    sage_f = state.get("session_mid_turn_steers", state.get("mid_turn_steers", 0))
-    sage_h = state.get("sage_holds", state.get("advisor_holds", 0))
+    sage_status = str(state.get("sage_status", state.get("advisor_status", "hold"))).lower()
 
-    t_recap = 0
-    tp = data.get("transcript_path") or data.get("transcriptPath")
-    if not tp or not os.path.exists(tp):
-        if conv_id:
-            for base in ["~/.gemini/antigravity-cli/brain", "~/.gemini/antigravity/brain"]:
-                cand = os.path.expanduser(f"{base}/{conv_id}/.system_generated/logs/transcript.jsonl")
-                if os.path.exists(cand):
-                    tp = cand
-                    break
-    if tp and os.path.exists(tp):
-        try:
-            with open(tp, "r", encoding="utf-8", errors="replace") as tf:
-                for line in tf:
-                    if '"type":"USER_INPUT"' in line or '"type": "USER_INPUT"' in line:
-                        line_low = line.lower()
-                        if '※ recap:' in line_low or '※ recap' in line_low or 'recap - ' in line_low or '[recap]' in line_low or '[recap·' in line_low:
-                            t_recap += 1
-        except Exception:
-            pass
+    if sage_status in {"evaluating", "running"}:
+        glyph_str = "\033[1;34m● sage\033[0m"
+    elif sage_status in {"fired", "watchout", "injecting"}:
+        glyph_str = "\033[38;2;255;127;80m◐ sage\033[0m"
+    else:
+        glyph_str = "\033[90m○ sage\033[0m"
 
-    recap_c = max(state.get("recap_count", 1 if state.get("recap_emitted") else 0), t_recap)
-
-    sage_status = state.get("sage_status", state.get("advisor_status", "hold"))
-    is_sage_running = sage_status in {"evaluating", "running"}
-
-    # Sage badge: sage:g[G]/a[A]/p[P]/r[R][/err[N]] — goal pinned, advise fired, pass (healthy hold), recap
-    # Badge metrics stay muted (\033[90m) like startup; 'sage:' lights up (\033[1;34m) only during active events.
-    sage_label_color = "\033[1;34m" if is_sage_running else "\033[90m"
     err_streak = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)) or 0)
     err_seg = f"\033[31m/err[{err_streak}]\033[0m" if err_streak > 0 else ""
-    sage_badge = (
-        f"{sage_label_color}sage:\033[0m\033[90mg[{goal_c}]/a[{sage_f}]/p[{sage_h}]/r[{recap_c}]\033[0m{err_seg}"
-    )
+    sage_badge = f"{glyph_str}{err_seg}"
 
     return [sage_badge]
 
