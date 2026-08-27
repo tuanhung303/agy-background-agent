@@ -16,7 +16,7 @@ def _is_parent(cid, parent):
 
 
 def _link_file(src, dst):
-    if os.path.isfile(src) and (not os.path.lexists(dst) or (os.path.islink(dst) and not os.path.exists(dst))):
+    if (os.path.isfile(src) or os.path.isdir(src)) and (not os.path.lexists(dst) or (os.path.islink(dst) and not os.path.exists(dst))):
         try:
             if os.path.islink(dst):
                 os.unlink(dst)
@@ -35,6 +35,11 @@ def ensure_isolated_home():
     for f in os.listdir(real_cli) if os.path.isdir(real_cli) else []:
         if "token" in f or "auth" in f or "credential" in f or f in ("settings.json", "installation_id"):
             _link_file(os.path.join(real_cli, f), os.path.join(iso_cli, f))
+    real_kc = os.path.expanduser("~/Library/Keychains")
+    if os.path.isdir(real_kc):
+        iso_lib = os.path.join(SAGE_ISOLATED_HOME, "Library")
+        os.makedirs(iso_lib, mode=0o700, exist_ok=True)
+        _link_file(real_kc, os.path.join(iso_lib, "Keychains"))
     iso_hooks = os.path.join(iso_cfg, "hooks.json")
     try:
         if os.path.islink(iso_hooks) or os.path.lexists(iso_hooks):

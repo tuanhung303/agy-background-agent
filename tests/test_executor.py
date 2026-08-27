@@ -199,6 +199,49 @@ class TestExecutor(unittest.TestCase):
             self.assertEqual(f.read(), '{"custom_hook": true}')
         self.assertFalse(os.path.islink(os.path.join(iso_cfg, "hooks.json")))
 
+    def test_ensure_isolated_home_links_keychains(self):
+        from sage.executor import ensure_isolated_home
+        fake_home = os.path.join(self.test_dir, "fake_user_home_kc")
+        real_kc = os.path.join(fake_home, "Library", "Keychains")
+        os.makedirs(real_kc, exist_ok=True)
+        with open(os.path.join(real_kc, "login.keychain-db"), "w") as f:
+            f.write("fake keychain data")
+
+        iso_dir = os.path.join(self.test_dir, "fake_iso_home_kc")
+        iso_cli = os.path.join(iso_dir, ".gemini", "antigravity-cli")
+        iso_kc = os.path.join(iso_dir, "Library", "Keychains")
+
+        def custom_expanduser(path):
+            if path.startswith("~/Library/Keychains"):
+                return path.replace("~/Library/Keychains", real_kc)
+            if path.startswith("~/.gemini/antigravity-cli"):
+                return path.replace("~/.gemini/antigravity-cli", os.path.join(fake_home, ".gemini", "antigravity-cli"))
+            if path.startswith("~"):
+                return path.replace("~", fake_home)
+            return path
+
+        with patch("sage.executor.SAGE_ISOLATED_HOME", iso_dir), \
+             patch("sage.executor.SAGE_CLI_DIR", iso_cli), \
+             patch("os.path.expanduser", side_effect=custom_expanduser):
+            res = ensure_isolated_home()
+            self.assertEqual(res, iso_dir)
+            self.assertTrue(os.path.islink(iso_kc))
+            self.assertEqual(os.path.realpath(iso_kc), os.path.realpath(real_kc))
+            self.assertTrue(os.path.exists(os.path.join(iso_kc, "login.keychain-db")))
+
+            # Re-running with existing valid link preserves it
+            ensure_isolated_home()
+            self.assertTrue(os.path.islink(iso_kc))
+
+            # Re-running with broken link fixes it
+            os.unlink(iso_kc)
+            os.symlink(os.path.join(self.test_dir, "nonexistent"), iso_kc)
+            self.assertTrue(os.path.islink(iso_kc))
+            self.assertFalse(os.path.exists(iso_kc))
+            ensure_isolated_home()
+            self.assertTrue(os.path.exists(iso_kc))
+            self.assertEqual(os.path.realpath(iso_kc), os.path.realpath(real_kc))
+
 
 if __name__ == "__main__":
     unittest.main()
