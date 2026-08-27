@@ -72,3 +72,37 @@ The two arms converged on the same root cause through different routes — casca
 2. **Sage steering stayed useful without grabbing the wheel**: injections were pinned-goal framing and a recap check — no false off_track interrupts during a healthy investigation arc.
 3. **Same-result-different-artifact**: when both arms agree on cause but only one produces runnable change, run the two-arm pattern again for any class of bug that is diagnosable separately from fixable.
 
+## Benchmark: sage ON/OFF on Terminal-Bench 2.1 (LLM Inference Batching Scheduler)
+
+A benchmark on the hardest algorithmic systems optimization task in Terminal-Bench 2.1: `llm-inference-batching-scheduler`. The task requires packing 1,600 inference requests across two buckets into batches while adhering to hardware granularity alignment (multiple of 64 tokens), a hard limit of at most 8 unique tensor shapes across both buckets, and beating 4 strict analytical cost and latency thresholds.
+
+### Setup
+
+Two workers ran in parallel Orca split panes via `orca-agy.sh` on Gemini 3.7 Flash:
+- **Arm 1 (Sage ON - `tb-sched-on`)**: Supervised with active goal pinning and step verification.
+- **Arm 2 (Sage OFF - `tb-sched-off`)**: Unsupervised baseline (`--sage-off`).
+
+### Results
+
+| Metric | Threshold | Baseline Packer | Arm 2: Sage OFF | Arm 1: Sage ON | Delta (Sage ON vs OFF) |
+|---|---|---|---|---|---|
+| **Bucket 1: Cost** | $\le 3.0 \times 10^{11}$ | $2.4830 \times 10^{12}$ | $2.9445 \times 10^{11}$ | **$2.8765 \times 10^{11}$** | **-2.3% cheaper (-6.80B)** |
+| **Bucket 1: Pad Ratio** | $\le 0.055$ | $1.4363$ | **$0.05093$** | $0.05134$ | +0.8% |
+| **Bucket 1: P95 Latency (ms)** | $\le 2.1 \times 10^6$ | $1.3157 \times 10^7$ | $2.0434 \times 10^6$ | $2.0434 \times 10^6$ | Parity |
+| **Bucket 1: Sequential Timecost (ms)** | $\le 2.7 \times 10^8$ | $4.8973 \times 10^7$ | $2.6788 \times 10^8$ | **$2.3102 \times 10^8$** | **-13.8% faster (-36.86M ms)** |
+| **Bucket 2: Cost** | $\le 4.8 \times 10^{10}$ | $1.6673 \times 10^{12}$ | **$4.5688 \times 10^{10}$** | $4.6797 \times 10^{10}$ | +2.4% |
+| **Bucket 2: Pad Ratio** | $\le 0.150$ | $4.0430$ | $0.13696$ | **$0.13643$** | **-0.4% less padding** |
+| **Bucket 2: P95 Latency (ms)** | $\le 2.1 \times 10^5$ | $3.4104 \times 10^6$ | **$1.9237 \times 10^5$** | $1.9534 \times 10^5$ | +1.5% |
+| **Bucket 2: Sequential Timecost (ms)** | $\le 3.2 \times 10^7$ | $1.1463 \times 10^7$ | $3.1567 \times 10^7$ | **$2.9077 \times 10^7$** | **-7.9% faster (-2.49M ms)** |
+| **Global Unique Shapes Used** | $\le 8$ | 8 | 7 shapes | **8 shapes (optimal)** | Full budget utilization |
+| **Unit & Integration Tests** | 6/6 pass | 0/6 | 6/6 PASS | **6/6 PASS** | Full verification |
+
+### Key Findings
+
+1. **Better algorithmic exploration**: Sage ON utilized all 8 allowed shape slots `[64, 128, 192, 256, 384, 512, 640, 2048]`, incorporating shape `256` to avoid over-padding medium-length prompts. Sage OFF stopped at 7 shapes, resulting in **13.8% slower sequential execution**.
+2. **Modular code vs transient scripts**: Sage ON produced a standalone, reproducible optimizer script (`optimize_scheduler.py`) using 1D Dynamic Programming over prompt clusters, whereas Sage OFF ran one-off inline bash commands without persisting the optimizer.
+3. **Rigorous verification loop**: Sage ON maintained test-green tracking through its supervisor prompt, running both unit and integration checks prior to signaling task completion.
+
+Full methodology and logs are documented in [benchmark/terminal-bench-scheduler/README.md](benchmark/terminal-bench-scheduler/README.md).
+
+
