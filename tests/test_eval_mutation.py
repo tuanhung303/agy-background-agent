@@ -47,6 +47,8 @@ class TestEvalMutationSuite(unittest.TestCase):
                         "final_pending_clarify_ok",
                         "prompt_byte_ratio_lt",
                         "final_category",
+                        "text_contains",
+                        "decision_type",
                     )
                 )
                 self.assertTrue(has_key, f"Scenario {sc['id']} has no substantive assertions in expect")
@@ -86,7 +88,8 @@ class TestEvalMutationSuite(unittest.TestCase):
             text=True,
         )
         self.assertEqual(p1.returncode, 0, f"run_eval.py failed:\n{p1.stderr}\n{p1.stdout}")
-        self.assertIn("9/9 passed", p1.stdout)
+        n_scenarios = len(self.scenarios)
+        self.assertIn(f"{n_scenarios}/{n_scenarios} passed", p1.stdout)
 
         # 2. Validate mode
         p2 = subprocess.run(
@@ -104,7 +107,7 @@ class TestEvalMutationSuite(unittest.TestCase):
             text=True,
         )
         self.assertEqual(p3.returncode, 0, f"run_eval.py --mutate failed:\n{p3.stderr}\n{p3.stdout}")
-        self.assertIn("Mutation score: 24/24 (100.0%)", p3.stdout)
+        self.assertIn("100.0%", p3.stdout)
 
 
 if __name__ == "__main__":

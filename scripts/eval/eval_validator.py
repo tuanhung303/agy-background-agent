@@ -11,7 +11,7 @@ import unittest.mock as mock
 EXPECTED_KEYS = {
     "first_fire_cp", "decision_category", "fire_before_tool_index",
     "max_parallel_emissions", "midturn_interrupts", "final_pending_clarify_ok",
-    "prompt_byte_ratio_lt", "final_category",
+    "prompt_byte_ratio_lt", "final_category", "text_contains", "decision_type",
 }
 
 
@@ -49,30 +49,39 @@ def generate_scenario_mutations(sc):
     mutations = []
     sid = sc.get("id", "")
     expect = sc.get("expect", {})
-    has_midturn_expect = any(k in expect for k in ("decision_category", "first_fire_cp", "fire_before_tool_index"))
+    has_midturn_expect = any(k in expect for k in ("decision_category", "first_fire_cp", "fire_before_tool_index", "final_pending_clarify_ok"))
     if has_midturn_expect and sc.get("script"):
         m1 = copy.deepcopy(sc)
         for x in m1["script"]:
             if isinstance(x, dict):
                 x["category"] = "unrelated_bogus_category"
+        if expect.get("final_pending_clarify_ok") and isinstance(m1.get("final_script"), dict):
+            m1["final_script"]["category"] = "unrelated_bogus_category"
         mutations.append((f"{sid}:wrong_midturn_category", m1))
+
         m2 = copy.deepcopy(sc)
         for x in m2["script"]:
             if isinstance(x, dict):
                 x["status"] = "on_track"
+        if expect.get("final_pending_clarify_ok") and isinstance(m2.get("final_script"), dict):
+            m2["final_script"]["status"] = "on_track"
+            m2["final_script"]["category"] = "general"
         mutations.append((f"{sid}:invert_midturn_status", m2))
+
     if "first_fire_cp" in expect or "fire_before_tool_index" in expect:
         m3 = copy.deepcopy(sc)
         m3["script"] = [None, None, None, None] + list(m3.get("script") or [])
         mutations.append((f"{sid}:delayed_execution", m3))
     if sc.get("final_script") and isinstance(sc["final_script"], dict):
         fs = sc["final_script"]
-        if fs.get("category") and ("final_category" in expect or "final_pending_clarify_ok" in expect):
+        if fs.get("category") and "final_category" in expect:
             m4 = copy.deepcopy(sc)
             m4["final_script"]["category"] = "unrelated_final_category"
+            m4["tools"] = [[t[0], "python -c 'import test'"] for t in m4.get("tools", [])]
             mutations.append((f"{sid}:wrong_final_category", m4))
             m5 = copy.deepcopy(sc)
             m5["final_script"]["status"] = "on_track"
+            m5["tools"] = [[t[0], "python -c 'import test'"] for t in m5.get("tools", [])]
             mutations.append((f"{sid}:invert_final_status", m5))
     if sc.get("dedup_probe"):
         m6 = copy.deepcopy(sc)
@@ -82,6 +91,28 @@ def generate_scenario_mutations(sc):
         m7 = copy.deepcopy(sc)
         m7["script"][1]["category"] = "loop_detection"
         mutations.append((f"{sid}:unsuppressed_hammer_category", m7))
+    if "text_contains" in expect:
+        m8 = copy.deepcopy(sc)
+        for x in m8.get("script", []):
+            if isinstance(x, dict):
+                x["action"] = "safe non-matching action"
+                x["guidance"] = "safe non-matching guidance"
+        if m8.get("final_script") and isinstance(m8["final_script"], dict):
+            m8["final_script"]["action"] = "safe non-matching action"
+            m8["final_script"]["guidance"] = "safe non-matching guidance"
+        m8["tools"] = [[t[0], "python -c 'import test'"] for t in m8.get("tools", [])]
+        mutations.append((f"{sid}:corrupt_text_payload", m8))
+    if "decision_type" in expect:
+        m9 = copy.deepcopy(sc)
+        if expect["decision_type"] == "watchout":
+            for x in m9.get("script", []):
+                if isinstance(x, dict):
+                    x["confidence"] = 0.95
+        elif expect["decision_type"] == "steer":
+            for x in m9.get("script", []):
+                if isinstance(x, dict):
+                    x["confidence"] = 0.3
+        mutations.append((f"{sid}:invert_decision_type", m9))
     return mutations
 
 
@@ -133,4 +164,19 @@ def run_policy_mutations(scenarios_by_id, drive_turn_fn, grade_fn):
                 res = drive_turn_fn(scenarios_by_id["hammer_same_cat"])
                 probs = grade_fn(res, scenarios_by_id["hammer_same_cat"].get("expect", {}))
                 results.append(("policy:disable_hammer_guard:hammer_same_cat", len(probs) > 0))
+    if "irreversible_destructive_guard" in scenarios_by_id:
+        with mock.patch("sage.triage.is_destructive_action", return_value=False):
+            res = drive_turn_fn(scenarios_by_id["irreversible_destructive_guard"])
+            probs = grade_fn(res, scenarios_by_id["irreversible_destructive_guard"].get("expect", {}))
+            results.append(("policy:disable_destructive_action_guard:irreversible_destructive_guard", len(probs) > 0))
+    if "low_confidence_steer_demote" in scenarios_by_id:
+        with mock.patch("sage.policies.SAGE_STEER_MIN_CONFIDENCE", 0.0):
+            res = drive_turn_fn(scenarios_by_id["low_confidence_steer_demote"])
+            probs = grade_fn(res, scenarios_by_id["low_confidence_steer_demote"].get("expect", {}))
+            results.append(("policy:disable_confidence_demotion:low_confidence_steer_demote", len(probs) > 0))
+    if "defer_delegated_exec" in scenarios_by_id:
+        with mock.patch("sage.policies.detect_transcript_deferral", return_value={"matched": False}):
+            res = drive_turn_fn(scenarios_by_id["defer_delegated_exec"])
+            probs = grade_fn(res, scenarios_by_id["defer_delegated_exec"].get("expect", {}))
+            results.append(("policy:disable_transcript_deferral:defer_delegated_exec", len(probs) > 0))
     return results

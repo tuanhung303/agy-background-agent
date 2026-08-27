@@ -1,0 +1,52 @@
+{
+  "id": "low_confidence_steer_demote",
+  "desc": "low confidence off-track verdict demoted to watchout to avoid disrupting valid work",
+  "user_prompt": "Refactor database connection pool timeout logic in src/db/pool.py.",
+  "tools": [
+    [
+      "write_to_file",
+      "updating src/db/pool.py connection limit"
+    ],
+    [
+      "write_to_file",
+      "updating src/db/pool.py timeout"
+    ],
+    [
+      "write_to_file",
+      "updating src/db/pool.py retry count"
+    ],
+    [
+      "write_to_file",
+      "updating src/db/pool.py backoff"
+    ],
+    [
+      "run_command",
+      "pytest tests/test_pool.py -k timeout"
+    ],
+    [
+      "run_command",
+      "pytest tests/test_pool.py -k retry"
+    ]
+  ],
+  "script": [
+    {
+      "status": "off_track",
+      "category": "architectural_trap",
+      "action": "Re-architect pool locking mechanism",
+      "evidence": "speculative architecture concern on connection pooling",
+      "confidence": 0.45,
+      "guidance": "Consider connection pool contention edge cases."
+    },
+    null
+  ],
+  "expect": {
+    "first_fire_cp": 6,
+    "decision_category": "architectural_trap",
+    "decision_type": "watchout"
+  },
+  "final_script": {
+    "status": "on_track",
+    "recap": "Connection pool refactored with clean test pass.",
+    "confidence": 0.9
+  }
+}

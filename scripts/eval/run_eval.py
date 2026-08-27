@@ -109,7 +109,8 @@ def drive_turn(sc):
                 state=state, workspace_root=os.path.join(tempfile.gettempdir(), "agy_eval_ws"))
             outcomes.append({"checkpoint": cp, "action": res.get("action"),
                              "decision": res.get("decision"), "category": res.get("category"),
-                             "reason": (res.get("reason") or "")[:120]})
+                             "reason": (res.get("reason") or "")[:120],
+                             "text": res.get("text", "")})
             # Mirror runner: stash pending_clarify into state (surfaces at final)
             if res.get("pending_clarify"):
                 state["pending_clarify"] = res["pending_clarify"]
@@ -142,7 +143,8 @@ def drive_turn(sc):
                 turn_tool_names=set(names_all), user_prompt=user,
                 agent_steps=[], git_diff=sc.get("git_diff", ""), state=state)
             final = {"action": fres.get("action"), "category": fres.get("category"),
-                     "reason": (fres.get("reason") or "")[:120]}
+                     "reason": (fres.get("reason") or "")[:120],
+                     "text": fres.get("text", "")}
             if fres.get("pending_clarify"):
                 final["pending_clarify"] = True
             # Mirror the runner's two-phase clarify: a pending_clarify stashed
@@ -156,8 +158,11 @@ def drive_turn(sc):
             if os.path.exists(fpath):
                 os.unlink(fpath)
 
+    emitted_texts = [o.get("text", "") for o in outcomes if o.get("action") == "emit"]
+    emitted_decs = [o.get("decision") for o in outcomes if o.get("action") == "emit"]
     return {"id": sc["id"], "desc": sc.get("desc", ""), "midturn": outcomes,
-            "final": final, "steered_cats": steered_cats}
+            "final": final, "steered_cats": steered_cats,
+            "emitted_texts": emitted_texts, "emitted_decisions": emitted_decs}
 
 
 def grade(res, expect):
@@ -211,6 +216,19 @@ def grade(res, expect):
             problems.append(
                 f"final gate must surface category={final_cat} via emit; "
                 f"got action={f.get('action')} category={f.get('category')}")
+    txt_sub = expect.get("text_contains")
+    if txt_sub is not None:
+        all_texts = list(res.get("emitted_texts", []))
+        if res.get("final") and res["final"].get("text"):
+            all_texts.append(res["final"]["text"])
+        emitted = " ".join(all_texts)
+        if txt_sub not in emitted:
+            problems.append(f"expected emitted text containing {txt_sub!r}, got {emitted!r}")
+    dec_type = expect.get("decision_type")
+    if dec_type is not None:
+        decs = res.get("emitted_decisions", [])
+        if dec_type not in decs:
+            problems.append(f"expected emission with decision={dec_type!r}, got {decs!r}")
     return problems
 
 
