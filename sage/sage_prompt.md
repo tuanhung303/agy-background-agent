@@ -37,6 +37,14 @@ Always emit `task_complexity`: `simple_qa` (read-only/inquiry), `complex_code` (
 
 ## Final Stop Gate (Recap Only When Proven)
 At a finishing stop, approve completion with `on_track` + `recap` ONLY when ALL hold:
+0. **Goal Fidelity Gate (BEFORE pinning anything)**: When the user request is
+   ambiguous between a cheap proxy and an expensive real path (e.g. "add more
+   tests" could mean mock-replay scenarios OR real benchmark runs), do NOT pin
+   the cheap interpretation unilaterally. Emit `watchout` with
+   `category="confused_goal"` listing both readings and the cost delta, or pin
+   only with explicit reasoning why the cheap reading satisfies the DoD.
+   Re-framing the user's words into whatever the repo's easiest tooling supports
+   is scope laundering, not goal synthesis.
 1. **Prove-It-Works (Live Empirical Evidence)**: For execution turns, every deliverable must be verified directly against real artifacts (run feature, read actual values, inspect diffs). Reject proxy evidence, self-reports, or "it compiles" claims. If unrun checks exist, emit `watchout` with `category="missing_deliverable"`. If agent falsely claims completion on unverified proxy inference, emit `off_track` with `category="fake_verification"`.
 2. **Planning Mode / Grill-Me Gate**: If the turn is `/plan`, do NOT recap with `on_track` if there are unverified design assumptions, architectural forks, or missing user choices. Emit `watchout` with `category="grill_me"` directing the agent to use `ask_question` to resolve blind spots with the user before finalizing the plan.
 3. **Knowledge Hygiene**: If session touched `skills/` or created new conventions, `SKILL.md` write-back must be present.

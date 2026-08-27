@@ -5,6 +5,15 @@ sage eval harness - drive the REAL sage policy pipeline over scenario files.
 NOT a one-off test rig: scenarios live as JSON in scripts/eval/scenarios/.
 Adding coverage = dropping a new .json file, zero code changes.
 
+WHAT COUNTS AS NEW COVERAGE (anti-mock-replay rule):
+A new .json scenario only counts if it (a) exercises a sage code path no other
+scenario touches, AND (b) would FAIL under a targeted mutation of that path
+(kill test the expectation like final_category does). Descriptive-only
+scenarios whose expect{} pins nothing beyond pass-through counts are
+REJECTED coverage — they are text fixtures, not tests. Expanding task-domain
+coverage goes through benchmark/deepswe-sage-ab/deepswe_ab.sh (real runs,
+held-out grading), not this stubbed pipeline.
+
 Real layers under test: guards, cadence gate, repeat-loop override, deferral
 scan, triage/classify, hammer guard, dedup state. The only stub is the model
 call itself (deterministic verdict scripts per scenario) so runs are free,
