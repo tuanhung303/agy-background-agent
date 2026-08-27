@@ -47,6 +47,9 @@ def compute_advice_key(category, action, guidance=None):
     return hashlib.sha1(raw).hexdigest()[:12]
 
 
+from sage.ladder import next_rung_suffix
+
+
 def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_conf=0.85, max_emissions=2, anchor_emitted=False, mode="midturn", deferral=None):
     """
     Evaluates advisor output with confidence gating, keyed deduplication, and structured tags.
@@ -150,6 +153,12 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         if pinned and (category == "scope_drift" or "drift" in str(ver_res.get("goal_status") or "").lower()):
             parts.append(f"Pinned: {pinned}")
 
+    # Verification-depth ladder: deep tasks must climb past the easiest rung.
+    # Appended AFTER advice_key derivation so dedup keys stay stable.
+    if mode == "midturn" and complexity in ("complex_code", "multi_file"):
+        ladder_bits = [pinned, action, guidance]
+        if len(" | ".join(parts)) < 1900 and (sfx := next_rung_suffix(*ladder_bits)):
+            parts.append(sfx)
     text = " | ".join(parts)[:2000]
     res = {
         "decision": "steer" if is_steer else "watchout",
