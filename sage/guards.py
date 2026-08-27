@@ -129,6 +129,7 @@ def is_subagent_session(payload, transcript_path, user_prompt, raw_user_prompt="
         return True
     markers = ("<subagent_reminder>", "</subagent_reminder>", "you are running as a subagent", "invoked by a caller agent", "caller agent (name:", "caller agent (id:", "[subagent_role:", "caller_agent_id", "caller_agent_name")
     subagent_pattern = r"\b(?:branch implementer|module implementer|research subagent|codebase researcher|implementer subagent)\b"
+    forwarded_re = re.compile(r"not actually sent by the user|\[message\][^\n]*sender=", re.I)
     for text in (user_prompt, raw_user_prompt):
         if text and (any(m in text.lower() for m in markers) or re.search(subagent_pattern, text.lower())):
             return True
@@ -141,6 +142,11 @@ def is_subagent_session(payload, transcript_path, user_prompt, raw_user_prompt="
                         stype = str(step.get("type") or "").upper()
                         c = str(step.get("content") or "").strip().lower()
                         if stype not in ("CHECKPOINT", "PLANNER_RESPONSE"):
+                            # Inter-agent forwarded mail (peer agents mentioning
+                            # "subagent" about THEMSELVES) says nothing about
+                            # THIS session — never treat it as evidence.
+                            if forwarded_re.search(c):
+                                continue
                             if any(c.startswith(m) for m in markers):
                                 return True
                             if stype in ("USER_INPUT", "SYSTEM_MESSAGE") and (any(m in c for m in markers) or re.search(subagent_pattern, c)):

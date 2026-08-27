@@ -99,6 +99,26 @@ class TestGuards(unittest.TestCase):
             f.write(json.dumps({"type": "USER_INPUT", "content": "you are running as a subagent"}) + "\n")
         self.assertTrue(is_subagent_session({}, self.transcript_path, "Clean prompt"))
 
+    def test_forwarded_inter_agent_message_is_not_subagent_evidence(self):
+        """Kill-mutation: a peer agent's forwarded message mentioning 'research
+        subagent' about ITSELF must not classify the MAIN session as a subagent
+        (conv 0e07824f was misclassified 274x, sage never summoned)."""
+        forwarded = (
+            "The following is a <SYSTEM_MESSAGE> not actually sent by the user. "
+            "It is provided by the system as important information to pay attention to.\n\n"
+            "<SYSTEM_MESSAGE>\n[Message] timestamp=2026-08-27T16:45:34Z "
+            "sender=472c0fed-fc6a-4ec4-98a0-d7c2cb210923 priority=MESSAGE_PRIORITY_HIGH "
+            "content=I am a read-only research subagent and cannot execute code."
+        )
+        with open(self.transcript_path, "w") as f:
+            f.write(json.dumps({"type": "SYSTEM_MESSAGE", "content": forwarded}) + "\n")
+        self.assertFalse(is_subagent_session({}, self.transcript_path, "Clean prompt"))
+
+        # Control: the same wording typed by the REAL user is still detected.
+        with open(self.transcript_path, "w") as f:
+            f.write(json.dumps({"type": "USER_INPUT", "content": "I am a read-only research subagent"}) + "\n")
+        self.assertTrue(is_subagent_session({}, self.transcript_path, "Clean prompt"))
+
     def test_is_subagent_session_generic_tool_output_not_false_positive(self):
         tool_dumps = [
             "Showing lines 1-100: <subagent_reminder> research subagent codebase researcher",
