@@ -57,11 +57,22 @@ def emit_continue_response(message, is_post=None):
 
 
 def emit_recap_response(recap, is_post=None, kind="recap"):
-    """Releases conversation lock and emits recap termination or stop decision."""
+    """Releases conversation lock and emits recap termination or stop decision.
+
+    agy 1.1.22 resumed sessions drop `injectSteps` from PostInvocation hooks —
+    recaps silently vanished (0e07824f, 2026-08-28). The stop/reason channel
+    demonstrably lands (steering uses it), so post-invocation emits BOTH: the
+    injectSteps+terminate contract for CLIs that honor it, and decision:stop
+    with the same message so the recap always reaches the conversation.
+    """
     post = is_post if is_post is not None else is_post_invocation()
     release_lock()
     msg = format_hook_message(kind, recap)
-    payload = {"injectSteps": [{"userMessage": msg}], "terminationBehavior": "terminate"} if post else {"decision": "stop", "reason": msg}
+    if post:
+        payload = {"injectSteps": [{"userMessage": msg}], "terminationBehavior": "terminate",
+                   "decision": "stop", "reason": msg}
+    else:
+        payload = {"decision": "stop", "reason": msg}
     print(json.dumps(payload))
     sys.exit(0)
 
