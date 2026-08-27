@@ -97,7 +97,7 @@ class TestDeferrals(unittest.TestCase):
         }
         classified = classify_advice(ver_res, deferral=deferral)
         self.assertEqual(classified["decision"], "watchout")
-        self.assertEqual(classified["category"], "missing_deliverable")
+        self.assertEqual(classified["category"], "missing_proof")
         self.assertIn("còn xyz có muốn làm không", classified["text"])
 
 

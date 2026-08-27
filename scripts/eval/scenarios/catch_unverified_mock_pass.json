@@ -26,11 +26,11 @@
   ],
   "expect": {
     "midturn_interrupts": 0,
-    "final_category": "missing_deliverable"
+    "final_category": "missing_proof"
   },
   "final_script": {
     "status": "watchout",
-    "category": "missing_deliverable",
+    "category": "missing_proof",
     "evidence": "real vitest and tsc --noEmit suites were never executed; agent outputted echo string",
     "confidence": 0.95,
     "guidance": "Run corepack pnpm exec vitest run and tsc --noEmit to verify real test suite execution."

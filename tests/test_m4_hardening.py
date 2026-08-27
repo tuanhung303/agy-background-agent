@@ -128,7 +128,7 @@ class TestAdvisorAllCategoriesNormalization(unittest.TestCase):
             "parallelize",
             "architectural_trap",
             "general",
-            "missing_deliverable",
+            "missing_proof",
             "algorithmic_bottleneck",
             "scope_drift",
             "fake_verification",

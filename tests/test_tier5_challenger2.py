@@ -100,7 +100,7 @@ class TestAdvisorParsingAdversarial(unittest.TestCase):
     def test_json_with_multibyte_utf8_and_emojis(self):
         raw = json.dumps({
             "status": "watchout",
-            "category": "missing_deliverable",
+            "category": "missing_proof",
             "action": "Tạo tệp báo cáo: `báo_cáo_tiến_độ_🚀.md`",
             "evidence": "Thiếu tài liệu bàn giao 🎯",
             "guidance": "Hoàn thiện tài liệu trước khi kết thúc turn.",
@@ -300,7 +300,7 @@ class TestTriageAdversarial(unittest.TestCase):
         seen = {}
         advice = {
             "status": "watchout",
-            "category": "missing_deliverable",
+            "category": "missing_proof",
             "action": "Create notes.md",
             "confidence": 0.80,
         }
@@ -316,7 +316,7 @@ class TestTriageAdversarial(unittest.TestCase):
         seen = {}
         advice = {
             "status": "watchout",
-            "category": "missing_deliverable",
+            "category": "missing_proof",
             "action": "Create notes.md",
             "confidence": 0.80,
             "escalation": "ignored_advice",

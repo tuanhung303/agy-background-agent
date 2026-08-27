@@ -44,11 +44,11 @@
   ],
   "expect": {
     "midturn_interrupts": 0,
-    "final_category": "missing_deliverable"
+    "final_category": "missing_proof"
   },
   "final_script": {
     "status": "watchout",
-    "category": "missing_deliverable",
+    "category": "missing_proof",
     "evidence": "export promised but no empirical run shown",
     "confidence": 0.9,
     "guidance": "Run the export and verify output"

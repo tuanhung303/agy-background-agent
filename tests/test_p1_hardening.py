@@ -137,7 +137,7 @@ class TestTurnResetOnRepeatedPrompt(unittest.TestCase):
 class TestEmissionCeilingIsCategoryIndependent(unittest.TestCase):
     def test_relabelling_the_category_cannot_reissue_the_same_action(self):
         seen, emitted = {}, 0
-        for category in ("general", "missing_deliverable", "scope_drift", "fake_verification",
+        for category in ("general", "missing_proof", "scope_drift", "fake_verification",
                          "architectural_trap", "algorithmic_bottleneck", "loop_detection", "general"):
             res = classify_advice(
                 {"status": "off_track", "category": category, "action": "Run `pytest -q`",

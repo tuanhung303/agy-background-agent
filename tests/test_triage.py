@@ -152,9 +152,9 @@ class TestTriage(unittest.TestCase):
         r_g2 = classify_advice({"status": "off_track", "category": "general", "action": "revert edit", "confidence": 0.90})
         self.assertIn("[STEER·general]", r_g2["text"])
 
-        # 6. missing_deliverable (secondary tag, watchout)
-        r_md = classify_advice({"status": "watchout", "category": "missing_deliverable", "action": "write notes.md", "confidence": 0.95})
-        self.assertIn("[WATCH·missing_deliverable]", r_md["text"])
+        # 6. missing_proof (secondary tag, watchout)
+        r_md = classify_advice({"status": "watchout", "category": "missing_proof", "action": "write notes.md", "confidence": 0.95})
+        self.assertIn("[WATCH·missing_proof]", r_md["text"])
 
         # 7. algorithmic_bottleneck (secondary tag, watchout)
         r_ab = classify_advice({"status": "watchout", "category": "algorithmic_bottleneck", "action": "use cdcl", "confidence": 0.90})
@@ -230,13 +230,13 @@ class TestTriage(unittest.TestCase):
     def test_advice_key_deduplication_across_guidance_variations(self):
         ver_res1 = {
             "status": "watchout",
-            "category": "missing_deliverable",
+            "category": "missing_proof",
             "action": "Run pytest tests/",
             "guidance": "Execute test suite to verify prompt and timeout changes pass cleanly.",
         }
         ver_res2 = {
             "status": "watchout",
-            "category": "missing_deliverable",
+            "category": "missing_proof",
             "action": "Run pytest tests/",
             "guidance": "Run pytest tests/ to confirm prompt, config, and executor changes pass cleanly before concluding.",
         }

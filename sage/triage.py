@@ -35,7 +35,7 @@ def compute_advice_key(category, action, guidance=None):
     """Keys advice by the intervention itself, deliberately category-independent.
 
     Mixing the category into the key let one repeated demand escape the emission
-    ceiling every time the sage relabelled it (general -> missing_deliverable ->
+    ceiling every time the sage relabelled it (general -> missing_proof ->
     ...), so the same steer could fire unboundedly and block termination.
     """
     cat = re.sub(r"[^a-z0-9]+", "_", str(category or "general").strip().lower()).strip("_")
@@ -72,7 +72,7 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     if deferral and deferral.get("matched"):
         phrase = deferral.get("snippet") or "banned deferral"
         status = "watchout"
-        category = "missing_deliverable"
+        category = "missing_proof"
         del_cmd = deferral.get("delegated_cmd")
         tail_td = deferral.get("tail_todo")
         if del_cmd:

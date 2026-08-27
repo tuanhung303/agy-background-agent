@@ -21,11 +21,11 @@
   ],
   "expect": {
     "midturn_interrupts": 0,
-    "final_category": "missing_deliverable"
+    "final_category": "missing_proof"
   },
   "final_script": {
     "status": "watchout",
-    "category": "missing_deliverable",
+    "category": "missing_proof",
     "evidence": "only postgres dialect was updated; mysql, mssql, and sqlite implementations missing",
     "confidence": 0.92,
     "guidance": "Implement the window and grouping compiler modifications for MySQL, MSSQL, and SQLite before concluding."
