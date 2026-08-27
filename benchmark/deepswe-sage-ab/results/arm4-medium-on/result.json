@@ -1,0 +1,12 @@
+{
+ "arm": "arm4-medium-on",
+ "task": "kysely-window-grouping-helpers",
+ "model": "Gemini 3.7 Flash (Medium)",
+ "sage": "ON",
+ "f2p": "250/254",
+ "p2p": "22/22",
+ "reward": 0.0,
+ "turns": 34,
+ "root_cause": "emitted 'grouping sets (' with stray space; expected 'grouping sets(' \u2014 cosmetic SQL string bug, not logic",
+ "note": "graded official verifier frame"
+}

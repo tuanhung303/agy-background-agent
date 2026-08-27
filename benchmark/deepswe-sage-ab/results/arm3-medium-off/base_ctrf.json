@@ -1,0 +1,266 @@
+{
+  "reportFormat": "CTRF",
+  "specVersion": "0.0.0",
+  "reportId": "affa6bad-0bce-4742-95b4-dd26500b2185",
+  "timestamp": "2026-08-27T03:03:37.598Z",
+  "generatedBy": "mocha-ctrf-json-reporter",
+  "results": {
+    "tool": {
+      "name": "mocha"
+    },
+    "summary": {
+      "tests": 22,
+      "passed": 22,
+      "failed": 0,
+      "pending": 0,
+      "skipped": 0,
+      "other": 0,
+      "start": 1787799817598,
+      "stop": 1787799817611
+    },
+    "tests": [
+      {
+        "name": "async dispose should call destroy ",
+        "status": "passed",
+        "duration": 1,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/async-dispose.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817599,
+        "stop": 1787799817600
+      },
+      {
+        "name": "ImmediateValuePlugin should inject all values into the query string and leave the parameters array empty",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/immediate-value-plugin.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817601,
+        "stop": 1787799817601
+      },
+      {
+        "name": "logOnce should log each message once.",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/log-once.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817602,
+        "stop": 1787799817602
+      },
+      {
+        "name": "logging when query execution succeeds when query logging is disabled when error logging is disabled should not log query",
+        "status": "passed",
+        "duration": 1,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817602,
+        "stop": 1787799817603
+      },
+      {
+        "name": "logging when query execution succeeds when query logging is disabled when error logging is disabled should not log error",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817603,
+        "stop": 1787799817603
+      },
+      {
+        "name": "logging when query execution succeeds when query logging is disabled when error logging is enabled should not log query",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817604,
+        "stop": 1787799817604
+      },
+      {
+        "name": "logging when query execution succeeds when query logging is disabled when error logging is enabled should not log error",
+        "status": "passed",
+        "duration": 1,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817604,
+        "stop": 1787799817605
+      },
+      {
+        "name": "logging when query execution succeeds when query logging is enabled when error logging is disabled should log query",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817605,
+        "stop": 1787799817605
+      },
+      {
+        "name": "logging when query execution succeeds when query logging is enabled when error logging is disabled should not log error",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817606,
+        "stop": 1787799817606
+      },
+      {
+        "name": "logging when query execution succeeds when query logging is enabled when error logging is enabled should log query",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817607,
+        "stop": 1787799817607
+      },
+      {
+        "name": "logging when query execution succeeds when query logging is enabled when error logging is enabled should not log error",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817607,
+        "stop": 1787799817607
+      },
+      {
+        "name": "logging when query execution fails when query logging is disabled when error logging is disabled should not log query",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817607,
+        "stop": 1787799817607
+      },
+      {
+        "name": "logging when query execution fails when query logging is disabled when error logging is disabled should not log error",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817608,
+        "stop": 1787799817608
+      },
+      {
+        "name": "logging when query execution fails when query logging is disabled when error logging is enabled should not log query",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817608,
+        "stop": 1787799817608
+      },
+      {
+        "name": "logging when query execution fails when query logging is disabled when error logging is enabled should log error",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817609,
+        "stop": 1787799817609
+      },
+      {
+        "name": "logging when query execution fails when query logging is enabled when error logging is disabled should not log query",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817609,
+        "stop": 1787799817609
+      },
+      {
+        "name": "logging when query execution fails when query logging is enabled when error logging is disabled should not log error",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817609,
+        "stop": 1787799817609
+      },
+      {
+        "name": "logging when query execution fails when query logging is enabled when error logging is enabled should not log query",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817610,
+        "stop": 1787799817610
+      },
+      {
+        "name": "logging when query execution fails when query logging is enabled when error logging is enabled should log error",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/logging.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817610,
+        "stop": 1787799817610
+      },
+      {
+        "name": "object util isPlainObject",
+        "status": "passed",
+        "duration": 1,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/object-util.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817610,
+        "stop": 1787799817611
+      },
+      {
+        "name": "ParseJSONResultsPlugin when `objectStrategy` is 'create' should parse JSON results that contain readonly arrays/objects",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/parse-json-results-plugin.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817611,
+        "stop": 1787799817611
+      },
+      {
+        "name": "queryId should pass query id around, allowing async communication between compilers, plugins and connections",
+        "status": "passed",
+        "duration": 0,
+        "retries": 0,
+        "flaky": false,
+        "filePath": "/private/tmp/deepswe_harness/runs/arm3-medium-off/work/test/node/dist/query-id.test.js",
+        "rawStatus": "passed",
+        "start": 1787799817611,
+        "stop": 1787799817611
+      }
+    ]
+  }
+}

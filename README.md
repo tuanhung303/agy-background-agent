@@ -127,3 +127,39 @@ python3 scripts/eval/run_eval.py --json out.json # machine-readable results
 Adding coverage = drop a JSON scenario file (tools, model-call script, expect
 contract: fire timing, category, emission caps, effort ladder, dedup ratio).
 Exit code 0 only when every scenario passes — CI-safe.
+
+## Benchmark: sage ON/OFF on DeepSWE-style long-horizon tasks
+
+AB pilot (`benchmark/deepswe-sage-ab/`) measuring whether the Sage improves a
+fast-tier agy worker on an original, long-horizon coding task —
+`kysely-window-grouping-helpers` from the DeepSWE-style local task set (254
+fail-to-pass + 22 pass-to-pass tests; byte-exact SQL compile checks across
+postgres/mysql/mssql/sqlite; CTRF node-id canonical matching; binary reward,
+graded with the official verifier frame). Worker: Gemini 3.7 Flash agents in
+isolated worktrees. Sage control is per-spawn: `--sage-off` sets
+`AGY_SAGE_DISABLED=1`, read by `hooks/session-sage.py` as a hot-unplug gate —
+no shared hooks-file mutation, other live sessions unaffected.
+
+| Run | Sage | F2P | P2P | Reward | f2p frac | Turns |
+|---|---|---|---|---|---|---|
+| arm3 | OFF | 254/254 | 22/22 | 1.0 | 1.00 | 141 |
+| arm4 | ON | 250/254 | 22/22 | 0.0 | 0.984 | 34 |
+| r2a | OFF | 254/254 | 22/22 | 1.0 | 1.00 | ~120 |
+| r2b | ON | 254/254 | 22/22 | 1.0 | 1.00 | 44 |
+| r2c | ON | 254/254 | 22/22 | 1.0 | 1.00 | 154 |
+
+**Findings (pilot scale — not statistically significant):**
+
+- Every run that included a byte-exact-verification requirement in the brief
+  reached full reward regardless of sage state (arm3, r2a, r2b, r2c).
+- The single failure (arm4) predates two harness fixes and was one stray-space
+  SQL emission replicated across 4 dialect-shared assertions — binary reward
+  collapses a 98.4% pass to 0.0, which is why `f2p frac` rides beside it.
+- With fixes applied, both sage states reach full reward; sage-ON runs show
+  fewer turns (44 vs ~120–154), hinting at shorter routes, but within
+  run-to-run variance at this sample size.
+
+Known limitations: single task per cell (n ≤ 2 after grouping), no variance CI
+at this scale, model identified by provider tier label, brief text published in
+the harness (`deepswe_ab.sh`). Full review of methodology gaps and
+parallelization plan: [REVIEW-opus5.md](benchmark/deepswe-sage-ab/REVIEW-opus5.md).
