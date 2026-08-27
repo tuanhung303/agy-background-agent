@@ -123,7 +123,7 @@ print({k: d.get(k) for k in ('sage_status','sage_holds','sage_advice_counts','sa
 python3 -c "
 import os, subprocess, sys
 try:
-    cmd = [sys.executable, '-m', 'unittest', 'discover', '-s', '$ROOT/tests', '-t', '$ROOT', '-p', 'test_*.py']
+    cmd = [sys.executable, '-m', 'pytest', '-q', '$ROOT/tests', '--timeout=80', '-x', '--no-header', '-p', 'no:cacheprovider']
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=90, cwd='$ROOT')
     print(f'Test returncode: {r.returncode}')
     print((r.stdout or '')[-300:]); print((r.stderr or '')[-150:])
