@@ -15,6 +15,7 @@ from sage.goals import format_goal_context
 from sage.guards import is_destructive_action
 from sage.locking import log_audit
 from sage.models import resolve_model_candidates
+from sage.receipts import enforce_interpretation_receipt
 from sage.sanitizer import clamp_diff
 from sage.transcript import calculate_turn_tool_score
 
@@ -61,7 +62,7 @@ STATUS_LEGEND = (
     "whenever needed to verify evidence, ground realistic goals, and steer accurately. Never emit `passed`; never answer the user's request yourself or continue the agent's task. "
     'Judge the context and tool outputs, address the agent as "you", and reply with exactly one JSON object -- no preamble, no fence.\n'
     "Status legend: `on_track` = clean progress; `watchout` = trap/risk/missing deliverable; `off_track` = error loop/drift.\n"
-    'Respond JSON: `{"status": "on_track"|"watchout"|"off_track", "task_complexity": "simple_qa"|"complex_code"|"multi_file", "category": "pinned_goal"|"confused_goal"|"grill_me"|"loop_detection"|"irreversible_risk"|"missing_deliverable"|"algorithmic_bottleneck"|"scope_drift"|"fake_verification"|"parallelize_subagent"|"parallelize"|"architectural_trap"|"general", "action": "exact command/path", "evidence": "...", "confidence": 0.0-1.0, "guidance": "...", "recap": "...", "escalation": "first_warning"|"ignored_advice", "pinned_goal": "optional", "revised_goal": "optional", "derived_tasks": ["optional"]}`.'
+    'Respond JSON: `{"status": "on_track"|"watchout"|"off_track", "task_complexity": "simple_qa"|"complex_code"|"multi_file", "category": "pinned_goal"|"confused_goal"|"grill_me"|"loop_detection"|"irreversible_risk"|"missing_deliverable"|"algorithmic_bottleneck"|"scope_drift"|"fake_verification"|"parallelize_subagent"|"parallelize"|"architectural_trap"|"general", "action": "exact command/path", "evidence": "...", "confidence": 0.0-1.0, "guidance": "...", "recap": "...", "escalation": "first_warning"|"ignored_advice", "pinned_goal": "optional", "revised_goal": "optional", "derived_tasks": ["optional"], "interpretation": "REQUIRED when category=pinned_goal: {chosen_reading: how you read the request, proxy_rejected: cheaper-looking reading you did NOT pick and why — or n/a if fully unambiguous}"}`.'
 )
 
 
@@ -118,7 +119,7 @@ def build_sage_prompt(conv_id, user_prompt, agent_steps_summary, is_update=False
     return tpl.replace("{conv_id}", str(conv_id or "default")).replace("{user_prompt}", prompt_txt).replace("{git_diff}", diff_txt) + sig_txt
 
 
-def _normalize_sage_dict(d):
+def _normalize_sage_dict(d, _goal_already_pinned=False):
     if not isinstance(d, dict):
         return {"healthy": True, "blind_spots": [], "guidance": "", "status": "on_track"}
     raw_status, raw_healthy = str(d.get("status") or "").strip(), d.get("healthy")
@@ -156,10 +157,8 @@ def _normalize_sage_dict(d):
     for k in ("evidence", "confidence", "category", "escalation", "pinned_goal", "anchor_goal", "revised_goal", "goal_status", "task_complexity"):
         if k in d and d[k] is not None:
             res[k] = sanitize(d[k]) if k in ("evidence", "pinned_goal", "anchor_goal", "revised_goal") else d[k]
-    p_goal = res.get("pinned_goal") or res.get("anchor_goal")
-    if p_goal:
-        res["pinned_goal"] = p_goal
-        res["anchor_goal"] = p_goal
+    if res.get("pinned_goal") or res.get("anchor_goal"):
+        enforce_interpretation_receipt(res, d, _goal_already_pinned)
     if "task_complexity" in res and res["task_complexity"]:
         tc = re.sub(r"[\s-]+", "_", str(res["task_complexity"]).strip().lower())
         res["task_complexity"] = "simple_qa" if ("simple" in tc or "qa" in tc) else ("multi_file" if "multi" in tc else ("complex_code" if ("complex" in tc or "code" in tc) else tc))
@@ -195,9 +194,10 @@ def run_sage_model(parent_conv_id, user_prompt, agent_steps_summary, git_diff=""
         worker_facts=kwargs.get("worker_facts"),
     )
     default_res = {"healthy": True, "blind_spots": [], "guidance": "", "status": "error"}
+    already_pinned = bool(base_goal)
     return run_model_cascade(
         parent_conv_id, prompt, ("agy_mid_sage_session_", "agy_mid_advisor_session_", "agy_mid_verifier_session_"),
-        _normalize_sage_dict, default_on_failure=default_res, label="Sage",
+        (lambda d: _normalize_sage_dict(d, _goal_already_pinned=already_pinned)), default_on_failure=default_res, label="Sage",
         schema_keys=("status", "healthy", "recap", "guidance"),
         acquire_lock_fn=acquire_spawn_lock, release_lock_fn=release_spawn_lock,
         resolve_candidates_fn=(lambda: resolve_model_candidates(effort=kwargs.get("model_effort"))),

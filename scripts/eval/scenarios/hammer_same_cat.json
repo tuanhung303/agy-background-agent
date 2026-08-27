@@ -18,6 +18,6 @@
     {"status": "watchout", "category": "parallelize_subagent", "confidence": 0.9, "action": "call subagent pool for legs", "guidance": "Dispatch remaining legs in parallel now."},
     null, null, null
   ],
-  "expect": {"max_parallel_emissions": 1},
+  "expect": {"max_parallel_emissions": 1, "decision_category": "parallelize_subagent"},
   "final_script": {"status": "on_track", "recap": "All four modules tested.", "confidence": 0.9}
 }

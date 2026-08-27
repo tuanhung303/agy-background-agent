@@ -195,7 +195,7 @@ def grade(res, expect):
             (res["final"] or {}).get("pending_clarify")
             # Runner surfacing: gate emitted confused_goal itself -> emits [CLARIFY]
             or ((res["final"] or {}).get("category") == "confused_goal"
-                and (res["final"] or {}).get("action") in ("emit", "healthy"))):
+                and (res["final"] or {}).get("action") == "emit")):
         problems.append(f"final confused_goal missing; action={(res['final'] or {}).get('action')}")
     probe = res.get("dedup_probe")
     if probe is not None:
@@ -206,10 +206,10 @@ def grade(res, expect):
     if final_cat is not None:
         f = res.get("final") or {}
         # 'skip'/'error' means the gate never produced a verdict at all;
-        # only an emit/healthy with the right category counts as caught.
-        if f.get("category") != final_cat or f.get("action") not in ("emit", "healthy"):
+        # only an emit with the right category counts as caught.
+        if f.get("category") != final_cat or f.get("action") != "emit":
             problems.append(
-                f"final gate must surface category={final_cat} via emit/healthy; "
+                f"final gate must surface category={final_cat} via emit; "
                 f"got action={f.get('action')} category={f.get('category')}")
     return problems
 
@@ -236,6 +236,44 @@ def main():
         i = args.index("--json")
         out_json = args[i + 1]
         del args[i:i + 2]
+
+    if "--validate" in args:
+        args.remove("--validate")
+        from eval_validator import validate_scenario_schema
+        scenarios = load_scenarios(set(args) or None)
+        all_errs = 0
+        for sc in scenarios:
+            errs = validate_scenario_schema(sc)
+            if errs:
+                all_errs += len(errs)
+                print(f"[SCHEMA_FAIL] {sc.get('id', 'unknown')}: {errs}")
+            else:
+                print(f"[SCHEMA_OK] {sc['id']}")
+        sys.exit(0 if all_errs == 0 else 1)
+
+    if "--mutate" in args:
+        args.remove("--mutate")
+        from eval_validator import run_scenario_mutation_suite, run_policy_mutations
+        scenarios = load_scenarios(set(args) or None)
+        total_muts, killed_muts = 0, 0
+        for sc in scenarios:
+            rep = run_scenario_mutation_suite(sc, drive_turn, grade, dedup_probe)
+            total_muts += rep["total_mutations"]
+            killed_muts += rep["killed"]
+            status = "PASS" if rep["base_pass"] and not rep["survived"] else "FAIL"
+            print(f"[{status}] {sc['id']}: {rep['killed']}/{rep['total_mutations']} mutations killed")
+            for s in rep["survived"]:
+                print(f"   - SURVIVED: {s}")
+        sc_map = {sc["id"]: sc for sc in scenarios}
+        pol_results = run_policy_mutations(sc_map, drive_turn, grade)
+        for name, killed in pol_results:
+            total_muts += 1
+            killed_muts += 1 if killed else 0
+            pstatus = "PASS" if killed else "FAIL"
+            print(f"[{pstatus}] {name}: {'KILLED' if killed else 'SURVIVED'}")
+        print(f"\nMutation score: {killed_muts}/{total_muts} ({100.0 * killed_muts / max(1, total_muts):.1f}%)")
+        sys.exit(0 if killed_muts == total_muts else 1)
+
     results, npass = [], 0
     for sc in load_scenarios(set(args) or None):
         res = drive_turn(sc)
