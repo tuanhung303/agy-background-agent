@@ -44,6 +44,15 @@ def test_extract_initial_prompt():
         "[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\n"
         "Now add benchmarking"
     )
+    prompt_omitted = (
+        "SESSION HISTORY:\n"
+        "- Prior request 1: Build the core framework and test suite\n"
+        "- (…8 earlier requests omitted)\n"
+        "- Prior request 10: Add logging support\n\n"
+        "[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\n"
+        "Now add benchmarking"
+    )
+    assert extract_initial_prompt(prompt_omitted) == "Build the core framework and test suite"
     assert extract_initial_prompt(prompt_history) == "Build the core framework and test suite"
 
 

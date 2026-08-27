@@ -198,6 +198,8 @@ class TestSage(unittest.TestCase):
         self.assertEqual(extract_target_goal(composite), goal)
         self.assertIn(goal, build_sage_prompt("c", composite, "steps", is_update=True))
         self.assertIn(goal, build_sage_prompt("c", composite, "steps", is_update=False))
+        self.assertIn(goal, build_sage_prompt("c", composite, "steps", is_update=False, pinned_goal="Initial Baseline Goal", revised_goal="Revised In Flight Goal"))
+        self.assertIn("Initial Baseline Goal", build_sage_prompt("c", composite, "steps", is_update=False, pinned_goal="Initial Baseline Goal"))
         self.assertEqual(extract_target_goal(f"[LATEST ACTIVE USER REQUEST]:\n{goal}"), goal)
 
     def test_delta_prompt_is_self_contained_on_resume_failure(self):

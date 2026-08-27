@@ -1,10 +1,5 @@
-"""
-sage.sage - Mid-turn slow-thinking strategic sage steering the fast executor.
-"""
-
-import os
-import re
-
+"""sage.sage - Mid-turn slow-thinking strategic sage steering the fast executor."""
+import os, re
 from sage.config import REVIEWER_MODEL, SAGE_TOOL_INTERVAL, SAGE_TOOL_SCORE_THRESHOLD
 from sage.executor import (
     acquire_spawn_lock, clean_resume_history, clear_session_id,
@@ -31,17 +26,14 @@ _clamp_diff, _acquire_spawn_lock, _release_spawn_lock = clamp_diff, acquire_spaw
 def get_or_create_sage_session(parent_conv_id):
     return load_session_id(parent_conv_id, ("agy_mid_sage_session_", "agy_mid_advisor_session_", "agy_mid_verifier_session_"))
 
-
 def save_sage_session(parent_conv_id, session_id):
     save_session_id(parent_conv_id, session_id, "agy_mid_sage_session_")
-
 
 def _clear_sage_session(parent_conv_id):
     old_sid = get_or_create_sage_session(parent_conv_id)
     if old_sid:
         clean_resume_history(old_sid)
     clear_session_id(parent_conv_id, ("agy_mid_sage_session_", "agy_mid_advisor_session_", "agy_mid_verifier_session_"))
-
 
 def load_sage_template():
     for p in TEMPLATE_CANDIDATES:
@@ -112,8 +104,13 @@ def build_sage_prompt(conv_id, user_prompt, agent_steps_summary, is_update=False
         goal_txt = f"{goal_block}\n\n" if goal_block else (f"TARGET GOAL (unchanged): {extract_target_goal(user_prompt)}\n\n" if extract_target_goal(user_prompt) else "")
         return f"SAGE UPDATE (Follow-up Check for conversation {conv_id or 'default'}):\n{pointers}\n\n{goal_txt}Evaluate recent agent actions against TARGET GOAL. If this is your first check in this conversation, evaluate the actions as-is.\n\nAGENT ACTIONS (RECENT):\n{steps_txt}{workers_block}\n\nWORKSPACE CHANGE SHAPE (no patch text — slice ranges yourself with `view_file <path> <start> <end>` or `git -C <root> diff -- <path>`):\n{diff_txt}\n\n{STATUS_LEGEND}{sig_txt}"
     tpl = load_sage_template().replace("{update_marker}", "")
-    goal = extract_target_goal(user_prompt, limit=2000)
-    prompt_txt = f"{user_prompt[:2000]}\n\n{goal_block}" if goal_block else (user_prompt[:2000] if goal in user_prompt[:2000] else f"[TARGET GOAL]:\n{goal}")
+    goal, up_str = extract_target_goal(user_prompt, limit=2000), str(user_prompt or "")
+    if len(up_str) > 2500 and "SESSION HISTORY:" in up_str and "[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:" in up_str:
+        h_part, _, r_part = up_str.partition("[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:")
+        user_prompt_txt = f"{h_part.strip()[:1000]}\n\n[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\n{r_part.strip()[:1500]}"
+    else:
+        user_prompt_txt = up_str[:2500]
+    prompt_txt = f"{user_prompt_txt}\n\n{goal_block}" if goal_block else (user_prompt_txt if goal in user_prompt_txt else f"[TARGET GOAL]:\n{goal}")
     tpl = tpl.replace("{agent_steps}", f"{steps_txt}{workers_block}")
     tpl = tpl.replace("{session_pointers}", pointers) if "{session_pointers}" in tpl else f"{tpl}\n\n{pointers}"
     return tpl.replace("{conv_id}", str(conv_id or "default")).replace("{user_prompt}", prompt_txt).replace("{git_diff}", diff_txt) + sig_txt

@@ -39,3 +39,36 @@ Tasks evaluated:
 - The generalized harness grades both suites against held-out test patches using official JUnit and CTRF matching frames.
 
 Methodology review and harness architecture details are documented in [REVIEW-opus5.md](benchmark/deepswe-sage-ab/REVIEW-opus5.md).
+
+## Dogfooding: sage debugging its own timeout bug
+
+A live-failure retest loop: when sage itself hit a runtime defect in a real session, the coordinator spawned two orca agy workers against the same incident to test both the diagnosis quality and the fix quality — with and without sage supervising.
+
+### Incident
+
+In a long-running design session (13+ prior requests), sage's model cascade timed out:
+`sage/executor.py` gave candidate 1 (`Gemini 3.7 Flash High`) 30s of its 38s total budget, leaving fallback candidates 5s each. Both timed out; final gate degraded to error and allowed termination without a verdict.
+
+### Setup
+
+Two arms ran in parallel split panes on identical context (real `/tmp/agy_sage.log` excerpt, affected conversation ID):
+
+- **Arm RC (sage ON)**: investigate root cause only, cite exact `sage/*.py` lines, no code changes.
+- **Arm FIX (sage OFF)**: same context plus instructions to patch the root cause directly with unit tests.
+
+### Results
+
+| | Arm RC (sage ON) | Arm FIX (sage OFF) |
+|---|---|---|
+| Root cause found | Cascade budget math (`executor.py:176`, `config.py:107`) **plus** the deeper driver: unbounded `SESSION HISTORY` prompt growth (`transcript.py:89`) exceeding the `user_prompt[:2000]` slice that drops the active goal | Same cascade math; independently identified the same unbounded history growth |
+| Deliverable | Diagnosis + 3 ranked proposals | Working patch: sliding-window session history (`MAX_PRIOR_REQUESTS=5`, keeps request 1 + latest), goal-preservation rework in `build_sage_prompt`, 6 new unit tests |
+| Verification | Line-cited claims matching the codebase | 761/761 pytest green before handoff |
+
+The two arms converged on the same root cause through different routes — cascade budget arithmetic from log evidence, and prompt-bloat economics from reading the transcript builder. Sage ON produced the more complete *explanation*; sage OFF produced the shippable *fix*. Coordinator reviewed the diff and merged it as the basis for the repair.
+
+### Takeaways
+
+1. **Ambiguity handling held**: given an open-ended "find the root cause" brief, neither worker scope-laundered into a cheap proxy (mock test edits, doc-only writeups). The interpretation-receipt gate contributed visible pin reasoning.
+2. **Sage steering stayed useful without grabbing the wheel**: injections were pinned-goal framing and a recap check — no false off_track interrupts during a healthy investigation arc.
+3. **Same-result-different-artifact**: when both arms agree on cause but only one produces runnable change, run the two-arm pattern again for any class of bug that is diagnosable separately from fixable.
+

@@ -46,7 +46,7 @@ def extract_initial_prompt(user_prompt: str) -> str:
     """Extracts the initial user prompt from SESSION HISTORY if available."""
     text = str(user_prompt or "").strip()
     if "SESSION HISTORY:" in text:
-        m = re.search(r"Prior request 1:\s*(.+?)(?:\n- Prior request|\n\n\[LATEST|\Z)", text, re.DOTALL)
+        m = re.search(r"Prior request 1:\s*(.+?)(?:\n- |\n\n\[LATEST|\Z)", text, re.DOTALL)
         if m:
             return m.group(1).strip()
     for marker in GOAL_MARKERS:

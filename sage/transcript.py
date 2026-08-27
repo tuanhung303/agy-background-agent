@@ -5,7 +5,7 @@ sage.transcript - Parsing, sanitization, and turn extraction from transcript.jso
 from datetime import datetime, timezone
 import hashlib, itertools, json, os, re
 
-from sage.config import get_tool_weight
+from sage.config import MAX_PRIOR_REQUESTS, get_tool_weight
 from sage.guards import is_steering_message
 from sage.locking import log_audit
 from sage.sanitizer import clean_user_prompt, sanitize_tool_output
@@ -25,11 +25,9 @@ def get_transcript_path(payload, conv_id):
 
 
 def _parse_ts(ts_str):
-    if not ts_str:
-        return None
     try:
-        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00")) if ts_str else None
+        return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)) if dt else None
     except Exception:
         return None
 
@@ -38,11 +36,8 @@ def is_explicit_user_input(step):
     """True when a step is a real user turn boundary (blank `source` included)."""
     if step.get("type") != "USER_INPUT":
         return False
-    src = str(step.get("source") or "").upper()
-    content = str(step.get("content") or "")
-    if _INTER_AGENT_RE.search(content):
-        return False
-    return (not src or src in ("USER_EXPLICIT", "USER")) and not is_steering_message(content)
+    src, content = str(step.get("source") or "").upper(), str(step.get("content") or "")
+    return not _INTER_AGENT_RE.search(content) and (not src or src in ("USER_EXPLICIT", "USER")) and not is_steering_message(content)
 
 
 def _read_transcript_steps(transcript_path):
@@ -65,9 +60,7 @@ def _read_transcript_steps(transcript_path):
 
 
 def _safe_tool_calls(s):
-    if not isinstance(s, dict):
-        return []
-    tc = s.get("tool_calls")
+    tc = s.get("tool_calls") if isinstance(s, dict) else None
     return [t for t in tc if isinstance(t, dict)] if isinstance(tc, list) else []
 
 
@@ -86,22 +79,27 @@ def extract_session_and_turn_data(transcript_path):
             if cleaned:
                 all_prompts.append(cleaned)
     if all_prompts:
-        hist = "\n".join(f"- Prior request {idx+1}: {p[:200]}" for idx, p in enumerate(all_prompts[:-1]))
-        user_prompt = f"[LATEST ACTIVE USER REQUEST]:\n{all_prompts[-1]}" if len(all_prompts) == 1 else f"SESSION HISTORY:\n{hist}\n\n[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\n{all_prompts[-1]}"
+        prior = all_prompts[:-1]
+        if not prior:
+            user_prompt = f"[LATEST ACTIVE USER REQUEST]:\n{all_prompts[-1]}"
+        else:
+            max_priors = max(1, MAX_PRIOR_REQUESTS)
+            if len(prior) <= max_priors:
+                hist_lines = [f"- Prior request {idx+1}: {p[:200]}" for idx, p in enumerate(prior)]
+            else:
+                hist_lines = [f"- Prior request 1: {prior[0][:200]}", f"- (…{len(prior) - max_priors} earlier requests omitted)"]
+                hist_lines.extend(f"- Prior request {idx+1}: {prior[idx][:200]}" for idx in range(len(prior) - (max_priors - 1), len(prior)))
+            hist = "\n".join(hist_lines)
+            user_prompt = f"SESSION HISTORY:\n{hist}\n\n[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\n{all_prompts[-1]}"
     if last_user_idx == -1:
         return user_prompt, raw_user_prompt, agent_steps, 0, tool_names, first_ts, user_ts, len(steps)
     for s in steps[last_user_idx + 1:]:
-        stype, scontent = s.get("type"), str(s.get("content") or "")
         stools = _safe_tool_calls(s)
         total_tools += len(stools)
         tool_names.update(t.get("name") for t in stools if t.get("name"))
-        if stype == "PLANNER_RESPONSE":
-            snip = scontent if len(scontent) <= 1000 else f"{scontent[:500]}\n...\n{scontent[-500:]}"
-            agent_steps.append(f"Response: {snip} | Tools: {[t.get('name') for t in stools]}")
-        elif stype == "GENERIC":
-            agent_steps.append(f"Tool output: {sanitize_tool_output(scontent)}")
-        elif scontent and not is_steering_message(scontent):
-            agent_steps.append(f"{stype}: {sanitize_tool_output(scontent, max_chars=400)}")
+        txt = _step_to_text(s)
+        if txt:
+            agent_steps.append(txt)
     return user_prompt, raw_user_prompt, agent_steps, total_tools, tool_names, first_ts, user_ts, len(steps)
 
 

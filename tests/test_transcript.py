@@ -706,6 +706,23 @@ class TestTaskStructureSignals(unittest.TestCase):
         self.assertTrue(res["parallelizable"])
         self.assertIn("disjoint_files", res["categories"])
 
+    def test_extract_session_and_turn_data_sliding_window_compaction(self):
+        lines = []
+        for i in range(1, 16):
+            lines.append({"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": f"<USER_REQUEST>Request {i} detail text</USER_REQUEST>", "created_at": f"2026-08-20T10:{i:02d}:00Z"})
+            lines.append({"type": "PLANNER_RESPONSE", "content": f"Step {i}", "tool_calls": [{"name": "view_file"}]})
+        with open(self.path, "w") as f:
+            for item in lines:
+                f.write(json.dumps(item) + "\n")
+        user_prompt, raw_prompt, steps, tools_count, _, _, _, _ = extract_session_and_turn_data(self.path)
+        self.assertIn("SESSION HISTORY:", user_prompt)
+        self.assertIn("Prior request 1: Request 1 detail text", user_prompt)
+        self.assertIn("earlier requests omitted", user_prompt)
+        self.assertIn("Prior request 14: Request 14 detail text", user_prompt)
+        self.assertIn("[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\nRequest 15 detail text", user_prompt)
+        self.assertEqual(raw_prompt, "<USER_REQUEST>Request 15 detail text</USER_REQUEST>")
+        self.assertLess(len(user_prompt), 2000)
+
 
 if __name__ == "__main__":
     unittest.main()
