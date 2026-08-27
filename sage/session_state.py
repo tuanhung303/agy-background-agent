@@ -181,6 +181,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     # Preserved across turns:
     sage_holds = raw_state.get("sage_holds", raw_state.get("advisor_holds", 0))
     recap_count, sm_steers = raw_state.get("recap_count", 0), raw_state.get("session_mid_turn_steers", 0)
+    goal_settled = bool(raw_state.get("goal_settled", False))
     pinned_goal = raw_state.get("pinned_goal") or raw_state.get("anchor_goal")
     revised_goal = raw_state.get("revised_goal")
     derived_tasks = list(raw_state.get("derived_tasks", []))
@@ -208,6 +209,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "last_steer_category": last_steer_category, "last_steer_tools": last_steer_tools,
         "steer_suppress_count": steer_suppress_count,
         "last_par_cats": last_par_cats, "last_par_fp": last_par_fp,
+        "goal_settled": goal_settled,
     }
 
     return clean_prompt, state_file, state, is_same

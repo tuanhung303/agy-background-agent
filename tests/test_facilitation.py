@@ -8,10 +8,12 @@ Regression guard for facilitation mode: after sage approves a recap
 invoke_subagent — without ever blocking the gate (advice-only contract).
 """
 
+import os
 import unittest
 from unittest.mock import patch
 
 from sage.facilitation import facilitation_signal
+from sage.session_state import save_session_state
 
 
 def _step(content, tool_calls=None):
@@ -88,6 +90,23 @@ class TestFacilitationSignal(unittest.TestCase):
                 frozen[0], frozen[1], frozen[2]:
             act = policies.final_sage_gate(**ctx)
         self.assertEqual(act["action"], "healthy")
+
+    def test_goal_settled_survives_state_reload(self):
+        """Kill-mutation: goal_settled was missing from the state whitelist in
+        load_and_sync_session_state, so the facilitation flag died on the next
+        turn and sage never advised delegation (conv 0e07824f, 2026-08-28)."""
+        import tempfile
+        import sage.session_state as ss
+
+        conv = "facilitation_persist_test_conv"
+        with tempfile.TemporaryDirectory() as td:
+            sf = os.path.join(td, "state.json")
+            save_session_state(sf, {"turn_key": "old"}, goal_settled=True)
+            # get_state_file_path routes to /tmp — patch it to our temp file
+            with patch.object(ss, "get_state_file_path", return_value=sf), \
+                    patch.object(ss, "_clear_sage_session"):
+                _, _, state, _ = ss.load_and_sync_session_state(conv, "/nonexistent", "next task")
+        self.assertTrue(state.get("goal_settled"))
 
 
 if __name__ == "__main__":
