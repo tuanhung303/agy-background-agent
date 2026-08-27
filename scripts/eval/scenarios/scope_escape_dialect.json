@@ -20,7 +20,8 @@
     null
   ],
   "expect": {
-    "midturn_interrupts": 0
+    "midturn_interrupts": 0,
+    "final_category": "missing_deliverable"
   },
   "final_script": {
     "status": "watchout",

@@ -5,6 +5,8 @@
 # Example: deepswe_ab.sh koota-deferred-mutation-buffer off koota-arm1-off
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 TASK="$1"; ARM="$2"; LABEL="$3"
 MODEL_TIER="${4:-Gemini 3.7 Flash (High)}"
 BENCH=/Users/__blitzzz/Documents/GitHub/deep-swe-bench/tasks/$TASK
@@ -29,7 +31,7 @@ echo "[ab] task=$TASK arm=$ARM label=$LABEL commit=$COMMIT repo=$REPO_URL"
 
 git config --global --add safe.directory "$WORK" 2>/dev/null || true
 if [ ! -d "$WORK/.git" ]; then
-  git clone --no-checkout --filter=blob:none "$REPO_URL" "$WORK" 2>&1 | tail -1
+  git clone "$REPO_URL" "$WORK" 2>&1 | tail -1
   git -C "$WORK" checkout "$COMMIT" 2>&1 | tail -1
 fi
 git -C "$WORK" status --short >/dev/null 2>&1 || exit 9
@@ -41,11 +43,11 @@ SAGE_FLAG=""
 # --- install deps (needed before agent runs so it doesn't burn turns) -----
 cd "$WORK"
 if [ -f "pnpm-lock.yaml" ] && command -v pnpm >/dev/null 2>&1; then
-  pnpm install --frozen-lockfile > "$EVID/install.log" 2>&1 || pnpm install >> "$EVID/install.log" 2>&1 &
+  pnpm install > "$EVID/install.log" 2>&1
 elif [ -f "package-lock.json" ] && command -v npm >/dev/null 2>&1; then
-  npm install > "$EVID/install.log" 2>&1 &
+  npm install > "$EVID/install.log" 2>&1
 elif [ -f "yarn.lock" ] && command -v yarn >/dev/null 2>&1; then
-  yarn install > "$EVID/install.log" 2>&1 &
+  yarn install > "$EVID/install.log" 2>&1
 fi
 
 # --- dispatch to agy (orca split pane) -----------------------------------
@@ -101,7 +103,7 @@ git write-tree >/dev/null 2>&1 || true
 git diff --binary "$(git rev-list HEAD -1)" > "$EVID/model-uncommitted.patch" 2>/dev/null || true
 
 # Grade run with grade.py
-python3 "$(dirname "$0")/grade.py" "$WORK" "$TASK" "$EVID"
+python3 "$SCRIPT_DIR/grade.py" "$WORK" "$TASK" "$EVID"
 
 $S close --topic "dswe-$LABEL" >/dev/null 2>&1 || true
 echo "[ab] evidence and results in $EVID"

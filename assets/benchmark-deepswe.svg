@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="580" viewBox="0 0 1200 580" role="img" aria-labelledby="bench-title bench-desc">
-  <title id="bench-title">DeepSWE Benchmark: Sage ON vs Sage OFF</title>
-  <desc id="bench-desc">Benchmark results on the kysely-window-grouping-helpers task comparing Sage ON and Sage OFF runs across turns, test pass rates, and reward status.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780" role="img" aria-labelledby="bench-title bench-desc">
+  <title id="bench-title">DeepSWE Multi-Task Benchmark: Sage ON vs Sage OFF</title>
+  <desc id="bench-desc">Benchmark results comparing Sage ON and Sage OFF across long-horizon DeepSWE coding tasks: kysely-window-grouping-helpers and koota-deferred-mutation-buffer.</desc>
   
   <style>
     :root {
@@ -29,207 +29,229 @@
     text { fill: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; text-rendering: geometricPrecision; }
     .display { font-family: Georgia, "Times New Roman", serif; font-size: 24px; font-weight: 400; letter-spacing: -0.2px; }
     .kicker { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; fill: var(--muted); }
-    .task-tag { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; font-weight: 600; fill: var(--accent-ink); }
+    .task-tag { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12.5px; font-weight: 600; fill: var(--accent-ink); }
     .subtitle { font-size: 13px; fill: var(--soft); }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-variant-numeric: tabular-nums; }
     .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; fill: var(--muted); }
-    .stat-val { font-size: 22px; font-weight: 600; fill: var(--accent-ink); }
-    .col-header { font-size: 10.5px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; fill: var(--muted); }
-    .run-id { font-size: 13px; font-weight: 600; fill: var(--ink); }
+    .stat-val { font-size: 20px; font-weight: 600; fill: var(--accent-ink); }
+    .section-kicker { font-size: 11px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; fill: var(--ink); }
+    .col-header { font-size: 10px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; fill: var(--muted); }
+    .run-id { font-size: 12.5px; font-weight: 600; fill: var(--ink); }
     .note-text { font-size: 11px; fill: var(--muted); }
     .footnote { font-size: 11px; fill: var(--muted); }
   </style>
 
   <!-- Canvas background -->
-  <rect width="1200" height="580" fill="#FAFBF8"/>
+  <rect width="1200" height="780" fill="#FAFBF8"/>
 
   <!-- Outer frame -->
-  <rect x="24" y="24" width="1152" height="532" fill="#FFFFFF" stroke="#E8E6E0" stroke-width="1"/>
+  <rect x="24" y="24" width="1152" height="732" fill="#FFFFFF" stroke="#E8E6E0" stroke-width="1"/>
 
   <!-- Top Header Zone -->
   <g transform="translate(48, 54)">
     <text x="0" y="0" class="kicker">01 // BENCHMARK EVALUATION</text>
-    <text x="0" y="28" class="display">Sage ON vs OFF on Long-Horizon Tasks</text>
-    <text x="0" y="52" class="subtitle">Task: <tspan class="task-tag">kysely-window-grouping-helpers</tspan> | 254 fail-to-pass + 22 pass-to-pass tests | Worker: Gemini 3.7 Flash</text>
+    <text x="0" y="28" class="display">Sage ON vs OFF on DeepSWE Long-Horizon Tasks</text>
+    <text x="0" y="50" class="subtitle">Multi-task evaluation suite | Gemini 3.7 Flash workers in isolated worktrees</text>
   </g>
 
   <!-- Top Stat Cards (3 borderless cards on warm layer) -->
   <g transform="translate(730, 44)">
     <!-- Card 1 -->
-    <rect x="0" y="0" width="130" height="64" fill="#EEF4FE"/>
-    <text x="14" y="22" class="stat-label">F2P PASS</text>
-    <text x="14" y="48" class="stat-val mono">254/254</text>
+    <rect x="0" y="0" width="130" height="60" fill="#EEF4FE"/>
+    <text x="14" y="20" class="stat-label">F2P RANGE</text>
+    <text x="14" y="44" class="stat-val mono">97.2%–100%</text>
 
     <!-- Card 2 -->
-    <rect x="144" y="0" width="130" height="64" fill="#EEF4FE"/>
-    <text x="158" y="22" class="stat-label">P2P KEEP</text>
-    <text x="158" y="48" class="stat-val mono">100%</text>
+    <rect x="144" y="0" width="130" height="60" fill="#EEF4FE"/>
+    <text x="158" y="20" class="stat-label">TOTAL TESTS</text>
+    <text x="158" y="44" class="stat-val mono">475 tests</text>
 
     <!-- Card 3 -->
-    <rect x="288" y="0" width="156" height="64" fill="#F2F1ED"/>
-    <text x="302" y="22" class="stat-label">TURN BAND</text>
-    <text x="302" y="48" class="stat-val mono" fill="#211F1C">141–201</text>
+    <rect x="288" y="0" width="156" height="60" fill="#F2F1ED"/>
+    <text x="302" y="20" class="stat-label">DELTA TURNS</text>
+    <text x="302" y="44" class="stat-val mono" fill="#15803D">-17 turns</text>
   </g>
 
   <!-- Section Divider Rule -->
-  <line x1="48" y1="130" x2="1152" y2="130" stroke="#211F1C" stroke-width="1"/>
+  <line x1="48" y1="120" x2="1152" y2="120" stroke="#211F1C" stroke-width="1"/>
 
-  <!-- Table Column Headers -->
-  <g transform="translate(48, 150)">
+  <!-- ==================== TASK 1: KOOTA ==================== -->
+  <g transform="translate(48, 142)">
+    <rect x="0" y="-4" width="4" height="18" fill="#4185F4"/>
+    <text x="12" y="10" class="section-kicker">TASK 1: <tspan class="task-tag">koota-deferred-mutation-buffer</tspan> (71 F2P + 128 P2P tests | TypeScript / Vitest)</text>
+  </g>
+
+  <!-- Column Headers Task 1 -->
+  <g transform="translate(48, 172)">
     <text x="0" y="0" class="col-header">RUN &amp; SAGE STATE</text>
-    <text x="210" y="0" class="col-header">TURNS TO COMPLETION (PLANNER STEPS)</text>
+    <text x="210" y="0" class="col-header">TURNS (PLANNER STEPS)</text>
+    <text x="690" y="0" class="col-header">F2P RATE</text>
+    <text x="820" y="0" class="col-header">P2P RATE</text>
+    <text x="940" y="0" class="col-header">PARTIAL</text>
+    <text x="1030" y="0" class="col-header">OUTCOME</text>
+  </g>
+  <line x1="48" y1="180" x2="1152" y2="180" stroke="#E8E6E0" stroke-width="1"/>
+
+  <!-- Task 1 - Row 1: koota-arm1-off -->
+  <g transform="translate(48, 192)">
+    <text x="0" y="24" class="run-id mono">arm1-off</text>
+    <rect x="75" y="8" width="80" height="22" fill="#F2F1ED" stroke="#DCD8D0" stroke-width="1"/>
+    <text x="83" y="23" class="mono" font-size="10.5" font-weight="600" fill="#5B564E">SAGE OFF</text>
+
+    <!-- Turns: 148 turns -> width = 148 * 1.909 = 282px -->
+    <rect x="210" y="10" width="420" height="18" fill="#F0EFEA"/>
+    <rect x="210" y="10" width="282" height="18" fill="#A39D92"/>
+    <text x="502" y="24" class="mono" font-size="12" font-weight="600" fill="#211F1C">148 turns</text>
+
+    <text x="690" y="24" class="mono" font-size="12" fill="#211F1C">71/71 (100%)</text>
+    <text x="820" y="24" class="mono" font-size="12" fill="#211F1C">122/128</text>
+
+    <rect x="940" y="7" width="60" height="24" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+    <text x="950" y="23" class="mono" font-size="12" font-weight="700" fill="#15803D">0.976</text>
+
+    <text x="1030" y="23" class="note-text" fill="#15803D">100% F2P pass</text>
+  </g>
+  <line x1="48" y1="240" x2="1152" y2="240" stroke="#F0EFEA" stroke-width="1"/>
+
+  <!-- Task 1 - Row 2: koota-arm2-on -->
+  <g transform="translate(48, 248)">
+    <text x="0" y="24" class="run-id mono">arm2-on</text>
+    <rect x="75" y="8" width="80" height="22" fill="#EEF4FE" stroke="#DBEAFE" stroke-width="1"/>
+    <text x="87" y="23" class="mono" font-size="10.5" font-weight="600" fill="#1D4ED8">SAGE ON</text>
+
+    <!-- Turns: 131 turns -> width = 131 * 1.909 = 250px -->
+    <rect x="210" y="10" width="420" height="18" fill="#F0EFEA"/>
+    <rect x="210" y="10" width="250" height="18" fill="#4185F4"/>
+    <text x="470" y="24" class="mono" font-size="12" font-weight="600" fill="#15803D">131 turns (-17)</text>
+
+    <text x="690" y="24" class="mono" font-size="12" fill="#211F1C">69/71 (97.2%)</text>
+    <text x="820" y="24" class="mono" font-size="12" fill="#211F1C">122/128</text>
+
+    <rect x="940" y="7" width="60" height="24" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+    <text x="950" y="23" class="mono" font-size="12" font-weight="700" fill="#15803D">0.962</text>
+
+    <text x="1030" y="23" class="note-text" fill="#1D4ED8">Re-entrancy steer</text>
+  </g>
+
+  <!-- ==================== TASK 2: KYSELY ==================== -->
+  <line x1="48" y1="300" x2="1152" y2="300" stroke="#E8E6E0" stroke-width="1"/>
+  <g transform="translate(48, 324)">
+    <rect x="0" y="-4" width="4" height="18" fill="#4185F4"/>
+    <text x="12" y="10" class="section-kicker">TASK 2: <tspan class="task-tag">kysely-window-grouping-helpers</tspan> (254 F2P + 22 P2P tests | Byte-exact SQL)</text>
+  </g>
+
+  <!-- Column Headers Task 2 -->
+  <g transform="translate(48, 354)">
+    <text x="0" y="0" class="col-header">RUN &amp; SAGE STATE</text>
+    <text x="210" y="0" class="col-header">TURNS (PLANNER STEPS)</text>
     <text x="690" y="0" class="col-header">F2P RATE</text>
     <text x="820" y="0" class="col-header">P2P RATE</text>
     <text x="940" y="0" class="col-header">REWARD</text>
     <text x="1030" y="0" class="col-header">OUTCOME</text>
   </g>
+  <line x1="48" y1="362" x2="1152" y2="362" stroke="#E8E6E0" stroke-width="1"/>
 
-  <line x1="48" y1="160" x2="1152" y2="160" stroke="#E8E6E0" stroke-width="1"/>
+  <!-- Task 2 - Row 1: arm3 (OFF) -->
+  <g transform="translate(48, 374)">
+    <text x="0" y="24" class="run-id mono">arm3</text>
+    <rect x="75" y="8" width="80" height="22" fill="#F2F1ED" stroke="#DCD8D0" stroke-width="1"/>
+    <text x="83" y="23" class="mono" font-size="10.5" font-weight="600" fill="#5B564E">SAGE OFF</text>
 
-  <!-- Data Rows (Zero Border Radius Everywhere) -->
+    <!-- Turns: 141 turns -> 269px -->
+    <rect x="210" y="10" width="420" height="18" fill="#F0EFEA"/>
+    <rect x="210" y="10" width="269" height="18" fill="#A39D92"/>
+    <text x="490" y="24" class="mono" font-size="12" font-weight="600" fill="#211F1C">141 turns</text>
 
-  <!-- Row 1: arm3 (Sage OFF) -->
-  <g transform="translate(48, 172)">
-    <!-- Run Label & Pill -->
-    <text x="0" y="26" class="run-id mono">arm3</text>
-    <rect x="48" y="10" width="80" height="22" fill="#F2F1ED" stroke="#DCD8D0" stroke-width="1"/>
-    <text x="56" y="25" class="mono" font-size="10.5" font-weight="600" fill="#5B564E">SAGE OFF</text>
+    <text x="690" y="24" class="mono" font-size="12" fill="#211F1C">254/254 (100%)</text>
+    <text x="820" y="24" class="mono" font-size="12" fill="#211F1C">22/22</text>
 
-    <!-- Turns Bar: 141 turns -->
-    <rect x="210" y="12" width="420" height="18" fill="#F0EFEA"/>
-    <rect x="210" y="12" width="269" height="18" fill="#A39D92"/>
-    <text x="490" y="26" class="mono" font-size="12" font-weight="600" fill="#211F1C">141 turns</text>
+    <rect x="940" y="7" width="60" height="24" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+    <text x="955" y="23" class="mono" font-size="12" font-weight="700" fill="#15803D">1.0</text>
+    <text x="1030" y="23" class="note-text" fill="#15803D">Full pass</text>
+  </g>
+  <line x1="48" y1="422" x2="1152" y2="422" stroke="#F0EFEA" stroke-width="1"/>
 
-    <!-- F2P -->
-    <text x="690" y="26" class="mono" font-size="12.5" fill="#211F1C">254/254</text>
-    <text x="752" y="26" class="mono" font-size="11" fill="#756F66">(100%)</text>
+  <!-- Task 2 - Row 2: arm4 (ON) -->
+  <g transform="translate(48, 430)">
+    <text x="0" y="24" class="run-id mono">arm4</text>
+    <rect x="75" y="8" width="80" height="22" fill="#EEF4FE" stroke="#DBEAFE" stroke-width="1"/>
+    <text x="87" y="23" class="mono" font-size="10.5" font-weight="600" fill="#1D4ED8">SAGE ON</text>
 
-    <!-- P2P -->
-    <text x="820" y="26" class="mono" font-size="12.5" fill="#211F1C">22/22</text>
+    <!-- Turns: 142 turns -> 271px -->
+    <rect x="210" y="10" width="420" height="18" fill="#F0EFEA"/>
+    <rect x="210" y="10" width="271" height="18" fill="#4185F4"/>
+    <text x="492" y="24" class="mono" font-size="12" font-weight="600" fill="#211F1C">142 turns</text>
 
-    <!-- Reward Pill -->
-    <rect x="940" y="9" width="60" height="24" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
-    <text x="955" y="25" class="mono" font-size="12" font-weight="700" fill="#15803D">1.0</text>
+    <text x="690" y="24" class="mono" font-size="12" fill="#C2410C">250/254 (98.4%)</text>
+    <text x="820" y="24" class="mono" font-size="12" fill="#211F1C">22/22</text>
 
-    <!-- Outcome text -->
-    <text x="1030" y="25" class="note-text" fill="#15803D">Full pass</text>
+    <rect x="940" y="7" width="60" height="24" fill="#FFF1EE" stroke="#FED7AA" stroke-width="1"/>
+    <text x="955" y="23" class="mono" font-size="12" font-weight="700" fill="#C2410C">0.0</text>
+    <text x="1030" y="23" class="note-text" fill="#C2410C">Stray space in SQL*</text>
+  </g>
+  <line x1="48" y1="478" x2="1152" y2="478" stroke="#F0EFEA" stroke-width="1"/>
+
+  <!-- Task 2 - Row 3: r2a (OFF) -->
+  <g transform="translate(48, 486)">
+    <text x="0" y="24" class="run-id mono">r2a</text>
+    <rect x="75" y="8" width="80" height="22" fill="#F2F1ED" stroke="#DCD8D0" stroke-width="1"/>
+    <text x="83" y="23" class="mono" font-size="10.5" font-weight="600" fill="#5B564E">SAGE OFF</text>
+
+    <!-- Turns: 201 turns -> 384px -->
+    <rect x="210" y="10" width="420" height="18" fill="#F0EFEA"/>
+    <rect x="210" y="10" width="384" height="18" fill="#A39D92"/>
+    <text x="604" y="24" class="mono" font-size="12" font-weight="600" fill="#211F1C">201 turns</text>
+
+    <text x="690" y="24" class="mono" font-size="12" fill="#211F1C">254/254 (100%)</text>
+    <text x="820" y="24" class="mono" font-size="12" fill="#211F1C">22/22</text>
+
+    <rect x="940" y="7" width="60" height="24" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+    <text x="955" y="23" class="mono" font-size="12" font-weight="700" fill="#15803D">1.0</text>
+    <text x="1030" y="23" class="note-text" fill="#15803D">Full pass</text>
+  </g>
+  <line x1="48" y1="534" x2="1152" y2="534" stroke="#F0EFEA" stroke-width="1"/>
+
+  <!-- Task 2 - Row 4: r2b (ON) -->
+  <g transform="translate(48, 542)">
+    <text x="0" y="24" class="run-id mono">r2b</text>
+    <rect x="75" y="8" width="80" height="22" fill="#EEF4FE" stroke="#DBEAFE" stroke-width="1"/>
+    <text x="87" y="23" class="mono" font-size="10.5" font-weight="600" fill="#1D4ED8">SAGE ON</text>
+
+    <!-- Turns: 165 turns -> 315px -->
+    <rect x="210" y="10" width="420" height="18" fill="#F0EFEA"/>
+    <rect x="210" y="10" width="315" height="18" fill="#4185F4"/>
+    <text x="536" y="24" class="mono" font-size="12" font-weight="600" fill="#211F1C">165 turns</text>
+
+    <text x="690" y="24" class="mono" font-size="12" fill="#211F1C">254/254 (100%)</text>
+    <text x="820" y="24" class="mono" font-size="12" fill="#211F1C">22/22</text>
+
+    <rect x="940" y="7" width="60" height="24" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+    <text x="955" y="23" class="mono" font-size="12" font-weight="700" fill="#15803D">1.0</text>
+    <text x="1030" y="23" class="note-text" fill="#15803D">Full pass</text>
+  </g>
+  <line x1="48" y1="590" x2="1152" y2="590" stroke="#F0EFEA" stroke-width="1"/>
+
+  <!-- Task 2 - Row 5: r2c (ON v2) -->
+  <g transform="translate(48, 598)">
+    <text x="0" y="24" class="run-id mono">r2c</text>
+    <rect x="75" y="8" width="125" height="22" fill="#EEF4FE" stroke="#DBEAFE" stroke-width="1"/>
+    <text x="83" y="23" class="mono" font-size="10.5" font-weight="600" fill="#1D4ED8">SAGE ON (EXACT)</text>
+
+    <!-- Turns: 154 turns -> 294px -->
+    <rect x="210" y="10" width="420" height="18" fill="#F0EFEA"/>
+    <rect x="210" y="10" width="294" height="18" fill="#4185F4"/>
+    <text x="515" y="24" class="mono" font-size="12" font-weight="600" fill="#211F1C">154 turns</text>
+
+    <text x="690" y="24" class="mono" font-size="12" fill="#211F1C">254/254 (100%)</text>
+    <text x="820" y="24" class="mono" font-size="12" fill="#211F1C">22/22</text>
+
+    <rect x="940" y="7" width="60" height="24" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+    <text x="955" y="23" class="mono" font-size="12" font-weight="700" fill="#15803D">1.0</text>
+    <text x="1030" y="23" class="note-text" fill="#15803D">Full pass</text>
   </g>
 
-  <line x1="48" y1="228" x2="1152" y2="228" stroke="#F0EFEA" stroke-width="1"/>
-
-  <!-- Row 2: arm4 (Sage ON) -->
-  <g transform="translate(48, 238)">
-    <text x="0" y="26" class="run-id mono">arm4</text>
-    <rect x="48" y="10" width="80" height="22" fill="#EEF4FE" stroke="#DBEAFE" stroke-width="1"/>
-    <text x="60" y="25" class="mono" font-size="10.5" font-weight="600" fill="#1D4ED8">SAGE ON</text>
-
-    <!-- Turns Bar: 142 turns -->
-    <rect x="210" y="12" width="420" height="18" fill="#F0EFEA"/>
-    <rect x="210" y="12" width="271" height="18" fill="#4185F4"/>
-    <text x="492" y="26" class="mono" font-size="12" font-weight="600" fill="#211F1C">142 turns</text>
-
-    <!-- F2P -->
-    <text x="690" y="26" class="mono" font-size="12.5" fill="#C2410C">250/254</text>
-    <text x="752" y="26" class="mono" font-size="11" fill="#C2410C">(98.4%)</text>
-
-    <!-- P2P -->
-    <text x="820" y="26" class="mono" font-size="12.5" fill="#211F1C">22/22</text>
-
-    <!-- Reward Pill -->
-    <rect x="940" y="9" width="60" height="24" fill="#FFF1EE" stroke="#FED7AA" stroke-width="1"/>
-    <text x="955" y="25" class="mono" font-size="12" font-weight="700" fill="#C2410C">0.0</text>
-
-    <!-- Outcome text -->
-    <text x="1030" y="20" class="note-text" fill="#C2410C">Stray space in SQL*</text>
-    <text x="1030" y="34" class="note-text" font-size="9.5" fill="#756F66">4 dialect tests missed</text>
-  </g>
-
-  <line x1="48" y1="294" x2="1152" y2="294" stroke="#F0EFEA" stroke-width="1"/>
-
-  <!-- Row 3: r2a (Sage OFF) -->
-  <g transform="translate(48, 304)">
-    <text x="0" y="26" class="run-id mono">r2a</text>
-    <rect x="48" y="10" width="80" height="22" fill="#F2F1ED" stroke="#DCD8D0" stroke-width="1"/>
-    <text x="56" y="25" class="mono" font-size="10.5" font-weight="600" fill="#5B564E">SAGE OFF</text>
-
-    <!-- Turns Bar: 201 turns -->
-    <rect x="210" y="12" width="420" height="18" fill="#F0EFEA"/>
-    <rect x="210" y="12" width="384" height="18" fill="#A39D92"/>
-    <text x="604" y="26" class="mono" font-size="12" font-weight="600" fill="#211F1C">201 turns</text>
-
-    <!-- F2P -->
-    <text x="690" y="26" class="mono" font-size="12.5" fill="#211F1C">254/254</text>
-    <text x="752" y="26" class="mono" font-size="11" fill="#756F66">(100%)</text>
-
-    <!-- P2P -->
-    <text x="820" y="26" class="mono" font-size="12.5" fill="#211F1C">22/22</text>
-
-    <!-- Reward Pill -->
-    <rect x="940" y="9" width="60" height="24" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
-    <text x="955" y="25" class="mono" font-size="12" font-weight="700" fill="#15803D">1.0</text>
-
-    <!-- Outcome text -->
-    <text x="1030" y="25" class="note-text" fill="#15803D">Full pass</text>
-  </g>
-
-  <line x1="48" y1="360" x2="1152" y2="360" stroke="#F0EFEA" stroke-width="1"/>
-
-  <!-- Row 4: r2b (Sage ON) -->
-  <g transform="translate(48, 370)">
-    <text x="0" y="26" class="run-id mono">r2b</text>
-    <rect x="48" y="10" width="80" height="22" fill="#EEF4FE" stroke="#DBEAFE" stroke-width="1"/>
-    <text x="60" y="25" class="mono" font-size="10.5" font-weight="600" fill="#1D4ED8">SAGE ON</text>
-
-    <!-- Turns Bar: 165 turns -->
-    <rect x="210" y="12" width="420" height="18" fill="#F0EFEA"/>
-    <rect x="210" y="12" width="315" height="18" fill="#4185F4"/>
-    <text x="536" y="26" class="mono" font-size="12" font-weight="600" fill="#211F1C">165 turns</text>
-
-    <!-- F2P -->
-    <text x="690" y="26" class="mono" font-size="12.5" fill="#211F1C">254/254</text>
-    <text x="752" y="26" class="mono" font-size="11" fill="#756F66">(100%)</text>
-
-    <!-- P2P -->
-    <text x="820" y="26" class="mono" font-size="12.5" fill="#211F1C">22/22</text>
-
-    <!-- Reward Pill -->
-    <rect x="940" y="9" width="60" height="24" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
-    <text x="955" y="25" class="mono" font-size="12" font-weight="700" fill="#15803D">1.0</text>
-
-    <!-- Outcome text -->
-    <text x="1030" y="25" class="note-text" fill="#15803D">Full pass</text>
-  </g>
-
-  <line x1="48" y1="426" x2="1152" y2="426" stroke="#F0EFEA" stroke-width="1"/>
-
-  <!-- Row 5: r2c (Sage ON v2) -->
-  <g transform="translate(48, 436)">
-    <text x="0" y="26" class="run-id mono">r2c</text>
-    <rect x="48" y="10" width="138" height="22" fill="#EEF4FE" stroke="#DBEAFE" stroke-width="1"/>
-    <text x="56" y="25" class="mono" font-size="10.5" font-weight="600" fill="#1D4ED8">SAGE ON (EXACT BRIEF)</text>
-
-    <!-- Turns Bar: 154 turns -->
-    <rect x="210" y="12" width="420" height="18" fill="#F0EFEA"/>
-    <rect x="210" y="12" width="294" height="18" fill="#4185F4"/>
-    <text x="515" y="26" class="mono" font-size="12" font-weight="600" fill="#211F1C">154 turns</text>
-
-    <!-- F2P -->
-    <text x="690" y="26" class="mono" font-size="12.5" fill="#211F1C">254/254</text>
-    <text x="752" y="26" class="mono" font-size="11" fill="#756F66">(100%)</text>
-
-    <!-- P2P -->
-    <text x="820" y="26" class="mono" font-size="12.5" fill="#211F1C">22/22</text>
-
-    <!-- Reward Pill -->
-    <rect x="940" y="9" width="60" height="24" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
-    <text x="955" y="25" class="mono" font-size="12" font-weight="700" fill="#15803D">1.0</text>
-
-    <!-- Outcome text -->
-    <text x="1030" y="25" class="note-text" fill="#15803D">Full pass</text>
-  </g>
-
-  <!-- Bottom Scale & Gridline indicator -->
-  <g transform="translate(258, 485)">
+  <!-- Bottom Scale indicator -->
+  <g transform="translate(258, 672)">
     <line x1="0" y1="0" x2="420" y2="0" stroke="#DCD8D0" stroke-width="1"/>
     <line x1="0" y1="0" x2="0" y2="4" stroke="#DCD8D0" stroke-width="1"/>
     <line x1="95.5" y1="0" x2="95.5" y2="4" stroke="#DCD8D0" stroke-width="1"/>
@@ -247,15 +269,15 @@
   </g>
 
   <!-- Footnote / Legend Zone -->
-  <line x1="48" y1="515" x2="1152" y2="515" stroke="#E8E6E0" stroke-width="1"/>
+  <line x1="48" y1="712" x2="1152" y2="712" stroke="#E8E6E0" stroke-width="1"/>
   
-  <g transform="translate(48, 538)">
+  <g transform="translate(48, 738)">
     <rect x="0" y="-8" width="10" height="10" fill="#A39D92"/>
     <text x="16" y="0" class="footnote">Sage OFF (Baseline)</text>
     
     <rect x="140" y="-8" width="10" height="10" fill="#4185F4"/>
     <text x="156" y="0" class="footnote">Sage ON</text>
     
-    <text x="240" y="0" class="footnote">| Shared turn scale (0–220). Graded via official verifier frame (CTRF + test.patch). *arm4 missed binary reward due to a stray space in SQL emission.</text>
+    <text x="240" y="0" class="footnote">| Shared turn scale (0–220). Graded via official verifier frame (held-out test.patch + CTRF/JUnit). *arm4 missed binary reward due to a stray space in grouping sets() syntax.</text>
   </g>
 </svg>

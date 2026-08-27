@@ -193,6 +193,15 @@ def grade(res, expect):
         ratio, lo, hi = probe
         if not (lo < ratio < hi):
             problems.append(f"dedup ratio {ratio:.2f} not in ({lo}, {hi})")
+    final_cat = expect.get("final_category")
+    if final_cat is not None:
+        f = res.get("final") or {}
+        # 'skip'/'error' means the gate never produced a verdict at all;
+        # only an emit/healthy with the right category counts as caught.
+        if f.get("category") != final_cat or f.get("action") not in ("emit", "healthy"):
+            problems.append(
+                f"final gate must surface category={final_cat} via emit/healthy; "
+                f"got action={f.get('action')} category={f.get('category')}")
     return problems
 
 

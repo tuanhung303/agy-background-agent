@@ -102,6 +102,21 @@ def main():
 def subprocess_apply(patch, workdir):
     if not os.path.exists(patch):
         return "missing-patch"
+    # Extract filenames from diff header and clean them in worktree before applying
+    try:
+        with open(patch, "r", encoding="utf-8", errors="replace") as pf:
+            for line in pf:
+                if line.startswith("+++ b/"):
+                    target_file = os.path.join(workdir, line[6:].strip())
+                    subprocess.run(["git", "-C", workdir, "checkout", "--", target_file], capture_output=True)
+                    if os.path.exists(target_file):
+                        try:
+                            os.unlink(target_file)
+                        except OSError:
+                            pass
+    except Exception:
+        pass
+
     r = subprocess.run(["git", "-C", workdir, "apply", "--check", patch],
                        capture_output=True, text=True)
     if r.returncode != 0:
