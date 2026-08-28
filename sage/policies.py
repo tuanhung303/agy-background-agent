@@ -13,7 +13,11 @@ ADVISOR_TOOL_INTERVAL = SAGE_TOOL_INTERVAL
 ADVISOR_STEER_MIN_CONFIDENCE = SAGE_STEER_MIN_CONFIDENCE
 ADVISOR_ESCALATE_MIN_CONFIDENCE = SAGE_ESCALATE_MIN_CONFIDENCE
 ADVISOR_MAX_ERROR_STREAK = SAGE_MAX_ERROR_STREAK
-from sage.events import EVENT_FINAL_STOP, EVENT_PARALLEL_OPP, EVENT_TOOL_THRESHOLD, format_summon_message
+from sage.events import (
+    EVENT_CONFUSED_GOAL, EVENT_FANOUT, EVENT_FATIGUE, EVENT_FINAL_STOP,
+    EVENT_GOAL_CHANGE, EVENT_NEW_PROMPT, EVENT_PARALLEL_OPP, EVENT_TOOL_THRESHOLD,
+    format_summon_message, playbook_reminder,
+)
 from sage.sage import evaluate_mid_turn_progress
 from sage.sanitizer import detect_transcript_deferral, detect_user_approval
 from sage.task_structure import get_parallelizable_signals
@@ -23,9 +27,7 @@ from sage.transcript import (
 )
 from sage.triage import classify_advice
 
-def _playbook_reminder(event, section, note):
-    """Formats uniform event playbook reminder string."""
-    return f"[EVT·{event}] {note} | Playbook: follow \"{section}\" in your doctrine."
+_playbook_reminder = playbook_reminder
 
 
 BG_STALE_SECONDS = 300.0

@@ -13,14 +13,30 @@ EVENT_SENSITIVE_TOOL = "sensitive_tool"
 EVENT_STALE_TASK = "stale_task"
 EVENT_PARALLEL_OPP = "parallel_opportunity"
 EVENT_FACILITATION = "facilitation"
+EVENT_NEW_PROMPT = "new_prompt"
+EVENT_FATIGUE = "fatigue"
+EVENT_CONFUSED_GOAL = "confused_goal"
+EVENT_GOAL_CHANGE = "goal_change"
+EVENT_FANOUT = "fanout"
+
+PLAYBOOK_SECTIONS = {
+    EVENT_NEW_PROMPT: "Momentum Doctrine",
+    EVENT_FATIGUE: "Momentum Doctrine",
+    EVENT_FINAL_STOP: "Final Stop Gate",
+    EVENT_CONFUSED_GOAL: "Momentum Doctrine",
+    EVENT_GOAL_CHANGE: "Revised Goal",
+    EVENT_FANOUT: "Delegation & Fanout (parallelize_subagent)",
+}
 
 STYLE_FULL = "full"
 STYLE_BALANCED = "balanced"
 STYLE_VERBOSE = "verbose"
 
 SEVERITY = {
-    EVENT_TOOL_THRESHOLD: 1, EVENT_PARALLEL_OPP: 1, EVENT_FACILITATION: 2,
-    EVENT_HEARTBEAT: 2, EVENT_STALE_TASK: 2,
+    EVENT_TOOL_THRESHOLD: 1, EVENT_PARALLEL_OPP: 1, EVENT_FANOUT: 1, EVENT_FATIGUE: 1,
+    EVENT_NEW_PROMPT: 1, EVENT_GOAL_CHANGE: 1,
+    EVENT_FACILITATION: 2, EVENT_HEARTBEAT: 2, EVENT_STALE_TASK: 2,
+    EVENT_CONFUSED_GOAL: 2,
     EVENT_ERROR_LOOP: 3, EVENT_SENSITIVE_TOOL: 3, EVENT_FINAL_STOP: 3,
 }
 
@@ -203,3 +219,10 @@ def assert_polarity_intact(rendered):
         if risky and not any(tok in line for tok in POLARITY_TOKENS):
             return False
     return True
+
+
+def playbook_reminder(event, section=None, note=""):
+    """Formats uniform event playbook reminder string."""
+    sec = section or PLAYBOOK_SECTIONS.get(event, "Momentum Doctrine")
+    note_part = f" {note}" if note else ""
+    return f"[EVT·{event}]{note_part} | Playbook: follow \"{sec}\" in your doctrine."

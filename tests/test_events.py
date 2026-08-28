@@ -4,17 +4,24 @@ tests.test_events - Unit tests for event-based advisor summon context formatting
 
 import unittest
 from sage.events import (
+    EVENT_CONFUSED_GOAL,
+    EVENT_FANOUT,
+    EVENT_FATIGUE,
     EVENT_FINAL_STOP,
+    EVENT_GOAL_CHANGE,
     EVENT_HEARTBEAT,
+    EVENT_NEW_PROMPT,
+    EVENT_PARALLEL_OPP,
     EVENT_TOOL_THRESHOLD,
     EVENT_ERROR_LOOP,
     EVENT_SENSITIVE_TOOL,
     EVENT_STALE_TASK,
-    EVENT_PARALLEL_OPP,
+    PLAYBOOK_SECTIONS,
     STYLE_VERBOSE,
     assert_polarity_intact,
     caveman,
     format_summon_message,
+    playbook_reminder,
 )
 
 
@@ -136,6 +143,31 @@ class TestAdvisorEvents(unittest.TestCase):
         self.assertIn("[EVT·error_loop s3] err=1", msg)
         self.assertNotIn("loop=", msg)
         self.assertIn("ASK root cause. exact fix cmd. NO blind retry.", msg)
+
+    def test_playbook_reminder_format_and_defaults(self):
+        self.assertEqual(
+            playbook_reminder(EVENT_NEW_PROMPT, note="user approved"),
+            '[EVT·new_prompt] user approved | Playbook: follow "Momentum Doctrine" in your doctrine.',
+        )
+        self.assertEqual(
+            playbook_reminder(EVENT_FINAL_STOP),
+            '[EVT·final_stop] | Playbook: follow "Final Stop Gate" in your doctrine.',
+        )
+
+    def test_playbook_sections_six_standard_events(self):
+        expected_mappings = {
+            EVENT_NEW_PROMPT: "Momentum Doctrine",
+            EVENT_FATIGUE: "Momentum Doctrine",
+            EVENT_FINAL_STOP: "Final Stop Gate",
+            EVENT_CONFUSED_GOAL: "Momentum Doctrine",
+            EVENT_GOAL_CHANGE: "Revised Goal",
+            EVENT_FANOUT: "Delegation & Fanout (parallelize_subagent)",
+        }
+        for evt, sec in expected_mappings.items():
+            self.assertEqual(PLAYBOOK_SECTIONS.get(evt), sec)
+            rem = playbook_reminder(evt)
+            self.assertIn(f"[EVT·{evt}]", rem)
+            self.assertIn(f'Playbook: follow "{sec}" in your doctrine.', rem)
 
 
 if __name__ == "__main__":
