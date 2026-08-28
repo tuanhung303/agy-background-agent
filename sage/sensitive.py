@@ -114,3 +114,49 @@ def scan_turn_tools_for_sensitive(tool_calls, keywords=None):
 def kws_override(keywords):
     """Helper to pass through keywords list."""
     return keywords if keywords is not None else get_sensitive_keywords()
+
+
+# --- Explicit user approval detection -------------------------------------
+# When the CURRENT user prompt contains an explicit approval, any deferral in
+# the agent's turn violates a granted permission and must escalate to STEER.
+
+APPROVAL_PATTERNS = (
+    # English
+    re.compile(r"\bgo (?:ahead|on)\b", re.I),
+    re.compile(r"\b(?:yes|yeah|yep|ok(?:ay)?|sure|approved|proceed|continue|confirmed)\b[,!.]?\s*$", re.I),
+    re.compile(r"\b(?:please )?(?:do it|implement it|run it|execute it|just do(?: it)?)\b", re.I),
+    re.compile(r"\bfeel free to (?:proceed|implement|run)\b", re.I),
+    re.compile(r"\bkeep going\b", re.I),
+    # Vietnamese
+    re.compile(r"\b(?:làm đi|chạy đi|triển khai đi|cứ làm|cứ triển khai|cứ chạy|đồng ý|chấp thuận|ok anh|oke anh|ừ làm đi|tiến hành)\b", re.I),
+    re.compile(r"^\s*(?:ừ|uhm?|ok|oke|yes)\b", re.I),
+)
+
+# Shapes that look like approval but are questions or conditionals — NOT approval.
+APPROVAL_NEGATIONS = (
+    re.compile(r"\b(?:should|shall|can|could|may|might|would|do|does|did)\b[^?.!\n]*\?", re.I),
+    re.compile(r"\b(?:không|chưa|nhỉ)\s*\?\s*$", re.I),
+    re.compile(r"\bif\b[^?.!\n]*\b(?:then|,)\b", re.I),
+    re.compile(r"\bnếu\b", re.I),
+)
+
+
+def detect_user_approval(user_prompt):
+    """Detects explicit user approval/permission in the CURRENT user prompt.
+
+    Returns {"approved": bool, "snippet": str}. Question-shaped or conditional
+    prompts never count as approval even if they contain approval words.
+    """
+    from sage.sanitizer import _normalize_for_search, strip_code_blocks
+
+    if not user_prompt:
+        return {"approved": False, "snippet": ""}
+    clean = _normalize_for_search(strip_code_blocks(user_prompt)).strip()
+    if not clean:
+        return {"approved": False, "snippet": ""}
+    if any(n.search(clean) for n in APPROVAL_NEGATIONS):
+        return {"approved": False, "snippet": ""}
+    for pat in APPROVAL_PATTERNS:
+        if m := pat.search(clean):
+            return {"approved": True, "snippet": m.group(0).strip()}
+    return {"approved": False, "snippet": ""}

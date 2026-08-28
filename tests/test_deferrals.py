@@ -6,6 +6,7 @@ import unittest
 from sage.sanitizer import (
     detect_deferral_in_text,
     detect_transcript_deferral,
+    detect_user_approval,
     strip_code_blocks,
 )
 from sage.triage import classify_advice
@@ -159,6 +160,92 @@ class TestDeferrals(unittest.TestCase):
         res2 = classify_advice({"status": "on_track", "healthy": True}, seen_advice=res1["seen"], deferral=deferral)
         # Must still emit watchout and NOT hold_dedup on round 2
         self.assertEqual(res2["decision"], "watchout")
+
+
+class TestUserApproval(unittest.TestCase):
+    """Post-approval deferral escalation: user said 'go ahead', agent must not re-ask."""
+
+    def test_detect_english_approval(self):
+        cases = [
+            "go ahead",
+            "Go ahead and implement it",
+            "yes",
+            "OK",
+            "approved, proceed",
+            "keep going",
+            "sure, do it",
+        ]
+        for prompt in cases:
+            res = detect_user_approval(prompt)
+            self.assertTrue(res["approved"], f"approval missed: {prompt!r}")
+
+    def test_detect_vietnamese_approval(self):
+        cases = [
+            "làm đi anh",
+            "cứ triển khai nhé",
+            "ok anh",
+            "ừ làm đi",
+            "đồng ý, tiến hành",
+            "chạy đi em",
+        ]
+        for prompt in cases:
+            res = detect_user_approval(prompt)
+            self.assertTrue(res["approved"], f"VN approval missed: {prompt!r}")
+
+    def test_questions_and_conditionals_are_not_approval(self):
+        cases = [
+            "should we retrain the model?",
+            "anh có muốn train không?",
+            "if you want, we can start with the GR client",
+            "nếu cần thì làm nhé",
+            "do you want me to go ahead?",  # question-shaped even with 'go ahead'
+        ]
+        for prompt in cases:
+            res = detect_user_approval(prompt)
+            self.assertFalse(res["approved"], f"false approval: {prompt!r}")
+
+    def test_no_approval_in_empty_prompt(self):
+        self.assertFalse(detect_user_approval("")["approved"])
+        self.assertFalse(detect_user_approval(None)["approved"])
+
+    def test_classify_escalates_deferral_to_steer_when_approved(self):
+        ver_res = {"status": "on_track", "healthy": True, "category": "general"}
+        deferral = {
+            "matched": True,
+            "snippet": "would you like me to retrain",
+            "phrases": ["would you like me to retrain"],
+        }
+        classified = classify_advice(ver_res, deferral=deferral, approved=True)
+        self.assertEqual(classified["decision"], "steer")
+        self.assertEqual(classified["status"], "off_track")
+        self.assertIn("already approved", classified["text"])
+
+    def test_classify_without_approval_stays_watchout(self):
+        ver_res = {"status": "on_track", "healthy": True, "category": "general"}
+        deferral = {
+            "matched": True,
+            "snippet": "would you like me to retrain",
+            "phrases": ["would you like me to retrain"],
+        }
+        classified = classify_advice(ver_res, deferral=deferral, approved=False)
+        self.assertEqual(classified["decision"], "watchout")
+
+    def test_approved_violation_survives_dedup(self):
+        ver_res = {"status": "on_track", "healthy": True, "category": "general"}
+        deferral = {
+            "matched": True,
+            "snippet": "would you like me to retrain",
+            "phrases": ["would you like me to retrain"],
+        }
+        r1 = classify_advice(ver_res, seen_advice={}, deferral=deferral, approved=True)
+        self.assertEqual(r1["decision"], "steer")
+        r2 = classify_advice(ver_res, seen_advice=r1["seen"], deferral=deferral, approved=True)
+        self.assertEqual(r2["decision"], "steer", "post-approval violation must not be dedup-suppressed")
+
+    def test_approval_alone_does_not_steer_without_deferral(self):
+        ver_res = {"status": "on_track", "healthy": True, "category": "general", "recap": "done"}
+        classified = classify_advice(ver_res, approved=True)
+        self.assertEqual(classified["decision"], "hold")
 
 
 if __name__ == "__main__":

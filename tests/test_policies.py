@@ -305,6 +305,54 @@ class TestAdaptiveCadence(unittest.TestCase):
         self.assertEqual(act["action"], "exit")
         self.assertIn("score=11.0<13.0", act["reason"])
 
+    def test_sage_flow_wires_user_approval_into_classification(self):
+        """Regression (2026-08-28): user said 'go ahead'; approval must reach classify_advice."""
+        ctx = _ctx(
+            user_prompt="[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\ngo ahead",
+            state={"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0},
+        )
+        captured = {}
+        captured_eval = {}
+
+        def fake_classify(ver_res, seen_advice=None, **kw):
+            captured["approved"] = kw.get("approved")
+            captured["deferral"] = kw.get("deferral")
+            return {"decision": "steer", "text": "T", "seen": {}}
+
+        def fake_evaluate(*args, **kw):
+            captured_eval["signals"] = kw.get("signals") or (args[10] if len(args) > 10 else None)
+            return {"status": "s"}
+
+        frozen = _frozen()
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "calculate_turn_tool_score", return_value=(11.0, 5)), \
+                patch.object(policies, "evaluate_mid_turn_progress", side_effect=fake_evaluate), \
+                patch.object(policies, "classify_advice", side_effect=fake_classify), \
+                frozen[0], frozen[1], frozen[2]:
+            act = policies.sage_flow("midturn", **{**ctx, "forced": False})
+        self.assertEqual(act["action"], "emit")
+        self.assertTrue(captured["approved"], "approval from user prompt must reach classify_advice")
+        self.assertIn("[EVT·user_approval]", str(captured_eval.get("signals") or ""))
+
+    def test_sage_flow_no_approval_flag_for_questions(self):
+        ctx = _ctx(
+            user_prompt="anh có muốn train không?",
+            state={"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0},
+        )
+        captured = {}
+
+        def fake_classify(ver_res, seen_advice=None, **kw):
+            captured["approved"] = kw.get("approved")
+            return {"decision": "steer", "text": "T", "seen": {}}
+
+        frozen = _frozen()
+        with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                patch.object(policies, "calculate_turn_tool_score", return_value=(11.0, 5)), \
+                patch.object(policies, "classify_advice", side_effect=fake_classify), \
+                frozen[0], frozen[1], frozen[2]:
+            policies.sage_flow("midturn", **{**ctx, "forced": False})
+        self.assertFalse(captured["approved"])
+
 
 TestFinalAdvisorGate = TestFinalSageGate
 

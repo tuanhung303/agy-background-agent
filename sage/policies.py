@@ -15,7 +15,7 @@ ADVISOR_ESCALATE_MIN_CONFIDENCE = SAGE_ESCALATE_MIN_CONFIDENCE
 ADVISOR_MAX_ERROR_STREAK = SAGE_MAX_ERROR_STREAK
 from sage.events import EVENT_FINAL_STOP, EVENT_PARALLEL_OPP, EVENT_TOOL_THRESHOLD, format_summon_message
 from sage.sage import evaluate_mid_turn_progress
-from sage.sanitizer import detect_transcript_deferral
+from sage.sanitizer import detect_transcript_deferral, detect_user_approval
 from sage.task_structure import get_parallelizable_signals
 from sage.transcript import (
     _read_transcript_steps, calculate_turn_tool_score, extract_session_and_turn_data,
@@ -140,6 +140,11 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
 
     tsteps = _read_transcript_steps(transcript_path) if transcript_path else []
     deferral = detect_transcript_deferral(tsteps)
+    approval = detect_user_approval(user_prompt or clean_prompt)
+    if approval.get("approved"):
+        forced = True
+        note = f"[EVT·user_approval] user granted explicit approval ('{approval.get('snippet')}') in the current prompt"
+        signal_note = f"{signal_note}\n{note}".strip() if signal_note else note
     if final:
         is_plan_turn = bool(re.search(r"(?i)\b/plan\b", str(user_prompt or "")) or re.search(r"(?i)\bplan\b", str(clean_prompt or "")))
         active_signal = format_summon_message(
@@ -175,7 +180,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         steer_min_conf=min(SAGE_STEER_MIN_CONFIDENCE, ADVISOR_STEER_MIN_CONFIDENCE),
         escalate_min_conf=min(SAGE_ESCALATE_MIN_CONFIDENCE, ADVISOR_ESCALATE_MIN_CONFIDENCE),
         anchor_emitted=bool(state.get("pinned_emitted", state.get("anchor_emitted", False))),
-        mode="final" if final else "midturn", deferral=deferral)
+        mode="final" if final else "midturn", deferral=deferral, approved=bool(approval.get("approved")))
     latest = extract_session_and_turn_data(transcript_path)
     progressed = (not final and is_post_invocation_completion_candidate(transcript_path, conv_id)) or latest[3] > total_tool_calls or latest[7] > initial_line_count
     if progressed and not classified.get("pinned_emitted") and classified.get("category") != "pinned_goal":

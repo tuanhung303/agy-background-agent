@@ -50,7 +50,7 @@ def compute_advice_key(category, action, guidance=None):
 from sage.ladder import next_rung_suffix
 
 
-def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_conf=0.85, max_emissions=2, anchor_emitted=False, mode="midturn", deferral=None):
+def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_conf=0.85, max_emissions=2, anchor_emitted=False, mode="midturn", deferral=None, approved=False):
     """
     Evaluates advisor output with confidence gating, keyed deduplication, and structured tags.
     Returns dict with decision ('steer', 'watchout', 'hold', 'hold_dedup'), status, and formatted text.
@@ -83,6 +83,14 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
             action = action or "Execute required implementation and verification tests directly"
         evidence = evidence or f"Agent output contained banned deferral/question pattern: '{phrase}'"
         guidance = guidance or "Do not defer or stop on passive confirmation questions; execute the verified work directly."
+        if approved:
+            # User already granted explicit approval in the current prompt.
+            # Re-asking/deferring violates a granted permission: escalate the
+            # watchout to a full STEER that survives dedup.
+            status = "off_track"
+            evidence = f"{evidence} despite explicit user approval in the current prompt ('{deferral.get('approval_snippet') or 'go ahead'}')"
+            guidance = ("User already approved this work. Do NOT re-ask or defer. "
+                        "Execute the approved work directly and report verified results.")
 
     if is_pinned and status == "on_track" and not action and not guidance:
         status = "watchout"
@@ -116,8 +124,9 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     repeatable = category in ("loop_detection", "irreversible_risk")
     effective_max = max_emissions * 2 if category == "irreversible_risk" else max_emissions
     is_deferral = bool(deferral and deferral.get("matched"))
-    if category in ("confused_goal", "grill_me"):
-        # Clarify-the-user and grill-me fire without dedup suppression
+    approved_violation = bool(approved and is_deferral)
+    if category in ("confused_goal", "grill_me") or approved_violation:
+        # Clarify-the-user, grill-me, and post-approval violations fire without dedup suppression
         pass
     elif count >= effective_max or (count >= 1 and not escalating and not repeatable and not is_deferral and not is_steer and not is_pinned):
         return {"decision": "hold_dedup", "status": status, "category": category, "confidence": conf, "advice_key": advice_key, "seen": seen}
