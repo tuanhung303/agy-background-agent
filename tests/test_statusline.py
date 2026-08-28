@@ -114,7 +114,7 @@ class TestStatusline(unittest.TestCase):
         plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
         self.assertIn("0/250k", plain)
         self.assertIn("0%", plain)
-        self.assertNotIn("sage", plain)
+        self.assertIn("sage:idle", plain)
         self.assertNotIn("str[", plain)
         self.assertNotIn("rcp[", plain)
 
@@ -131,7 +131,7 @@ class TestStatusline(unittest.TestCase):
             return re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", s)
 
         try:
-            # 1. Idle/Hold state -> hidden in stealth mode
+            # 1. Idle/Hold state -> sage:idle (grey)
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
@@ -142,9 +142,11 @@ class TestStatusline(unittest.TestCase):
                 }, f)
 
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
-            self.assertEqual(len(badges), 0)
+            self.assertEqual(len(badges), 1)
+            self.assertEqual(clean(badges[0]), "sage:idle")
+            self.assertEqual(badges[0], "\033[90msage:idle\033[0m")
 
-            # 2. Injecting/Fired state -> ◐ sage:inject (coral)
+            # 2. Injecting/Fired state -> sage:inject (coral)
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
@@ -154,10 +156,10 @@ class TestStatusline(unittest.TestCase):
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertEqual(len(badges), 1)
-            self.assertEqual(clean(badges[0]), "◐ sage:inject")
-            self.assertEqual(badges[0], "\033[38;2;255;127;80m◐ sage:inject\033[0m")
+            self.assertEqual(clean(badges[0]), "sage:inject")
+            self.assertEqual(badges[0], "\033[38;2;255;127;80msage:inject\033[0m")
 
-            # 3. Active Recap Injection -> ◐ sage:inject (coral)
+            # 3. Active Recap Injection -> sage:inject (coral)
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
@@ -166,10 +168,10 @@ class TestStatusline(unittest.TestCase):
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertEqual(len(badges), 1)
-            self.assertEqual(clean(badges[0]), "◐ sage:inject")
-            self.assertEqual(badges[0], "\033[38;2;255;127;80m◐ sage:inject\033[0m")
+            self.assertEqual(clean(badges[0]), "sage:inject")
+            self.assertEqual(badges[0], "\033[38;2;255;127;80msage:inject\033[0m")
 
-            # 4. Post-recap completed state -> hidden in stealth mode
+            # 4. Post-recap completed state -> sage:idle (grey)
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
@@ -177,9 +179,11 @@ class TestStatusline(unittest.TestCase):
                     "recap_emitted": True,
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
-            self.assertEqual(len(badges), 0)
+            self.assertEqual(len(badges), 1)
+            self.assertEqual(clean(badges[0]), "sage:idle")
+            self.assertEqual(badges[0], "\033[90msage:idle\033[0m")
 
-            # 5. Evaluating State -> ● sage:eval (bright blue) + error streak suffix
+            # 5. Evaluating State -> sage:eval (bright blue) + error streak suffix
             with open(state_file, "w") as f:
                 json.dump({
                     "turn_key": "tk1",
@@ -188,9 +192,9 @@ class TestStatusline(unittest.TestCase):
                 }, f)
             badges = get_advisor_steer_badges({"conversation_id": conv_id})
             self.assertEqual(len(badges), 1)
-            self.assertIn("\033[1;34m● sage:eval\033[0m", badges[0])
+            self.assertIn("\033[1;34msage:eval\033[0m", badges[0])
             self.assertIn("\033[31m/err[3]\033[0m", badges[0])
-            self.assertEqual(clean(badges[0]), "● sage:eval/err[3]")
+            self.assertEqual(clean(badges[0]), "sage:eval/err[3]")
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)

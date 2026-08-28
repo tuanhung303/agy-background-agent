@@ -235,7 +235,7 @@ class TestFacilitationCommand(unittest.TestCase):
             badges = get_sage_steer_badges({"conversation_id": conv_id})
             self.assertEqual(len(badges), 1)
             plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", badges[0])
-            self.assertEqual(plain, "● sage command ignored 3×")
+            self.assertEqual(plain, "sage command ignored 3×")
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)

@@ -184,17 +184,17 @@ def get_sage_steer_badges(data):
     cmd_ignored = int(state.get("cmd_ignored", 0) or state.get("facilitation_cmd_ignored", 0) or 0)
 
     if cmd_ignored > 0:
-        return [f"\033[31m● sage command ignored {cmd_ignored}×\033[0m"]
+        return [f"\033[31msage command ignored {cmd_ignored}×\033[0m"]
     elif sage_status in {"evaluating", "running"}:
         err_seg = f"\033[31m/err[{err_streak}]\033[0m" if err_streak > 0 else ""
-        return [f"\033[1;34m● sage:eval\033[0m{err_seg}"]
+        return [f"\033[1;34msage:eval\033[0m{err_seg}"]
     elif not recap_emitted and sage_status in {"fired", "watchout", "recap", "injecting"}:
         err_seg = f"\033[31m/err[{err_streak}]\033[0m" if err_streak > 0 else ""
-        return [f"\033[38;2;255;127;80m◐ sage:inject\033[0m{err_seg}"]
+        return [f"\033[38;2;255;127;80msage:inject\033[0m{err_seg}"]
     elif err_streak > 0:
-        return [f"\033[31m● sage/err[{err_streak}]\033[0m"]
+        return [f"\033[31msage/err[{err_streak}]\033[0m"]
 
-    return []
+    return [f"\033[90msage:idle\033[0m"]
 
 
 get_advisor_steer_badges = get_sage_steer_badges
