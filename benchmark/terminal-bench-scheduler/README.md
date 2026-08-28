@@ -1,5 +1,10 @@
 # Benchmark: Sage ON vs Sage OFF on Terminal-Bench 2.1 (LLM Inference Batching Scheduler)
 
+> **Latest result: R3 (CMD·delegate mechanism, 2026-08-28)** — 6/6 tests,
+> B1 cost 2.8189e11, B2 cost 4.1524e10 (identical to R2), graded host-side
+> with `TASK_FILE_DIR=$PWD`. Full write-up in
+> [../terminal-bench-wal/RESULTS-R3-CMD-DELEGATE.md](../terminal-bench-wal/RESULTS-R3-CMD-DELEGATE.md).
+
 ## Overview
 
 [Terminal-Bench 2.1](https://github.com/harbor-framework/terminal-bench-2-1) benchmarks autonomous agents across complex terminal and software engineering environments. Across the 89 tasks in the benchmark suite, `llm-inference-batching-scheduler` represents one of the most demanding systems optimization tasks.

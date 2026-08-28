@@ -2,6 +2,13 @@
 
 Evaluation of **Sage ON** vs **Sage OFF** on the **Terminal-Bench** `wal-recovery-ordering` concurrency and crash recovery task.
 
+> **Latest result: R3 (CMD·delegate mechanism)** — see
+> [RESULTS-R3-CMD-DELEGATE.md](RESULTS-R3-CMD-DELEGATE.md). Both terminal-bench
+> tasks pass with metrics identical to R2, plus journal-verified enforcement
+> (`delegate_cmd:1`, `violation_inject:1`, zero recursive subagents) and no
+> circuit breaker. R2 numbers below are the historical baseline
+> ([RESULTS-R2-SAGE-ON.md](RESULTS-R2-SAGE-ON.md)).
+
 ---
 
 ## 1. Problem Formulation & Invariants
