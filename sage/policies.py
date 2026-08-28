@@ -23,6 +23,11 @@ from sage.transcript import (
 )
 from sage.triage import classify_advice
 
+def _playbook_reminder(event, section, note):
+    """Formats uniform event playbook reminder string."""
+    return f"[EVT·{event}] {note} | Playbook: follow \"{section}\" in your doctrine."
+
+
 BG_STALE_SECONDS = 300.0
 
 
@@ -142,8 +147,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     deferral = detect_transcript_deferral(tsteps)
     approval = detect_user_approval(user_prompt or clean_prompt)
     if approval.get("approved"):
-        forced = True
-        note = f"[EVT·user_approval] user granted explicit approval ('{approval.get('snippet')}') in the current prompt"
+        note = _playbook_reminder("new_prompt", "Momentum Doctrine", f"user granted explicit approval ('{approval.get('snippet')}') in current prompt")
         signal_note = f"{signal_note}\n{note}".strip() if signal_note else note
     if final:
         is_plan_turn = bool(re.search(r"(?i)\b/plan\b", str(user_prompt or "")) or re.search(r"(?i)\bplan\b", str(clean_prompt or "")))
