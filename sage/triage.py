@@ -48,6 +48,11 @@ def compute_advice_key(category, action, guidance=None):
     return hashlib.sha1(raw).hexdigest()[:12]
 
 
+def _lc_first(s):
+    t = str(s or "").strip()
+    return t[0].lower() + t[1:] if t else ""
+
+
 def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_conf=0.85, max_emissions=2, anchor_emitted=False, mode="midturn", deferral=None):
     """
     Evaluates advisor output with confidence gating, keyed deduplication, and structured tags.
@@ -94,7 +99,7 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
 
     wouts = [_safe_emission_text(item) for item in (ver_res.get("watchouts") or [])]
     is_steer = status == "off_track"
-    is_watch = status == "watchout" or (not is_steer and bool(wouts)) or is_pinned or category == "grill_me"
+    is_watch = status == "watchout" or (not is_steer and bool(wouts)) or is_pinned
     if not is_steer and not is_watch:
         res = {"decision": "hold", "status": "on_track", "category": category, "confidence": conf, "advice_key": "", "seen": seen}
         if "recap" in ver_res and ver_res["recap"] is not None and str(ver_res["recap"]).strip():
@@ -125,31 +130,40 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         seen = dict(sorted(seen.items(), key=lambda kv: (kv[0] != advice_key, -kv[1]))[:50])
 
     if is_pinned:
-        tag = "[Pinned Goal]"
-        head = pinned if pinned else (action or "Establish baseline objective.")
-        if action and action != pinned:
-            head = f"{head} | Next: {action}"
+        p_clean = _lc_first(pinned) if pinned else _lc_first(action or "establish baseline objective.")
+        a_clean = _lc_first(action)
+        head = f"{p_clean} -> next: {a_clean}" if (action and action != pinned) else p_clean
         parts = [head]
-        # Receipt surfacing: make the interpretation audit-visible in the
-        # emitted text, not just in internal state.
         interp = _safe_emission_text(ver_res.get("interpretation"))
         if interp:
-            parts.append(f"Rd: {interp}")
+            parts.append(f"rd: {_lc_first(interp)}")
     else:
-        tag_prefix = "STEER" if is_steer else "WATCH"
-        tag = f"[{tag_prefix}·{category}]"
-        blind_spots = [_safe_emission_text(item) for item in (ver_res.get("blind_spots") or [])]
-        questions = [_safe_emission_text(item) for item in (ver_res.get("questions") or [])]
-        head = action or "; ".join(questions if questions else (blind_spots if is_steer else wouts)) or guidance or "Course correction required."
-        parts = [head]
-        if evidence:
-            parts.append(f"Found: {evidence}")
-        if questions and action:
-            parts.append(f"Questions: {'; '.join(questions)}")
-        if guidance and action and guidance != action:
-            parts.append(f"Rationale: {guidance}")
+        blind_spots = [_lc_first(_safe_emission_text(item)) for item in (ver_res.get("blind_spots") or [])]
+        questions = [_lc_first(_safe_emission_text(item)) for item in (ver_res.get("questions") or [])]
+        q_text = "; ".join(q for q in questions if q)
+        b_text = "; ".join(b for b in (blind_spots if is_steer else wouts) if b)
+        a_clean = _lc_first(action)
+        g_clean = _lc_first(guidance)
+        e_clean = _lc_first(evidence)
+        if a_clean and q_text:
+            target = f"{a_clean}; {q_text}"
+        elif a_clean:
+            target = a_clean
+        elif q_text:
+            target = q_text
+        elif b_text:
+            target = b_text
+        else:
+            target = g_clean or "course correction required."
+        if e_clean:
+            body = f"{e_clean} -> {target}"
+        elif g_clean and g_clean != a_clean:
+            body = f"{g_clean} -> {target}"
+        else:
+            body = target
+        parts = [body]
         if pinned and (category == "scope_drift" or "drift" in str(ver_res.get("goal_status") or "").lower()):
-            parts.append(f"Pinned: {pinned}")
+            parts.append(f"pinned: {_lc_first(pinned)}")
 
     # Verification-depth ladder: deep tasks must climb past the easiest rung.
     # Appended AFTER advice_key derivation so dedup keys stay stable.
@@ -157,7 +171,6 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         ladder_bits = [pinned, action, guidance]
         if len(" | ".join(parts)) < 1900 and (sfx := next_rung_suffix(*ladder_bits)):
             parts.append(sfx)
-    parts.append(tag)
     text = " | ".join(parts)
     res = {
         "decision": "steer" if is_steer else "watchout",

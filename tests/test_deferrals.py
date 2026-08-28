@@ -145,7 +145,7 @@ class TestDeferrals(unittest.TestCase):
         self.assertEqual(res["tail_todo"], "## Remaining Work")
         classified = classify_advice({"status": "on_track", "healthy": True}, deferral=res)
         self.assertEqual(classified["decision"], "watchout")
-        self.assertIn("Execute remaining work directly", classified["text"])
+        self.assertIn("execute remaining work directly", classified["text"])
 
     def test_dedup_does_not_suppress_active_deferral_at_final_gate(self):
         deferral = {

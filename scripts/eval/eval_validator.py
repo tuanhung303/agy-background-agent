@@ -63,6 +63,11 @@ def generate_scenario_mutations(sc):
         for x in m2["script"]:
             if isinstance(x, dict):
                 x["status"] = "on_track"
+                if x.get("category") == "grill_me":
+                    x["action"] = ""
+                    x["guidance"] = ""
+                    x["questions"] = []
+                    x["blind_spots"] = []
         if expect.get("final_pending_clarify_ok") and isinstance(m2.get("final_script"), dict):
             m2["final_script"]["status"] = "on_track"
             m2["final_script"]["category"] = "general"
@@ -107,6 +112,7 @@ def generate_scenario_mutations(sc):
         if expect["decision_type"] == "watchout":
             for x in m9.get("script", []):
                 if isinstance(x, dict):
+                    x["status"] = "off_track"
                     x["confidence"] = 0.95
         elif expect["decision_type"] == "steer":
             for x in m9.get("script", []):

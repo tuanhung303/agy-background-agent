@@ -27,7 +27,7 @@
   "expect": {
     "midturn_interrupts": 0,
     "final_category": "missing_proof",
-    "text_contains": "Run `pytest tests/test_payment.py` directly"
+    "text_contains": "run `pytest tests/test_payment.py` directly"
   },
   "final_script": {
     "status": "watchout",

@@ -1,0 +1,29 @@
+{
+  "id": "plan_grill_me",
+  "desc": "Tests /plan triggers Grill-Me Planning Mode",
+  "user_prompt": "/plan migration to postgres",
+  "tools": [
+    ["write_to_file", "drafting plan section 1"],
+    ["write_to_file", "drafting plan section 2"],
+    ["write_to_file", "drafting schema migration plan"],
+    ["write_to_file", "drafting rollback plan"],
+    ["run_command", "checking db schema"],
+    ["run_command", "diff schema.sql"]
+  ],
+  "script": [
+    {
+      "status": "watchout", 
+      "category": "grill_me", 
+      "confidence": 0.95, 
+      "action": "Use ask_question to interview user on plan blind spots",
+      "guidance": "Grill-me on migration strategy and rollback plan."
+    }
+  ],
+  "expect": {
+    "first_fire_cp": 6,
+    "decision_category": "grill_me",
+    "decision_type": "watchout",
+    "midturn_interrupts": 1
+  },
+  "final_script": null
+}

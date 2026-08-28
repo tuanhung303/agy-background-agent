@@ -353,7 +353,8 @@ class TestTriageAdversarial(unittest.TestCase):
         }
         res = classify_advice(advice)
         self.assertLessEqual(len(res["text"]), 2000)
-        self.assertTrue(res["text"].endswith("[STEER·architectural_trap]"))
+        self.assertEqual(res["category"], "architectural_trap")
+        self.assertTrue(res["text"].startswith("evidence string"))
 
 
 class TestTaskStructureAdversarial(unittest.TestCase):

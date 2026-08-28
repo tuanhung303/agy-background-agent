@@ -110,7 +110,8 @@ class TestTriage(unittest.TestCase):
         ver_res = {"status": "watchout", "category": "irreversible_risk", "action": "stop rm", "guidance": "check git", "confidence": 0.9}
         res = classify_advice(ver_res, escalate_min_conf=0.85)
         self.assertEqual(res["decision"], "steer")
-        self.assertIn("[STEER·irreversible_risk", res["text"])
+        self.assertEqual(res["category"], "irreversible_risk")
+        self.assertIn("check git -> stop rm", res["text"])
 
     def test_classify_advice_never_emits_destructive_metadata(self):
         for payload in (
@@ -128,49 +129,53 @@ class TestTriage(unittest.TestCase):
     def test_category_tag_formatting_all_nine_categories(self):
         # 1. loop_detection (steer)
         r = classify_advice({"status": "off_track", "category": "loop_detection", "action": "inspect schema", "confidence": 0.95})
-        self.assertIn("[STEER·loop_detection]", r["text"])
+        self.assertEqual(r["category"], "loop_detection")
+        self.assertEqual(r["text"], "inspect schema")
 
         # 2. irreversible_risk (watchout and steer)
         r_w = classify_advice({"status": "watchout", "category": "irreversible_risk", "action": "git stash", "confidence": 0.80})
-        self.assertIn("[WATCH·irreversible_risk]", r_w["text"])
+        self.assertEqual(r_w["category"], "irreversible_risk")
+        self.assertEqual(r_w["decision"], "watchout")
         r_s = classify_advice({"status": "watchout", "category": "irreversible_risk", "action": "git stash", "confidence": 0.90})
-        self.assertIn("[STEER·irreversible_risk]", r_s["text"])
+        self.assertEqual(r_s["category"], "irreversible_risk")
+        self.assertEqual(r_s["decision"], "steer")
 
         # 3. parallelize_subagent and parallelize (watchout)
         r_p1 = classify_advice({"status": "watchout", "category": "parallelize_subagent", "action": "invoke_subagent", "confidence": 0.85})
-        self.assertIn("[WATCH·parallelize_subagent]", r_p1["text"])
+        self.assertEqual(r_p1["category"], "parallelize_subagent")
         r_p2 = classify_advice({"status": "watchout", "category": "parallelize", "action": "invoke_subagent", "confidence": 0.85})
-        self.assertIn("[WATCH·parallelize]", r_p2["text"])
+        self.assertEqual(r_p2["category"], "parallelize")
 
         # 4. architectural_trap (watchout)
         r_a = classify_advice({"status": "watchout", "category": "architectural_trap", "action": "add lock", "confidence": 0.80})
-        self.assertIn("[WATCH·architectural_trap]", r_a["text"])
+        self.assertEqual(r_a["category"], "architectural_trap")
 
         # 5. general (watchout and steer)
         r_g1 = classify_advice({"status": "watchout", "category": "general", "action": "check step", "confidence": 0.75})
-        self.assertIn("[WATCH·general]", r_g1["text"])
+        self.assertEqual(r_g1["category"], "general")
         r_g2 = classify_advice({"status": "off_track", "category": "general", "action": "revert edit", "confidence": 0.90})
-        self.assertIn("[STEER·general]", r_g2["text"])
+        self.assertEqual(r_g2["category"], "general")
+        self.assertEqual(r_g2["decision"], "steer")
 
         # 6. missing_proof (secondary tag, watchout)
         r_md = classify_advice({"status": "watchout", "category": "missing_proof", "action": "write notes.md", "confidence": 0.95})
-        self.assertIn("[WATCH·missing_proof]", r_md["text"])
+        self.assertEqual(r_md["category"], "missing_proof")
 
         # 7. algorithmic_bottleneck (secondary tag, watchout)
         r_ab = classify_advice({"status": "watchout", "category": "algorithmic_bottleneck", "action": "use cdcl", "confidence": 0.90})
-        self.assertIn("[WATCH·algorithmic_bottleneck]", r_ab["text"])
+        self.assertEqual(r_ab["category"], "algorithmic_bottleneck")
 
         # 8. scope_drift (secondary tag, steer)
         r_sd = classify_advice({"status": "off_track", "category": "scope_drift", "action": "revert ui", "confidence": 0.92})
-        self.assertIn("[STEER·scope_drift]", r_sd["text"])
+        self.assertEqual(r_sd["category"], "scope_drift")
 
         # 9. fake_verification (secondary tag, steer)
         r_fv = classify_advice({"status": "off_track", "category": "fake_verification", "action": "run cli", "confidence": 0.91})
-        self.assertIn("[STEER·fake_verification]", r_fv["text"])
+        self.assertEqual(r_fv["category"], "fake_verification")
 
         # Uncalibrated (no confidence)
         r_noconf = classify_advice({"status": "watchout", "category": "architectural_trap", "action": "add lock"})
-        self.assertIn("[WATCH·architectural_trap]", r_noconf["text"])
+        self.assertEqual(r_noconf["category"], "architectural_trap")
         self.assertNotIn("conf", r_noconf["text"])
 
     def test_classify_advice_keyed_dedup(self):
@@ -225,7 +230,7 @@ class TestTriage(unittest.TestCase):
         }
         res = classify_advice(ver_res)
         self.assertEqual(res["decision"], "steer")
-        self.assertIn("Pinned: Optimize AGY stop audit latency under 100ms", res["text"])
+        self.assertIn("pinned: optimize AGY stop audit latency under 100ms", res["text"])
 
     def test_advice_key_deduplication_across_guidance_variations(self):
         ver_res1 = {
@@ -258,10 +263,7 @@ class TestTriage(unittest.TestCase):
         res = classify_advice(ver_res)
         self.assertEqual(res["decision"], "watchout")
         self.assertEqual(res["category"], "grill_me")
-        self.assertIn("[WATCH·grill_me]", res["text"])
-        self.assertIn("Use ask_question to interview user on plan blind spots", res["text"])
-        self.assertIn("Questions: Which migration tool to use? (Recommended: Alembic); Should we support SQLite fallback?", res["text"])
-        self.assertIn("Rationale: Grill-me on migration strategy and rollback plan.", res["text"])
+        self.assertIn("plan contains unverified DB migration assumption -> use ask_question to interview user on plan blind spots; which migration tool to use? (Recommended: Alembic); should we support SQLite fallback?", res["text"])
 
         # Verify grill_me is not dedup-suppressed
         res2 = classify_advice(ver_res, seen_advice=res["seen"])
@@ -279,9 +281,7 @@ class TestTriage(unittest.TestCase):
         res = classify_advice(ver_res)
         self.assertEqual(res["decision"], "watchout")
         self.assertEqual(res["category"], "confused_goal")
-        self.assertIn("[WATCH·confused_goal]", res["text"])
-        self.assertIn("Apply recall workflow to inspect recent transcripts", res["text"])
-        self.assertIn("Search recent transcript logs and commits", res["text"])
+        self.assertIn("user prompt refers vaguely to past task 'làm nốt hôm trước' -> apply recall workflow to inspect recent transcripts and git history", res["text"])
 
     def test_classify_advice_prove_it_works_fake_verification(self):
         ver_res = {
@@ -296,9 +296,7 @@ class TestTriage(unittest.TestCase):
         self.assertEqual(res["decision"], "steer")
         self.assertEqual(res["status"], "off_track")
         self.assertEqual(res["category"], "fake_verification")
-        self.assertIn("[STEER·fake_verification]", res["text"])
-        self.assertIn("Run `uv run pytest tests/test_api.py`", res["text"])
-        self.assertIn("Prove-it-works doctrine", res["text"])
+        self.assertIn("agent claimed tests passed without executing command -> run `uv run pytest tests/test_api.py` and inspect real output", res["text"])
 
 
 if __name__ == "__main__":

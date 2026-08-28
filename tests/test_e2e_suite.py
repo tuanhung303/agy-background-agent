@@ -239,8 +239,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         res = classify_advice(advice, seen_advice={})
         self.assertEqual(res["decision"], "steer")
         self.assertEqual(res["category"], "loop_detection")
-        self.assertIn("[STEER·loop_detection]", res["text"])
-        self.assertIn("Break infinite test loop", res["text"])
+        self.assertIn("3 consecutive test failures -> break infinite test loop: run pytest tests/test_core.py -x", res["text"])
 
     def test_f3_02_irreversible_risk_category_escalation(self):
         """Verifies high-confidence irreversible_risk is escalated from watchout to steer."""
@@ -254,7 +253,8 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         res = classify_advice(advice, escalate_min_conf=0.85)
         self.assertEqual(res["decision"], "steer")
         self.assertEqual(res["status"], "off_track")
-        self.assertIn("[STEER·irreversible_risk]", res["text"])
+        self.assertEqual(res["category"], "irreversible_risk")
+        self.assertIn("destructive query detected on production connection -> avoid dropping prod database: verify target environment first", res["text"])
 
     def test_f3_03_parallelize_category_handling(self):
         """Verifies parallelize category normalization and keyed deduplication."""
@@ -268,7 +268,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         res1 = classify_advice(advice, seen_advice={})
         self.assertEqual(res1["decision"], "watchout")
         self.assertEqual(res1["category"], "parallelize")
-        self.assertIn("[WATCH·parallelize]", res1["text"])
+        self.assertIn("independent subtasks detected -> dispatch subagents for backend and frontend modules", res1["text"])
 
         # Second emission should deduplicate to hold_dedup
         res2 = classify_advice(advice, seen_advice=res1["seen"])
@@ -286,7 +286,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         res = classify_advice(trap_advice)
         self.assertEqual(res["decision"], "watchout")
         self.assertEqual(res["category"], "architectural_trap")
-        self.assertIn("[WATCH·architectural_trap]", res["text"])
+        self.assertIn("shared mutable dictionary causes race conditions -> refactor global state: use dependency injection instead", res["text"])
 
     def test_f3_05_confidence_tag_formatting(self):
         """Verifies confidence tag formatting across various confidence representations."""
@@ -364,7 +364,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         }
         res = classify_advice(advice)
         self.assertLessEqual(len(res["text"]), 2000)
-        self.assertIn("Found: Error log: ", res["text"])
+        self.assertIn("error log: ", res["text"])
 
     # ------------------------------------------------------------------------
     # F5: Low Latency & Zero Unnecessary Holds
@@ -810,7 +810,8 @@ class TestTier3CrossFeatureInteractions(BaseE2ETestCase):
         # First triage
         triage1 = classify_advice(parsed, seen_advice={})
         self.assertEqual(triage1["decision"], "steer")
-        self.assertIn("[STEER·loop_detection]", triage1["text"])
+        self.assertEqual(triage1["category"], "loop_detection")
+        self.assertIn("failing on assertion in line 12 -> pytest tests/test_e2e.py -k test_f1", triage1["text"])
 
         # Second triage with same seen map -> repeatable allows second emission, but count increments
         triage2 = classify_advice(parsed, seen_advice=triage1["seen"])
@@ -955,7 +956,8 @@ class TestTier4RealWorldWorkloads(BaseE2ETestCase):
         }
         classified = classify_advice(risky_advice, escalate_min_conf=0.85)
         self.assertEqual(classified["decision"], "steer")
-        self.assertIn("[STEER·irreversible_risk]", classified["text"])
+        self.assertEqual(classified["category"], "irreversible_risk")
+        self.assertIn("prevent uncommitted work loss", classified["text"])
 
     def test_tier4_04_parallel_subagent_dispatch_workflow(self):
         """Simulates strategic advisor suggesting subagent parallelization for independent workstreams."""

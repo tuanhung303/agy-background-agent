@@ -78,7 +78,8 @@ def test_classify_advice_propagates_goal_fields():
     assert decision["pinned_goal"] == "Baseline engine"
     assert decision["revised_goal"] == "Added feature"
     assert decision["goal_status"] == "revised"
-    assert "[WATCH·scope_drift]" in decision["text"]
+    assert decision["category"] == "scope_drift"
+    assert "pinned goal tests missing -> run `pytest tests/test_core.py`" in decision["text"]
 
 
 @patch("sage.policies.has_new_user_activity", return_value=False)
@@ -131,9 +132,7 @@ def test_first_action_pinned_goal_emitted_on_complex_task():
     decision = classify_advice(ver_res, seen_advice={}, anchor_emitted=False)
     assert decision["decision"] == "watchout"
     assert decision["pinned_emitted"] is True
-    assert "[Pinned Goal]" in decision["text"]
-    assert "Refactor optimizer and add AST invariants" in decision["text"]
-    assert "Next: Implement core parser in advisor/goals.py" in decision["text"]
+    assert "refactor optimizer and add AST invariants -> next: implement core parser in advisor/goals.py" in decision["text"]
 
 
 def test_simple_qa_task_complexity_suppresses_pinned_noise():

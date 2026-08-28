@@ -139,7 +139,7 @@ class TestAdvisorIntegration(unittest.TestCase):
             self.assertIn("injectSteps", data)
             msg = data["injectSteps"][0]["userMessage"]
             self.assertTrue(msg.startswith("※ sage: "))
-            self.assertIn("Repeated syntax error on line 42", msg)
+            self.assertIn("repeated syntax error on line 42", msg)
 
             with open(state_file, "r") as sf:
                 state_data = json.load(sf)
