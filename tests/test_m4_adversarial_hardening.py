@@ -12,13 +12,13 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from sage.sage import (
-    _normalize_advisor_dict,
+    _normalize_sage_dict,
     extract_target_goal,
 )
 from sage.guards import (
     is_destructive_action,
 )
-from sage.policies import advisor_flow, background_watch
+from sage.policies import sage_flow, background_watch
 from sage.task_structure import (
     get_parallelizable_signals,
 )
@@ -53,7 +53,7 @@ class TestDestructiveEvasionAttempts(unittest.TestCase):
         for cmd in evasion_attempts:
             with self.subTest(cmd=cmd):
                 self.assertTrue(is_destructive_action(cmd), f"Should detect destructive command: {cmd}")
-                norm = _normalize_advisor_dict({"status": "off_track", "action": cmd, "guidance": cmd})
+                norm = _normalize_sage_dict({"status": "off_track", "action": cmd, "guidance": cmd})
                 self.assertIn("[Destructive action suppressed]", norm["action"])
                 self.assertIn("[Destructive command suppressed]", norm["guidance"])
 
@@ -295,7 +295,7 @@ class TestDeepRecursiveLoopsAndCircuitBreaker(unittest.TestCase):
 
     def test_error_streak_triggers_circuit_breaker(self):
         state = {"advisor_error_streak": 3, "mid_turn_steers": 0}
-        act = advisor_flow(
+        act = sage_flow(
             "midturn",
             conv_id="conv-err",
             transcript_path="/nonexistent",

@@ -15,7 +15,7 @@ import unittest
 from unittest.mock import patch
 
 from sage.policies import (
-    advisor_flow,
+    sage_flow,
     background_watch,
 )
 from sage.task_structure import (
@@ -276,9 +276,9 @@ class TestM3PolicyAndAdvisorFlowStress(unittest.TestCase):
 
         try:
             state = {"mid_turn_steers": 0, "advisor_error_streak": 0, "last_verified_tools": 10}
-            # total_tool_calls = 10, meaning tool delta is 0 (< ADVISOR_TOOL_INTERVAL=3)
+            # total_tool_calls = 10, meaning tool delta is 0 (< SAGE_TOOL_INTERVAL=3)
             # Normal flow would exit, but parallelizable signal MUST force evaluation
-            act = advisor_flow(
+            act = sage_flow(
                 "midturn",
                 conv_id="test_conv",
                 transcript_path=tpath,

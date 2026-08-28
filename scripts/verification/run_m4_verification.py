@@ -124,8 +124,6 @@ def verify_static_invariants(repo_root):
     wildcard_violations = []
     for fpath in pkg_files:
         rel = os.path.relpath(fpath, repo_root)
-        if os.path.basename(fpath) == "mid_verifier.py":
-            continue
         with open(fpath, "r", encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=fpath)
         for node in ast.walk(tree):
@@ -136,7 +134,7 @@ def verify_static_invariants(repo_root):
     if wildcard_violations:
         print(f"[FAIL] Wildcard imports found: {wildcard_violations}")
         return False
-    print("[PASS] 0 wildcard imports in core library modules (mid_verifier.py shim allowlisted).")
+    print("[PASS] 0 wildcard imports in core library modules.")
 
     # 5. Library Print Calls AST Gate
     print("\n--- 5. Library Print Calls AST Gate ---")

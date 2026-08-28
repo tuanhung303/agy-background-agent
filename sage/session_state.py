@@ -114,10 +114,6 @@ def record_sage_recap(state_file: str, state: dict, total_tools: int, initial_li
     )
 
 
-record_advisor_emit = record_sage_emit
-record_advisor_hold = record_sage_hold
-record_advisor_recap = record_sage_recap
-
 
 def record_background_steer(state_file: str, state: dict, tid: str, initial_lines: int):
     """Updates and saves state when steering for a running background task."""

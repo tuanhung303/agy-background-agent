@@ -20,13 +20,13 @@ from sage.sage import (
     run_sage_model,
     save_sage_session,
     # Backward-compatible aliases
-    _clear_advisor_session,
-    _normalize_advisor_dict,
-    build_advisor_prompt,
-    get_or_create_advisor_session,
-    parse_advisor_output,
-    run_advisor_model,
-    save_advisor_session,
+    _clear_sage_session,
+    _normalize_sage_dict,
+    build_sage_prompt,
+    get_or_create_sage_session,
+    parse_sage_output,
+    run_sage_model,
+    save_sage_session,
 )
 
 
@@ -610,7 +610,7 @@ class TestSage(unittest.TestCase):
              patch("sage.runner.is_post_invocation_completion_candidate", return_value=False), \
              patch("sage.runner.has_recent_tool_errors", return_value=True), \
              patch("sage.runner.has_repeated_tool_calls", return_value=False), \
-             patch("sage.runner.advisor_flow", side_effect=fake_flow), \
+             patch("sage.runner.sage_flow", side_effect=fake_flow), \
              patch("sage.runner.save_session_state"), \
              patch("sys.exit", side_effect=SystemExit):
             try:

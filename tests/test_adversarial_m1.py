@@ -31,7 +31,7 @@ from sage.locking import (
     acquire_conversation_lock,
     release_lock,
 )
-from sage.policies import background_watch, final_advisor_gate
+from sage.policies import background_watch, final_sage_gate
 
 
 def check_tokenize_semicolons(source_text: str):
@@ -360,7 +360,7 @@ class TestAdversarialPolicySignals(unittest.TestCase):
         self.assertEqual(res_mixed["task_id"], "t_old")
 
     def test_final_advisor_gate_healthy_note_propagation(self):
-        """Verify final_advisor_gate attaches healthy assessment note to auditor context."""
+        """Verify final_sage_gate attaches healthy assessment note to auditor context."""
         mock_verdict = {
             "status": "success",
             "decision": "hold",
@@ -370,7 +370,7 @@ class TestAdversarialPolicySignals(unittest.TestCase):
         with patch("sage.policies.evaluate_mid_turn_progress", return_value=mock_verdict), \
              patch("sage.policies.has_new_user_activity", return_value=False), \
              patch("sage.policies.extract_session_and_turn_data", return_value=(None, None, None, 5, None, None, None, 50)):
-            res = final_advisor_gate(
+            res = final_sage_gate(
                 conv_id="test_conv",
                 transcript_path="/tmp/fake_transcript.jsonl",
                 clean_prompt="Do something",

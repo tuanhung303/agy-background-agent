@@ -223,8 +223,8 @@
     <path class="edge-secondary" data-from="mod_workspace" data-to="mod_evidence" d="M816 208 V264 H568 V280"/>
 
     <!-- Hook Entry -->
-    <g class="module" id="mod_hook" tabindex="0" data-title="Hook Entry" data-notes="Normalizes stdin payloads, resolves module imports, and catches exceptions to fail open safely." data-attributes="File: hooks/session-advisor.py" data-deps="mod_post mod_stop mod_runner">
-      <title>Hook entry: session-advisor.py</title>
+    <g class="module" id="mod_hook" tabindex="0" data-title="Hook Entry" data-notes="Normalizes stdin payloads, resolves module imports, and catches exceptions to fail open safely." data-attributes="File: hooks/session-sage.py" data-deps="mod_post mod_stop mod_runner">
+      <title>Hook entry: session-sage.py</title>
       <rect class="shell" x="56" y="280" width="144" height="64"/>
       <rect class="chip" x="68" y="292" width="36" height="16"/>
       <text class="chip-text" x="86" y="303" text-anchor="middle">EDGE</text>

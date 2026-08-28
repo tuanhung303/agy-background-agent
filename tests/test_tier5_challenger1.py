@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from sage.config import (
-    ADVISOR_MAX_ERROR_STREAK,
+    SAGE_MAX_ERROR_STREAK,
     _load_env_overlay,
     _safe_bool,
     _safe_float,
@@ -51,9 +51,9 @@ from sage.locking import (
     safe_id,
 )
 from sage.policies import (
-    advisor_flow,
+    sage_flow,
     background_watch,
-    final_advisor_gate,
+    final_sage_gate,
 )
 from sage.runner import run_session_stop_audit
 from sage.sanitizer import (
@@ -467,7 +467,7 @@ class TestGuardsAdversarial(unittest.TestCase):
 
 
 class TestPoliciesAdversarial(unittest.TestCase):
-    """Adversarial testing for background_watch and advisor_flow decision logic."""
+    """Adversarial testing for background_watch and sage_flow decision logic."""
 
     def test_p1_background_watch_decision_tree(self):
         """Test background_watch returns none, steer (oldest), grace, or already_steered."""
@@ -495,10 +495,10 @@ class TestPoliciesAdversarial(unittest.TestCase):
     @patch("sage.policies.is_post_invocation_completion_candidate", return_value=False)
     @patch("sage.policies.evaluate_mid_turn_progress")
     def test_p2_advisor_flow_circuit_breaker(self, mock_eval, mock_cand, mock_extract, mock_fresh):
-        """Test advisor_flow circuit breaker."""
+        """Test sage_flow circuit breaker."""
         # 1. Circuit breaker open
-        state_err = {"advisor_error_streak": ADVISOR_MAX_ERROR_STREAK}
-        res_cb = advisor_flow("midturn", conv_id="c1", transcript_path="", clean_prompt="",
+        state_err = {"advisor_error_streak": SAGE_MAX_ERROR_STREAK}
+        res_cb = sage_flow("midturn", conv_id="c1", transcript_path="", clean_prompt="",
                               initial_line_count=0, total_tool_calls=10, turn_tool_names=set(),
                               user_prompt="", agent_steps=[], git_diff="", state=state_err)
         self.assertEqual(res_cb["action"], "exit")
@@ -506,9 +506,9 @@ class TestPoliciesAdversarial(unittest.TestCase):
 
 
     def test_p3_final_advisor_gate_note_forwarding(self):
-        """Test final_advisor_gate attaches a healthy assessment note to its terminal-gate action."""
-        with patch("sage.policies.advisor_flow", return_value={"action": "healthy", "text": "All looks good"}):
-            gate = final_advisor_gate("c1", "", "", 0, 5, set(), "", [], "", {})
+        """Test final_sage_gate attaches a healthy assessment note to its terminal-gate action."""
+        with patch("sage.policies.sage_flow", return_value={"action": "healthy", "text": "All looks good"}):
+            gate = final_sage_gate("c1", "", "", 0, 5, set(), "", [], "", {})
             self.assertEqual(gate["action"], "healthy")
             self.assertTrue("Sage final assessment" in gate["note"] or "Advisor final assessment" in gate["note"])
 
@@ -815,7 +815,7 @@ class TestHooksAndRunnerAdversarial(unittest.TestCase):
     @patch("sage.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {"recap_emitted": False}, True))
     @patch("sage.runner.is_post_invocation", return_value=True)
     @patch("sage.runner.is_post_invocation_completion_candidate", return_value=False)
-    @patch("sage.runner.advisor_flow")
+    @patch("sage.runner.sage_flow")
     def test_r4_runner_midturn_and_final_gate_cascades(self, mock_adv, mock_comp, mock_post, mock_sync, mock_extract, mock_subs, mock_lock):
         """Test runner midturn advisor emit and progressed actions."""
         # Emit action
@@ -834,8 +834,8 @@ class TestHooksAndRunnerAdversarial(unittest.TestCase):
     @patch("sage.runner.extract_session_and_turn_data", return_value=("prompt", "raw", ["step1"], 16, {"write_to_file"}, None, None, 10))
     @patch("sage.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {"mid_turn_steers": 0}, True))
     @patch("sage.runner.is_post_invocation", return_value=False)
-    @patch("sage.runner.final_advisor_gate", return_value={"action": "hold_dedup", "seen": {"k1": 2}})
-    @patch("sage.runner.record_advisor_hold")
+    @patch("sage.runner.final_sage_gate", return_value={"action": "hold_dedup", "seen": {"k1": 2}})
+    @patch("sage.runner.record_sage_hold")
     def test_r5_runner_final_advisor_hold_dedup_terminates(self, mock_hold, mock_gate, mock_post, mock_sync, mock_extract, mock_subs, mock_lock):
         """Test runner terminates cleanly when the final advisor's repeated advice is deduplicated (no steering cap)."""
         raw_payload = json.dumps({"conversationId": "conv_hold_dedup"})

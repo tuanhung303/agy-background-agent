@@ -53,8 +53,8 @@ class TestAdvisorIntegration(unittest.TestCase):
 
         with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
              patch("sys.stdin.read", return_value=json.dumps(payload)), \
-             patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 0), \
-             patch("sage.sage.run_advisor_model") as mock_ver, \
+             patch("sage.policies.MID_TURN_SAGE_ENABLED", 0), \
+             patch("sage.sage.run_sage_model") as mock_ver, \
              patch("sys.stdout") as mock_stdout, \
              self.assertRaises(SystemExit):
             main()
@@ -71,8 +71,8 @@ class TestAdvisorIntegration(unittest.TestCase):
 
         with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
              patch("sys.stdin.read", return_value=json.dumps(payload)), \
-             patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-             patch("sage.sage.run_advisor_model") as mock_ver, \
+             patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+             patch("sage.sage.run_sage_model") as mock_ver, \
              patch("sys.stdout") as mock_stdout, \
              self.assertRaises(SystemExit):
             main()
@@ -92,8 +92,8 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.sage.run_advisor_model", return_value=mock_output) as mock_ver, \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", return_value=mock_output) as mock_ver, \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -126,8 +126,8 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.sage.run_advisor_model", return_value=mock_output) as mock_ver, \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", return_value=mock_output) as mock_ver, \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -161,8 +161,8 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.sage.run_advisor_model", return_value=mock_output), \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", return_value=mock_output), \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -203,9 +203,9 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
                  patch("sage.policies.MAX_MID_TURN_STEERS", 2), \
-                 patch("sage.sage.run_advisor_model") as mock_ver, \
+                 patch("sage.sage.run_sage_model") as mock_ver, \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -229,8 +229,8 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.sage.run_advisor_model", return_value=mid_mock), \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", return_value=mid_mock), \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -244,8 +244,8 @@ class TestAdvisorIntegration(unittest.TestCase):
 
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.sage.run_advisor_model", return_value={"healthy": True, "blind_spots": [], "guidance": "Final check passed", "recap": "Feature Z fully implemented and verified."}), \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", return_value={"healthy": True, "blind_spots": [], "guidance": "Final check passed", "recap": "Feature Z fully implemented and verified."}), \
                  patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
                  patch("sys.stdout") as mock_stdout2, \
                  self.assertRaises(SystemExit):
@@ -292,7 +292,7 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.sage.run_advisor_model", return_value=gate_mock), \
+                 patch("sage.sage.run_sage_model", return_value=gate_mock), \
                  patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
@@ -337,9 +337,9 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
                  patch("sage.policies.MAX_MID_TURN_STEERS", 0), \
-                 patch("sage.sage.run_advisor_model", return_value=mock_output) as mock_adv, \
+                 patch("sage.sage.run_sage_model", return_value=mock_output) as mock_adv, \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -384,8 +384,8 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.sage.run_advisor_model", side_effect=side_effect_advisor), \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", side_effect=side_effect_advisor), \
                  patch("sys.stdout") as mock_stdout, \
                  self.assertRaises(SystemExit):
                 main()
@@ -408,8 +408,8 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.sage.run_advisor_model", return_value=mock_adv_output) as mock_adv, \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", return_value=mock_adv_output) as mock_adv, \
                  patch("sys.stdout") as mock_stdout:
                 try: main()
                 except SystemExit: pass
@@ -439,8 +439,8 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 0), \
-                 patch("sage.sage.run_advisor_model") as mock_adv, \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 0), \
+                 patch("sage.sage.run_sage_model") as mock_adv, \
                  patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
                  patch("sys.stdout") as mock_stdout:
                 try: main()
@@ -464,8 +464,8 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.sage.run_advisor_model", return_value={"status": "error"}), \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", return_value={"status": "error"}), \
                  patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
                  patch("sys.stdout") as mock_stdout:
                 try: main()
@@ -483,7 +483,7 @@ class TestAdvisorIntegration(unittest.TestCase):
                 os.remove(state_file)
 
     def test_final_advisor_gate_forces_model_evaluation_below_interval(self):
-        """Verify final advisor gate forces evaluation even when tool delta is below ADVISOR_TOOL_INTERVAL."""
+        """Verify final advisor gate forces evaluation even when tool delta is below SAGE_TOOL_INTERVAL."""
         conv_id = f"test_final_forced_{int(time.time() * 1000)}"
         state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Build feature Y", tool_calls_count=14, is_final=True)
@@ -507,8 +507,8 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.sage.run_advisor_model", return_value=mock_adv_output) as mock_adv, \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", return_value=mock_adv_output) as mock_adv, \
                  patch("sys.stdout"):
                 try: main()
                 except SystemExit: pass
@@ -519,7 +519,7 @@ class TestAdvisorIntegration(unittest.TestCase):
                 os.remove(state_file)
 
     def test_new_turn_state_overlay_resets_advisor_inputs(self):
-        """Verify leftover state from previous turn does not leak stale last_verified_tools or advice into advisor_flow."""
+        """Verify leftover state from previous turn does not leak stale last_verified_tools or advice into sage_flow."""
         conv_id = f"test_new_turn_overlay_{int(time.time() * 1000)}"
         state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         self._write_transcript("Brand new turn prompt", tool_calls_count=12, is_final=False)
@@ -540,7 +540,7 @@ class TestAdvisorIntegration(unittest.TestCase):
         def spy_advisor_flow(mode, **kw):
             seen_state["last_verified_tools"] = kw["state"].get("last_verified_tools")
             seen_state["advisor_advice_counts"] = kw["state"].get("advisor_advice_counts")
-            from sage.policies import advisor_flow as real_flow
+            from sage.policies import sage_flow as real_flow
             return real_flow(mode, **kw)
 
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
@@ -549,9 +549,9 @@ class TestAdvisorIntegration(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.runner.advisor_flow", side_effect=spy_advisor_flow), \
-                 patch("sage.sage.run_advisor_model", return_value=mock_adv_output) as mock_adv, \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.runner.sage_flow", side_effect=spy_advisor_flow), \
+                 patch("sage.sage.run_sage_model", return_value=mock_adv_output) as mock_adv, \
                  patch("sys.stdout"):
                 try: main()
                 except SystemExit: pass

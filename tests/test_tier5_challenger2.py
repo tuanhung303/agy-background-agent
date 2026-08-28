@@ -27,10 +27,10 @@ from statusline.statusline import (
     visible_len,
 )
 from sage.sage import (
-    _normalize_advisor_dict,
-    build_advisor_prompt,
+    _normalize_sage_dict,
+    build_sage_prompt,
     extract_target_goal,
-    parse_advisor_output,
+    parse_sage_output,
 )
 from sage.models import (
     _expand_alias,
@@ -77,7 +77,7 @@ class TestAdvisorParsingAdversarial(unittest.TestCase):
 }
 ```
 """
-        parsed = parse_advisor_output(raw)
+        parsed = parse_sage_output(raw)
         self.assertEqual(parsed["status"], "watchout")
         self.assertEqual(parsed["category"], "architectural_trap")
         self.assertEqual(parsed["action"], "Use process-level flock in locking.py")
@@ -86,14 +86,14 @@ class TestAdvisorParsingAdversarial(unittest.TestCase):
         raw = """```JSON
 {"status": "off_track", "category": "loop_detection", "action": "Check test_models.py", "guidance": "Fix failing assertion"}
 ```"""
-        parsed = parse_advisor_output(raw)
+        parsed = parse_sage_output(raw)
         self.assertEqual(parsed["status"], "off_track")
         self.assertFalse(parsed["healthy"])
 
     def test_unclosed_json_markdown_codeblock(self):
         raw = """```json
 {"status": "on_track", "category": "general", "guidance": "Proceed with plan"}"""
-        parsed = parse_advisor_output(raw)
+        parsed = parse_sage_output(raw)
         self.assertEqual(parsed["status"], "on_track")
         self.assertTrue(parsed["healthy"])
 
@@ -106,7 +106,7 @@ class TestAdvisorParsingAdversarial(unittest.TestCase):
             "guidance": "Hoàn thiện tài liệu trước khi kết thúc turn.",
             "confidence": 0.95,
         })
-        parsed = parse_advisor_output(raw)
+        parsed = parse_sage_output(raw)
         self.assertEqual(parsed["status"], "watchout")
         self.assertIn("🚀", parsed["action"])
         self.assertIn("🎯", parsed["evidence"])
@@ -124,20 +124,20 @@ class TestAdvisorParsingAdversarial(unittest.TestCase):
         ]
         for raw_val, exp_status, exp_healthy in aliases:
             with self.subTest(raw_val=raw_val):
-                res = _normalize_advisor_dict({"status": raw_val, "action": "Check file.py"})
+                res = _normalize_sage_dict({"status": raw_val, "action": "Check file.py"})
                 self.assertEqual(res["status"], exp_status)
                 self.assertEqual(res["healthy"], exp_healthy)
 
     def test_advisor_blind_spots_as_string_vs_list(self):
-        res_str = _normalize_advisor_dict({"blind_spots": "Single string blindspot"})
+        res_str = _normalize_sage_dict({"blind_spots": "Single string blindspot"})
         self.assertEqual(res_str["blind_spots"], ["Single string blindspot"])
         self.assertEqual(res_str["status"], "off_track")
 
-        res_list = _normalize_advisor_dict({"blind_spots": ["Item 1", "Item 2"]})
+        res_list = _normalize_sage_dict({"blind_spots": ["Item 1", "Item 2"]})
         self.assertEqual(res_list["blind_spots"], ["Item 1", "Item 2"])
 
     def test_advisor_watchouts_singular_key_inclusion(self):
-        res = _normalize_advisor_dict({
+        res = _normalize_sage_dict({
             "watchouts": ["Existing item"],
             "watchout": "Additional singular item",
             "status": "watchout",
@@ -146,7 +146,7 @@ class TestAdvisorParsingAdversarial(unittest.TestCase):
         self.assertIn("Additional singular item", res["watchouts"])
 
     def test_advisor_watchout_auto_downgrade_when_empty(self):
-        res = _normalize_advisor_dict({
+        res = _normalize_sage_dict({
             "status": "watchout",
             "watchouts": [],
             "guidance": "",
@@ -155,7 +155,7 @@ class TestAdvisorParsingAdversarial(unittest.TestCase):
         self.assertEqual(res["status"], "on_track")
 
     def test_destructive_action_suppression_in_advisor(self):
-        res = _normalize_advisor_dict({
+        res = _normalize_sage_dict({
             "status": "off_track",
             "action": "rm -rf /tmp/data",
             "guidance": "git reset --hard HEAD~1",
@@ -185,7 +185,7 @@ class TestAdvisorParsingAdversarial(unittest.TestCase):
 
     def test_build_advisor_prompt_truncation_and_template_fallbacks(self):
         long_steps = "Step action log " * 500
-        prompt = build_advisor_prompt("conv_123", "User request", long_steps, is_update=True, git_diff="diff --git a/f b/f", signals="SIG_1")
+        prompt = build_sage_prompt("conv_123", "User request", long_steps, is_update=True, git_diff="diff --git a/f b/f", signals="SIG_1")
         self.assertIn("conv_123", prompt)
         self.assertIn("ACTIVE SIGNALS:\nSIG_1", prompt)
         self.assertLessEqual(len(prompt.split("AGENT ACTIONS (RECENT):\n")[1]), 6000)

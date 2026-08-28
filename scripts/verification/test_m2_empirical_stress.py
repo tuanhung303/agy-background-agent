@@ -17,11 +17,11 @@ import unittest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from sage.sage import (
-    _normalize_advisor_dict,
-    build_advisor_prompt,
+    _normalize_sage_dict,
+    build_sage_prompt,
     extract_target_goal,
     load_advisor_template,
-    parse_advisor_output,
+    parse_sage_output,
 )
 from sage.guards import DESTRUCTIVE_ACTION_RE, is_destructive_action
 from sage.triage import (
@@ -223,7 +223,7 @@ class TestM2EmpiricalStress(unittest.TestCase):
         for cmd in destructive_cases:
             with self.subTest(cmd=cmd):
                 self.assertTrue(is_destructive_action(cmd), f"Expected '{cmd}' to be detected as destructive")
-                d = _normalize_advisor_dict({"status": "off_track", "action": cmd, "guidance": cmd})
+                d = _normalize_sage_dict({"status": "off_track", "action": cmd, "guidance": cmd})
                 self.assertEqual(d["action"], "[Destructive action suppressed] Use safe verification.")
                 self.assertEqual(d["guidance"], "[Destructive command suppressed] Avoid destructive commands; verify first.")
 
@@ -232,17 +232,17 @@ class TestM2EmpiricalStress(unittest.TestCase):
                 self.assertFalse(is_destructive_action(cmd), f"Expected '{cmd}' to be recognized as SAFE")
 
     # =========================================================================
-    # 5. Stress Testing parse_advisor_output & _normalize_advisor_dict
+    # 5. Stress Testing parse_sage_output & _normalize_sage_dict
     # =========================================================================
     def test_parse_advisor_output_exotic_formats_and_fault_tolerance(self):
         # Empty and none inputs
-        self.assertEqual(parse_advisor_output(None)["status"], "on_track")
-        self.assertEqual(parse_advisor_output("")["status"], "on_track")
-        self.assertEqual(parse_advisor_output("   ")["status"], "on_track")
+        self.assertEqual(parse_sage_output(None)["status"], "on_track")
+        self.assertEqual(parse_sage_output("")["status"], "on_track")
+        self.assertEqual(parse_sage_output("   ")["status"], "on_track")
 
         # Corrupted / Truncated JSON
-        self.assertEqual(parse_advisor_output('{"status": "off_track", "blind_')["status"], "on_track")
-        self.assertEqual(parse_advisor_output('<<<HTML>>> not json <<<HTML>>>')["status"], "on_track")
+        self.assertEqual(parse_sage_output('{"status": "off_track", "blind_')["status"], "on_track")
+        self.assertEqual(parse_sage_output('<<<HTML>>> not json <<<HTML>>>')["status"], "on_track")
 
         # Deeply nested or markdown fenced JSON with surrounding chat
         complex_output = """
@@ -262,7 +262,7 @@ Here is my review of the current session:
 
 Let me know if you need further assistance!
 """
-        parsed = parse_advisor_output(complex_output)
+        parsed = parse_sage_output(complex_output)
         self.assertEqual(parsed["status"], "off_track")
         self.assertFalse(parsed["healthy"])
         self.assertEqual(parsed["category"], "loop_detection")
@@ -289,7 +289,7 @@ Let me know if you need further assistance!
         }
         for alias, expected in aliases_map.items():
             with self.subTest(alias=alias):
-                res = _normalize_advisor_dict({"status": alias, "guidance": "some notice"})
+                res = _normalize_sage_dict({"status": alias, "guidance": "some notice"})
                 self.assertEqual(res["status"], expected)
 
     # =========================================================================
@@ -313,12 +313,12 @@ Refactor triage module to adhere to <= 199 lines
         self.assertEqual(extract_target_goal(plain_request), plain_request)
 
         # Build prompt with update vs initial
-        p_init = build_advisor_prompt("conv_1", plain_request, "step 1\nstep 2", is_update=False, git_diff="diff a b")
+        p_init = build_sage_prompt("conv_1", plain_request, "step 1\nstep 2", is_update=False, git_diff="diff a b")
         self.assertIn("conv_1", p_init)
         self.assertIn(plain_request, p_init)
         self.assertIn("step 1", p_init)
 
-        p_upd = build_advisor_prompt("conv_1", plain_request, "step 3", is_update=True, git_diff="diff b c", signals="SIGNAL_PARALLEL")
+        p_upd = build_sage_prompt("conv_1", plain_request, "step 3", is_update=True, git_diff="diff b c", signals="SIGNAL_PARALLEL")
         self.assertTrue("SAGE UPDATE" in p_upd or "ADVISOR UPDATE" in p_upd)
         self.assertIn("ACTIVE SIGNALS:\nSIGNAL_PARALLEL", p_upd)
         self.assertIn("Status legend:", p_upd)

@@ -11,8 +11,8 @@ import unittest
 from unittest.mock import patch
 
 from sage.sage import (
-    _normalize_advisor_dict,
-    build_advisor_prompt,
+    _normalize_sage_dict,
+    build_sage_prompt,
 )
 from sage.guards import (
     DESTRUCTIVE_ACTION_RE,
@@ -21,7 +21,7 @@ from sage.guards import (
     is_destructive_action,
     is_subagent_session,
 )
-from sage.policies import advisor_flow, background_watch
+from sage.policies import sage_flow, background_watch
 from sage.task_structure import (
     _extract_file_path,
     _extract_research_target,
@@ -144,7 +144,7 @@ class TestAdvisorAllCategoriesNormalization(unittest.TestCase):
                     "evidence": "Failing test output",
                     "escalation": "first_warning",
                 }
-                norm = _normalize_advisor_dict(raw)
+                norm = _normalize_sage_dict(raw)
                 self.assertEqual(norm["category"], cat)
                 self.assertEqual(norm["confidence"], 0.9)
                 self.assertEqual(norm["action"], "run pytest")
@@ -154,35 +154,35 @@ class TestAdvisorAllCategoriesNormalization(unittest.TestCase):
 
     def test_blind_spots_and_watchouts_string_and_list_normalization(self):
         # Raw string blind_spots
-        norm1 = _normalize_advisor_dict({
+        norm1 = _normalize_sage_dict({
             "status": "off_track",
             "blind_spots": "Unchecked None return value",
         })
         self.assertEqual(norm1["blind_spots"], ["Unchecked None return value"])
 
         # List blind_spots
-        norm2 = _normalize_advisor_dict({
+        norm2 = _normalize_sage_dict({
             "status": "off_track",
             "blind_spots": ["Issue A", "Issue B"],
         })
         self.assertEqual(norm2["blind_spots"], ["Issue A", "Issue B"])
 
         # Raw string watchouts
-        norm3 = _normalize_advisor_dict({
+        norm3 = _normalize_sage_dict({
             "status": "watchout",
             "watchouts": "Subagent may stall",
         })
         self.assertEqual(norm3["watchouts"], ["Subagent may stall"])
 
         # Singular watchout key
-        norm4 = _normalize_advisor_dict({
+        norm4 = _normalize_sage_dict({
             "status": "watchout",
             "watchout": "Long running test",
         })
         self.assertEqual(norm4["watchouts"], ["Long running test"])
 
     def test_destructive_command_suppression_in_normalization(self):
-        norm = _normalize_advisor_dict({
+        norm = _normalize_sage_dict({
             "status": "off_track",
             "action": "rm -rf /tmp/build",
             "guidance": "git reset --hard HEAD~1",
@@ -191,7 +191,7 @@ class TestAdvisorAllCategoriesNormalization(unittest.TestCase):
         self.assertIn("[Destructive command suppressed]", norm["guidance"])
 
     def test_build_advisor_prompt_with_signals_parameter(self):
-        prompt = build_advisor_prompt(
+        prompt = build_sage_prompt(
             conv_id="test-conv-123",
             user_prompt="Refactor database layer",
             agent_steps_summary="Step 1: modified schema",
@@ -305,7 +305,7 @@ class TestPolicyHardening(unittest.TestCase):
 
     def test_advisor_flow_error_streak_circuit_breaker(self):
         state = {"advisor_error_streak": 3, "mid_turn_steers": 0}
-        res_midturn = advisor_flow(
+        res_midturn = sage_flow(
             "midturn",
             conv_id="conv-1",
             transcript_path="/nonexistent",
@@ -321,7 +321,7 @@ class TestPolicyHardening(unittest.TestCase):
         self.assertEqual(res_midturn["action"], "exit")
         self.assertIn("circuit breaker", res_midturn["reason"])
 
-        res_final = advisor_flow(
+        res_final = sage_flow(
             "final",
             conv_id="conv-1",
             transcript_path="/nonexistent",
@@ -340,7 +340,7 @@ class TestPolicyHardening(unittest.TestCase):
     def test_advisor_flow_max_mid_turn_steers_ceiling(self):
         state = {"advisor_error_streak": 0, "mid_turn_steers": 5}
         with patch("sage.policies.MAX_MID_TURN_STEERS", 5):
-            res_midturn = advisor_flow(
+            res_midturn = sage_flow(
                 "midturn",
                 conv_id="conv-1",
                 transcript_path="/nonexistent",

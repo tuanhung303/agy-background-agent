@@ -1,7 +1,7 @@
 # Project: AGY Background Agent (Strategic Sage & Stop Audit Hardening)
 
 ## Architecture
-- `hooks/session-sage.py`: Hook entry point for Antigravity session-stop and post-invocation Sage events (with backward-compatible session-advisor symlinks).
+- `hooks/session-sage.py`: Hook entry point for Antigravity session-stop and post-invocation Sage events.
 - `sage/runner.py`: Lifecycle coordinator for mid-turn Sage and the final Sage gate (recap or steer; the Sage is the sole stop-time gate).
 - `sage/sage.py`: Wise strategist Sage prompt builder, model caller, and JSON response parser.
 - `sage/sage_prompt.md`: System prompt, goal governance instructions, and few-shot examples for strategic Sage.

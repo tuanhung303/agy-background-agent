@@ -25,14 +25,14 @@ from unittest.mock import patch
 
 from sage.sage import (
     _clamp_diff,
-    _normalize_advisor_dict,
-    build_advisor_prompt,
+    _normalize_sage_dict,
+    build_sage_prompt,
     evaluate_mid_turn_progress,
     extract_target_goal,
-    parse_advisor_output,
+    parse_sage_output,
 )
 from sage.config import (
-    ADVISOR_MAX_ERROR_STREAK,
+    SAGE_MAX_ERROR_STREAK,
 )
 from sage.executor import (
     acquire_spawn_lock,
@@ -52,7 +52,7 @@ from sage.models import (
     cache_working_model,
 )
 from sage.policies import (
-    advisor_flow,
+    sage_flow,
     background_watch,
 )
 from sage.runner import main
@@ -156,7 +156,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         from sage import guards, policies, sensitive, triage, watchers
         self.assertTrue(callable(guards.check_payload_and_lifecycle))
         self.assertTrue(callable(policies.background_watch))
-        self.assertTrue(callable(policies.advisor_flow))
+        self.assertTrue(callable(policies.sage_flow))
         self.assertTrue(callable(sensitive.scan_turn_tools_for_sensitive))
         self.assertTrue(callable(triage.classify_advice))
         self.assertTrue(callable(watchers.get_active_subagents))
@@ -200,7 +200,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         pkg_files = [f for f in glob.glob(f"{self.pkg_dir}/*.py") if not f.endswith("__init__.py")]
         for filepath in pkg_files:
             fname = os.path.basename(filepath)
-            if fname in ("guards.py", "runner.py"):
+            if fname in ("guards.py", "runner.py", "journal.py"):
                 continue
             with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
@@ -309,7 +309,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
             "guidance": "Fix model sorting logic before continuing",
             "confidence": 0.88,
         }
-        norm = _normalize_advisor_dict(raw)
+        norm = _normalize_sage_dict(raw)
         self.assertEqual(norm["action"], "python3 -m unittest tests/test_models.py")
         classified = classify_advice(norm)
         self.assertIn("python3 -m unittest tests/test_models.py", classified["text"])
@@ -323,7 +323,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
             "guidance": "Inspect advisor/triage.py for missing float validation",
             "confidence": 0.78,
         }
-        norm = _normalize_advisor_dict(raw)
+        norm = _normalize_sage_dict(raw)
         self.assertIn("advisor/triage.py", norm["guidance"])
         classified = classify_advice(norm)
         self.assertIn("advisor/triage.py", classified["text"])
@@ -336,7 +336,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
             "action": "rm -rf /tmp/repo && git reset --hard HEAD~1",
             "guidance": "Clean up everything",
         }
-        norm = _normalize_advisor_dict(dangerous)
+        norm = _normalize_sage_dict(dangerous)
         self.assertIn("[Destructive action suppressed]", norm["action"])
         self.assertNotIn("rm -rf", norm["action"])
 
@@ -348,7 +348,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
             "action": "run git status",
             "guidance": "You should run sudo rm -rf / before proceeding",
         }
-        norm = _normalize_advisor_dict(dangerous)
+        norm = _normalize_sage_dict(dangerous)
         self.assertIn("[Destructive command suppressed]", norm["guidance"])
         self.assertNotIn("sudo rm -rf", norm["guidance"])
 
@@ -385,8 +385,8 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         payload = {"conversationId": self.conv_id, "transcriptPath": self.transcript_path}
         with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
              patch("sys.stdin.read", return_value=json.dumps(payload)), \
-             patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-             patch("sage.sage.run_advisor_model", return_value={"status": "on_track", "healthy": True}), \
+             patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+             patch("sage.sage.run_sage_model", return_value={"status": "on_track", "healthy": True}), \
              patch("sys.stdout") as mock_stdout, \
              self.assertRaises(SystemExit):
             main()
@@ -395,7 +395,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         self.assertEqual(data.get("injectSteps"), [])
 
     def test_f5_03_tool_delta_interval_fast_path(self):
-        """Skips LLM execution when tool count delta is below ADVISOR_TOOL_INTERVAL."""
+        """Skips LLM execution when tool count delta is below SAGE_TOOL_INTERVAL."""
         state = {"last_verified_tools": 10}
         res = evaluate_mid_turn_progress(
             self.conv_id, self.transcript_path,
@@ -415,7 +415,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         payload = {"conversationId": self.conv_id, "transcriptPath": self.transcript_path}
         with patch("sys.argv", ["session-sage.py"]), \
              patch("sys.stdin.read", return_value=json.dumps(payload)), \
-             patch("sage.sage.run_advisor_model", return_value={"status": "on_track", "healthy": True}), \
+             patch("sage.sage.run_sage_model", return_value={"status": "on_track", "healthy": True}), \
              patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
              patch("sys.stdout") as mock_stdout, \
              self.assertRaises(SystemExit) as cm:
@@ -531,7 +531,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
 
     def test_f7_04_parallel_subagent_recommendation_in_signals(self):
         """Verifies that signals string is included in advisor prompt when parallelizable work exists."""
-        prompt = build_advisor_prompt(
+        prompt = build_sage_prompt(
             conv_id=self.conv_id,
             user_prompt="Refactor 5 independent modules",
             agent_steps_summary="Working on module 1",
@@ -712,9 +712,9 @@ class TestTier2BoundaryCornerCases(BaseE2ETestCase):
         self.assertIn("[diff truncated]", clamped)
 
     def test_tier2_03_rapid_tool_error_streak_circuit_breaker(self):
-        """Verifies that advisor circuit breaker trips after ADVISOR_MAX_ERROR_STREAK errors."""
-        state = {"advisor_error_streak": ADVISOR_MAX_ERROR_STREAK}
-        res = advisor_flow(
+        """Verifies that advisor circuit breaker trips after SAGE_MAX_ERROR_STREAK errors."""
+        state = {"advisor_error_streak": SAGE_MAX_ERROR_STREAK}
+        res = sage_flow(
             "midturn",
             conv_id=self.conv_id,
             transcript_path=self.transcript_path,
@@ -803,7 +803,7 @@ class TestTier3CrossFeatureInteractions(BaseE2ETestCase):
             "}\n"
             "```\n"
         )
-        parsed = parse_advisor_output(raw_llm_output)
+        parsed = parse_sage_output(raw_llm_output)
         self.assertFalse(parsed["healthy"])
         self.assertEqual(parsed["status"], "off_track")
 
@@ -857,7 +857,7 @@ class TestTier3CrossFeatureInteractions(BaseE2ETestCase):
         with patch("sage.policies.evaluate_mid_turn_progress", side_effect=fake_evaluate), \
              patch("sage.policies.has_new_user_activity", return_value=False), \
              patch("sage.policies.extract_session_and_turn_data", return_value=("p", "r", [], 5, {"run_command"}, None, None, 0)):
-            act = advisor_flow(
+            act = sage_flow(
                 "final",
                 conv_id=self.conv_id,
                 transcript_path=self.transcript_path,

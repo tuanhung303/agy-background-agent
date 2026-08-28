@@ -3,16 +3,16 @@ sage.policies - Decision policies for background task watching and terminal sage
 """
 import re
 from sage.config import (
-    ADAPTIVE_CADENCE_ENABLED, ADVISOR_TOOL_SCORE_THRESHOLD, DIFF_SPIKE_THRESHOLD,
+    ADAPTIVE_CADENCE_ENABLED, SAGE_TOOL_SCORE_THRESHOLD, DIFF_SPIKE_THRESHOLD,
     MAX_MID_TURN_STEERS, MAX_TOOL_SCORE_THRESHOLD, MID_TURN_SAGE_ENABLED,
     MIN_TOOL_SCORE_THRESHOLD, SAGE_ESCALATE_MIN_CONFIDENCE, SAGE_MAX_ERROR_STREAK,
     SAGE_STEER_MIN_CONFIDENCE, SAGE_TOOL_INTERVAL, SAGE_TOOL_SCORE_THRESHOLD,
 )
-MID_TURN_ADVISOR_ENABLED = MID_TURN_SAGE_ENABLED
-ADVISOR_TOOL_INTERVAL = SAGE_TOOL_INTERVAL
-ADVISOR_STEER_MIN_CONFIDENCE = SAGE_STEER_MIN_CONFIDENCE
-ADVISOR_ESCALATE_MIN_CONFIDENCE = SAGE_ESCALATE_MIN_CONFIDENCE
-ADVISOR_MAX_ERROR_STREAK = SAGE_MAX_ERROR_STREAK
+MID_TURN_SAGE_ENABLED = MID_TURN_SAGE_ENABLED
+SAGE_TOOL_INTERVAL = SAGE_TOOL_INTERVAL
+SAGE_STEER_MIN_CONFIDENCE = SAGE_STEER_MIN_CONFIDENCE
+SAGE_ESCALATE_MIN_CONFIDENCE = SAGE_ESCALATE_MIN_CONFIDENCE
+SAGE_MAX_ERROR_STREAK = SAGE_MAX_ERROR_STREAK
 from sage.events import (
     EVENT_CONFUSED_GOAL, EVENT_FANOUT, EVENT_FATIGUE, EVENT_FINAL_STOP,
     EVENT_GOAL_CHANGE, EVENT_NEW_PROMPT, EVENT_PARALLEL_OPP, EVENT_TOOL_THRESHOLD,
@@ -99,14 +99,14 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     def _skip_or_exit(reason):
         return {"action": "skip", "reason": reason} if final else {"action": "exit", "reason": reason}
 
-    is_enabled = bool(MID_TURN_SAGE_ENABLED and MID_TURN_ADVISOR_ENABLED)
+    is_enabled = bool(MID_TURN_SAGE_ENABLED and MID_TURN_SAGE_ENABLED)
     if not is_enabled:
         return _skip_or_exit("sage disabled")
     ms = int(state.get("mid_turn_steers", 0))
     es = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)))
     if not final and MAX_MID_TURN_STEERS > 0 and ms >= MAX_MID_TURN_STEERS:
         return _skip_or_exit(f"max mid-turn steers reached ({ms}/{MAX_MID_TURN_STEERS})")
-    effective_max_streak = min(SAGE_MAX_ERROR_STREAK, ADVISOR_MAX_ERROR_STREAK)
+    effective_max_streak = min(SAGE_MAX_ERROR_STREAK, SAGE_MAX_ERROR_STREAK)
     if es >= effective_max_streak:
         return _skip_or_exit(f"sage circuit breaker open (streak={es})")
     lv = int(state.get("last_verified_tools", 0))
@@ -132,7 +132,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     diff_cnt = sum(int(m) for m in re.findall(r"^Changed lines: (\d+)", git_diff or "", re.M))
     if not diff_cnt and git_diff:
         diff_cnt = sum(1 for ln in git_diff.splitlines() if ln.startswith(("+", "-")) and not ln.startswith(("+++", "---")))
-    base_thresh = min(SAGE_TOOL_SCORE_THRESHOLD, ADVISOR_TOOL_SCORE_THRESHOLD)
+    base_thresh = min(SAGE_TOOL_SCORE_THRESHOLD, SAGE_TOOL_SCORE_THRESHOLD)
     read_tools = {"view_file", "grep_search", "find_by_name", "list_dir", "read_url_content", "search_web", "list_resources", "read_resource"}
     read_ratio = 1.0 if turn_tool_names and all(t in read_tools for t in turn_tool_names) else 0.0
     effective_thresh = compute_dynamic_tool_threshold(state, base_thresh=base_thresh, diff_cnt=diff_cnt, read_ratio=read_ratio)
@@ -185,8 +185,8 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     seen_adv = state.get("sage_advice_counts") or state.get("advisor_advice_counts", {})
     classified = classify_advice(
         verdict, seen_advice=seen_adv,
-        steer_min_conf=min(SAGE_STEER_MIN_CONFIDENCE, ADVISOR_STEER_MIN_CONFIDENCE),
-        escalate_min_conf=min(SAGE_ESCALATE_MIN_CONFIDENCE, ADVISOR_ESCALATE_MIN_CONFIDENCE),
+        steer_min_conf=min(SAGE_STEER_MIN_CONFIDENCE, SAGE_STEER_MIN_CONFIDENCE),
+        escalate_min_conf=min(SAGE_ESCALATE_MIN_CONFIDENCE, SAGE_ESCALATE_MIN_CONFIDENCE),
         anchor_emitted=bool(state.get("pinned_emitted", state.get("anchor_emitted", False))),
         mode="final" if final else "midturn", deferral=deferral)
     latest = extract_session_and_turn_data(transcript_path)
@@ -226,7 +226,7 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
                     total_tool_calls, turn_tool_names, user_prompt,
                     agent_steps, git_diff, state, workspace_root=None):
     """Sage assessment at a finishing stop — the sole terminal gate."""
-    _flow = advisor_flow if advisor_flow is not _BASE_SAGE_FLOW else sage_flow
+    _flow = sage_flow if sage_flow is not _BASE_SAGE_FLOW else sage_flow
     act = _flow("final", conv_id=conv_id, transcript_path=transcript_path,
                 clean_prompt=clean_prompt, initial_line_count=initial_line_count,
                 total_tool_calls=total_tool_calls, turn_tool_names=turn_tool_names,
@@ -247,5 +247,5 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
 
 
 _BASE_SAGE_FLOW = sage_flow
-advisor_flow = sage_flow
-final_advisor_gate = final_sage_gate
+sage_flow = sage_flow
+final_sage_gate = final_sage_gate

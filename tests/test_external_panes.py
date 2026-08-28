@@ -88,7 +88,7 @@ class TestGetActiveExternalPanes(unittest.TestCase):
              patch("sage.runner.is_post_invocation_completion_candidate", return_value=False), \
              patch("sage.runner.has_recent_tool_errors", return_value=False), \
              patch("sage.runner.has_repeated_tool_calls", return_value=False), \
-             patch("sage.runner.advisor_flow", return_value={"action": "healthy", "text": "ok"}), \
+             patch("sage.runner.sage_flow", return_value={"action": "healthy", "text": "ok"}), \
              patch("sage.runner.save_session_state"), \
              patch("sage.runner.emit_continue_response") as emit_mock, \
              patch("sage.runner.fail_safe_exit", side_effect=lambda reason: exits.append(reason) or (_ for _ in ()).throw(SystemExit)):

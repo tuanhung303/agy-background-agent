@@ -125,9 +125,9 @@ class TestAftershockFixes(unittest.TestCase):
         try:
             with patch("sys.argv", ["session-sage.py", "post_invocation"]), \
                  patch("sys.stdin.read", return_value=json.dumps(payload)), \
-                 patch("sage.policies.MID_TURN_ADVISOR_ENABLED", 1), \
-                 patch("sage.sage.run_advisor_model", return_value={"healthy": True, "blind_spots": []}), \
-                 patch("sage.runner.final_advisor_gate", side_effect=fake_gate), \
+                 patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.sage.run_sage_model", return_value={"healthy": True, "blind_spots": []}), \
+                 patch("sage.runner.final_sage_gate", side_effect=fake_gate), \
                  patch("sys.stdout"):
                 try: main()
                 except SystemExit: pass

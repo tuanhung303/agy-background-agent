@@ -107,13 +107,8 @@ def scan_turn_tools_for_sensitive(tool_calls, keywords=None):
         return set()
     matches = set()
     for tool in tool_calls:
-        matches.update(scan_tool_call_for_sensitive(tool, keywords=kws_override(keywords)))
+        matches.update(scan_tool_call_for_sensitive(tool, keywords=keywords))
     return matches
-
-
-def kws_override(keywords):
-    """Helper to pass through keywords list."""
-    return keywords if keywords is not None else get_sensitive_keywords()
 
 
 # --- Explicit user approval detection -------------------------------------

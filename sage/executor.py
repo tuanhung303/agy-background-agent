@@ -2,7 +2,7 @@
 sage.executor - Subprocess AGY execution with isolated home and session persistence.
 """
 import json, os, re, shutil, sqlite3, subprocess, time
-from sage.config import ADVISOR_EXEC_TIMEOUT, SAGE_EXEC_TIMEOUT, SAGE_TIMEOUT_BUDGET
+from sage.config import SAGE_EXEC_TIMEOUT, SAGE_EXEC_TIMEOUT, SAGE_TIMEOUT_BUDGET
 from sage.locking import acquire_spawn_lock, log_audit, release_spawn_lock, safe_id
 from sage.models import cache_working_model, resolve_model_candidates
 
@@ -172,7 +172,7 @@ def run_model_cascade(
             if not existing_session and not spawn_lock_fh:
                 spawn_lock_fh, before_dbs = acquire_lock_fn(), set(os.listdir(conv_dir))
             try:
-                cand_timeout = min(ADVISOR_EXEC_TIMEOUT, max(8.0, rem * 0.7 if (len(candidates) - idx) > 1 else rem))
+                cand_timeout = min(SAGE_EXEC_TIMEOUT, max(8.0, rem * 0.7 if (len(candidates) - idx) > 1 else rem))
                 cmd = [agy_bin] + (["--conversation", existing_session] if existing_session else []) + ["-p", prompt, "--model", model, "--disable-slash-commands"]
                 res = subprocess.run(cmd, input="", capture_output=True, text=True, timeout=cand_timeout, env=env, cwd=run_cwd)
                 if res.returncode != 0 or not res.stdout.strip():

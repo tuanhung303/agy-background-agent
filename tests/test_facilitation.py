@@ -300,7 +300,7 @@ class TestFacilitationCommand(unittest.TestCase):
                 with patch("sage.runner.is_post_invocation", return_value=True), \
                      patch("sage.runner.is_post_invocation_completion_candidate", return_value=False), \
                      patch("sage.runner.sage_flow", return_value=pin_act), \
-                     patch("sage.runner.advisor_flow", return_value=pin_act), \
+                     patch("sage.runner.sage_flow", return_value=pin_act), \
                      patch("sys.stdin.read", return_value=json.dumps(payload)), \
                      patch.dict(os.environ, {"AGY_HOOK_EVENT_NAME": "PostInvocation", "AGY_STOP_AUDIT_TEST": "1"}), \
                      patch("sys.stdout") as mock_stdout, \
@@ -349,7 +349,7 @@ class TestFacilitationCommand(unittest.TestCase):
 
                 with patch("sage.runner.final_sage_gate",
                            return_value={"action": "healthy", "recap": "All done"}), \
-                     patch("sage.runner.final_advisor_gate",
+                     patch("sage.runner.final_sage_gate",
                            return_value={"action": "healthy", "recap": "All done"}), \
                      patch("sys.stdin.read", return_value=json.dumps(payload)), \
                      patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \

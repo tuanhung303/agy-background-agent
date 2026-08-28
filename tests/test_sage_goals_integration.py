@@ -5,13 +5,13 @@ Integration tests for Pinned Goal, Revised Goal, and Derived Tasks in the Strate
 import json
 from unittest.mock import patch
 
-from sage.sage import build_advisor_prompt, parse_advisor_output
-from sage.policies import advisor_flow
+from sage.sage import build_sage_prompt, parse_sage_output
+from sage.policies import sage_flow
 from sage.triage import classify_advice
 
 
 def test_advisor_prompt_includes_pinned_and_revised_goal():
-    prompt = build_advisor_prompt(
+    prompt = build_sage_prompt(
         conv_id="test_conv_123",
         user_prompt="Build core engine",
         agent_steps_summary="Step 1: wrote code",
@@ -26,7 +26,7 @@ def test_advisor_prompt_includes_pinned_and_revised_goal():
 
 
 def test_advisor_prompt_update_mode_includes_goal_context():
-    prompt = build_advisor_prompt(
+    prompt = build_sage_prompt(
         conv_id="test_conv_123",
         user_prompt="Add benchmarks",
         agent_steps_summary="Step 2: running benchmarks",
@@ -52,7 +52,7 @@ def test_parse_advisor_output_normalizes_goal_fields():
         "derived_tasks": ["Create UI widget", "Add styles"],
         "goal_status": "drifted",
     })
-    parsed = parse_advisor_output(raw_json)
+    parsed = parse_sage_output(raw_json)
     assert parsed["status"] == "watchout"
     assert parsed["category"] == "scope_drift"
     assert parsed["pinned_goal"] == "Build core engine"
@@ -98,7 +98,7 @@ def test_advisor_flow_propagates_goal_state(mock_eval, mock_extract, mock_activi
         "revised_goal": "New feature",
         "last_verified_tools": 0,
     }
-    res = advisor_flow(
+    res = sage_flow(
         "midturn",
         conv_id="c1",
         transcript_path="/dummy",

@@ -20,8 +20,6 @@ from sage.config import (
     SAGE_TOOL_SCORE_THRESHOLD,
     DEFAULT_TOOL_WEIGHTS,
     get_tool_weight,
-    MID_TURN_ADVISOR_ENABLED,
-    ADVISOR_TOOL_INTERVAL,
     MAX_MID_TURN_STEERS,
     GATEWAY_NOTIFY_INTERVAL,
 )
@@ -80,13 +78,9 @@ from sage.sage import (
     get_or_create_sage_session,
     run_sage_model,
     save_sage_session,
-    get_or_create_advisor_session,
-    run_advisor_model,
-    save_advisor_session,
 )
 from sage.session_state import (
     record_sage_recap,
-    record_advisor_recap,
     save_session_state,
 )
 from sage.runner import main
@@ -108,8 +102,6 @@ __all__ = [
     "DEFAULT_TOOL_WEIGHTS",
     "get_tool_weight",
     "calculate_turn_tool_score",
-    "MID_TURN_ADVISOR_ENABLED",
-    "ADVISOR_TOOL_INTERVAL",
     "MAX_MID_TURN_STEERS",
     "GATEWAY_NOTIFY_INTERVAL",
     "parse_model_version",
@@ -146,13 +138,9 @@ __all__ = [
     "get_or_create_sage_session",
     "run_sage_model",
     "save_sage_session",
-    "get_or_create_advisor_session",
-    "run_advisor_model",
-    "save_advisor_session",
     "check_payload_and_lifecycle",
     "evaluate_turn_triggers",
     "record_sage_recap",
-    "record_advisor_recap",
     "save_session_state",
     "format_summon_message",
     "EVENT_FINAL_STOP",

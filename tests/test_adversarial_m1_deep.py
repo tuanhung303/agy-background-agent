@@ -64,7 +64,7 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
     def test_midturn_advisor_all_action_permutations(
         self, mock_diff, mock_sub, mock_bg, mock_subagents, mock_lock
     ):
-        """Test every midturn advisor_flow action branch: exit, yield, progressed, error, hold_dedup, emit, healthy."""
+        """Test every midturn sage_flow action branch: exit, yield, progressed, error, hold_dedup, emit, healthy."""
         actions_to_test = [
             ("exit", {"action": "exit", "reason": "Advisor interval not met"}, "fail_safe"),
             ("yield", {"action": "yield", "reason": "Fresh user activity"}, "fail_safe"),
@@ -81,7 +81,7 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
                 t_file, s_file, payload = self._create_fresh_environment(f"midturn_{label}")
                 with patch("sage.runner.is_post_invocation", return_value=True), \
                      patch("sage.runner.is_post_invocation_completion_candidate", return_value=False), \
-                     patch("sage.runner.advisor_flow", return_value=act_dict), \
+                     patch("sage.runner.sage_flow", return_value=act_dict), \
                      patch("sage.runner.fail_safe_exit", side_effect=SystemExit(0)) as mock_fail_safe, \
                      patch("sage.runner.emit_continue_response", side_effect=SystemExit(0)) as mock_emit_cont:
 
@@ -141,7 +141,7 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
             with self.subTest(outcome=label):
                 t_file, s_file, payload = self._create_fresh_environment(f"advisor_gate_{label}")
                 with patch("sage.runner.is_post_invocation", return_value=False), \
-                     patch("sage.runner.final_advisor_gate", return_value=gate_return), \
+                     patch("sage.runner.final_sage_gate", return_value=gate_return), \
                      patch("sage.runner.fail_safe_exit", side_effect=SystemExit(0)) as mock_fail_safe, \
                      patch("sage.runner.emit_continue_response", side_effect=SystemExit(0)) as mock_cont, \
                      patch("sage.runner.emit_recap_response", side_effect=SystemExit(0)) as mock_recap:

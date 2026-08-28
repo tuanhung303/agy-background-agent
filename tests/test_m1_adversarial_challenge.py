@@ -38,9 +38,9 @@ from sage.sanitizer import (
 from sage.session_state import (
     get_state_file_path,
     load_and_sync_session_state,
-    record_advisor_emit,
-    record_advisor_hold,
-    record_advisor_recap,
+    record_sage_emit,
+    record_sage_hold,
+    record_sage_recap,
 )
 
 
@@ -213,9 +213,9 @@ class TestM1SessionStateAndConcurrencyAdversarial(unittest.TestCase):
             self.assertFalse(is_same1)
 
             # Record activity during Turn 1
-            record_advisor_emit(sf1, state1, total_tools=5, initial_lines=10, fdec="steer", ftext="Steer text 1", seen_advice={"cat1": 1})
-            record_advisor_recap(sf1, state1, total_tools=7, initial_lines=14, recap_text="Recap 1")
-            record_advisor_hold(sf1, state1, total_tools=8, initial_lines=16)
+            record_sage_emit(sf1, state1, total_tools=5, initial_lines=10, fdec="steer", ftext="Steer text 1", seen_advice={"cat1": 1})
+            record_sage_recap(sf1, state1, total_tools=7, initial_lines=14, recap_text="Recap 1")
+            record_sage_hold(sf1, state1, total_tools=8, initial_lines=16)
 
             # Re-read same turn
             prompt1_again, sf1_again, state1_again, is_same1_again = load_and_sync_session_state(

@@ -240,12 +240,3 @@ def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_
     )
 
 
-# Backward-compat aliases
-get_or_create_advisor_session = get_or_create_verifier_session = get_or_create_sage_session
-save_advisor_session = save_verifier_session = save_sage_session
-_clear_advisor_session = _clear_verifier_session = _clear_sage_session
-load_advisor_template = load_sage_template
-build_advisor_prompt = build_verifier_prompt = build_sage_prompt
-_normalize_advisor_dict = _normalize_verifier_dict = _normalize_sage_dict
-parse_advisor_output = parse_verifier_output = parse_sage_output
-run_advisor_model = run_verifier_model = run_sage_model
