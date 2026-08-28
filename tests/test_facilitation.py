@@ -36,7 +36,8 @@ class TestFacilitationCommand(unittest.TestCase):
     def test_wording_cmd_facilitation(self):
         msg = immediate_settle_message()
         self.assertIn("[CMD·facilitation", msg)
-        self.assertIn("DELEGATE execution to subagents via invoke_subagent. Do NOT execute inline.", msg)
+        self.assertIn("DELEGATE execution to subagents via invoke_subagent", msg)
+        self.assertNotIn("Do NOT execute inline", msg)
 
     def test_immediate_delegate_message_at_pin(self):
         msg = immediate_delegate_message(pinned_goal="Implement feature X")

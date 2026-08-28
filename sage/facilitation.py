@@ -17,7 +17,7 @@ from sage.transcript import _read_transcript_steps, is_explicit_user_input
 
 def immediate_delegate_message(state=None, pinned_goal=None):
     """Full delegation command dispatched at pin-time."""
-    kwargs = {"signal_text": "DELEGATE execution to subagents via invoke_subagent. Do NOT execute inline."}
+    kwargs = {"signal_text": "DELEGATE execution to subagents via invoke_subagent with a distilled payload."}
     if pinned_goal:
         kwargs["goal"] = pinned_goal
     return format_summon_message(EVENT_DELEGATE, **kwargs)
@@ -28,7 +28,7 @@ def immediate_settle_message(state=None, exec_calls=None, repeat=0):
     if state and (state.get("delegate_cmd_turn") or (state.get("facilitation_cmd_turn") and not state.get("goal_settled"))):
         return "[CMD·delegate·confirm] facilitation compliance confirmed — subagents executed."
     ev = EVENT_FACILITATION_REPEAT if (repeat and repeat > 0) else EVENT_FACILITATION
-    kwargs = {"signal_text": "DELEGATE execution to subagents via invoke_subagent. Do NOT execute inline."}
+    kwargs = {"signal_text": "DELEGATE execution to subagents via invoke_subagent with a distilled payload."}
     if exec_calls is not None:
         kwargs["exec_calls"] = exec_calls
     return format_summon_message(ev, **kwargs)
