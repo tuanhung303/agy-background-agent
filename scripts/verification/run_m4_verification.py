@@ -24,6 +24,9 @@ class PrintCallVisitor(ast.NodeVisitor):
     def visit_Call(self, node):
         if isinstance(node.func, ast.Name) and node.func.id == "print":
             self.print_lines.append(node.lineno)
+        elif isinstance(node.func, ast.Attribute) and node.func.attr == "print":
+            if isinstance(node.func.value, ast.Name) and node.func.value.id in ("builtins", "__builtins__"):
+                self.print_lines.append(node.lineno)
         self.generic_visit(node)
 
 

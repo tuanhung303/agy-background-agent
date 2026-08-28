@@ -58,12 +58,20 @@ def _is_subagent_payload(payload):
     """Subagent tool calls share the parent's conversationId; they must never be
     blocked (the delegation command targets the MAIN agent only). Mirrors the
     payload-key checks of sage.guards.is_subagent_session."""
+    conv_id = payload.get("conversationId") or payload.get("conversation_id")
+    if conv_id:
+        try:
+            from sage.guards import is_known_subagent
+            if is_known_subagent(conv_id):
+                return True
+        except Exception:
+            pass
     if payload.get("isSubagent") or payload.get("is_subagent"):
         return True
     if payload.get("parentConversationId") or payload.get("parent_conversation_id"):
         return True
     role = str(payload.get("agentRole") or payload.get("role") or "").lower()
-    if role and ("subagent" in role or "implementer" in role or "research" in role or "auditor" in role or "worker" in role or role in ("self", "scout", "qa")):
+    if role and ("subagent" in role or "implementer" in role or "research" in role or "auditor" in role or "worker" in role or "reviewer" in role or role in ("self", "scout", "qa")):
         return True
     return False
 

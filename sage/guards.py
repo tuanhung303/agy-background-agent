@@ -131,18 +131,64 @@ def format_hook_message(kind, content):
     return f"※ {label}: {text}"
 
 
+_KNOWN_SUBAGENTS_FILE = "/tmp/agy_known_subagents.json"
+
+
+def register_known_subagent(conv_id):
+    """Registers a conversationId as a known subagent."""
+    if not conv_id:
+        return
+    try:
+        known = set()
+        if os.path.exists(_KNOWN_SUBAGENTS_FILE):
+            with open(_KNOWN_SUBAGENTS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    known.update(data)
+        known.add(str(conv_id))
+        with open(_KNOWN_SUBAGENTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(known), f)
+    except Exception:
+        pass
+
+
+def is_known_subagent(conv_id):
+    """Checks if conversationId is registered as a known subagent."""
+    if not conv_id:
+        return False
+    try:
+        if os.path.exists(_KNOWN_SUBAGENTS_FILE):
+            with open(_KNOWN_SUBAGENTS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and str(conv_id) in data:
+                    return True
+    except Exception:
+        pass
+    return False
+
+
 def is_subagent_session(payload, transcript_path, user_prompt, raw_user_prompt=""):
     """Determines whether current session is a subagent/worker process."""
+    conv_id = payload.get("conversationId") or payload.get("conversation_id")
+    if conv_id and is_known_subagent(conv_id):
+        return True
     if payload.get("isSubagent") or payload.get("is_subagent") or payload.get("parentConversationId") or payload.get("parent_conversation_id"):
         return True
     role = str(payload.get("agentRole") or payload.get("role") or "").lower()
-    if role and ("subagent" in role or "implementer" in role or "research" in role or "auditor" in role or "worker" in role or role in ("self", "scout", "qa")):
+    if role and ("subagent" in role or "implementer" in role or "research" in role or "auditor" in role or "worker" in role or "reviewer" in role or role in ("self", "scout", "qa")):
         return True
     markers = ("<subagent_reminder>", "</subagent_reminder>", "you are running as a subagent", "invoked by a caller agent", "caller agent (name:", "caller agent (id:", "[subagent_role:", "caller_agent_id", "caller_agent_name")
     subagent_pattern = r"\b(?:branch implementer|module implementer|research subagent|codebase researcher|implementer subagent)\b"
+    delegation_payload_re = re.compile(r"(?:^|\n)\s*(?:#+\s*)?(?:goal|scope|context_files|required_tests|dod|required\s+tests)(?:\s*:|\n|$)", re.I)
     forwarded_re = re.compile(r"not actually sent by the user|\[message\][^\n]*sender=", re.I)
     for text in (user_prompt, raw_user_prompt):
-        if text and (any(m in text.lower() for m in markers) or re.search(subagent_pattern, text.lower())):
+        if not text:
+            continue
+        low = text.lower()
+        if any(m in low for m in markers) or re.search(subagent_pattern, low):
+            return True
+        matches = len(delegation_payload_re.findall(text))
+        if matches >= 2 and ("dod" in low or "required_tests" in low or "required tests" in low or "context_files" in low or "scope" in low):
             return True
     if transcript_path and os.path.exists(transcript_path):
         try:

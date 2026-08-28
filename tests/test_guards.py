@@ -91,8 +91,19 @@ class TestGuards(unittest.TestCase):
         self.assertTrue(is_subagent_session({}, None, "<subagent_reminder>Don't stop</subagent_reminder>"))
         self.assertTrue(is_subagent_session({}, None, "[subagent_role: scout] do research"))
         self.assertTrue(is_subagent_session({}, None, "Please act as a research subagent."))
+        self.assertTrue(is_subagent_session({}, None, "goal: Fix bugs\nscope: sage/\nrequired_tests: pytest\nDoD: green"))
+        self.assertTrue(is_subagent_session({}, None, "# Goal\nFix bugs\n# Scope\nsage/\n# DoD\nall green"))
         self.assertFalse(is_subagent_session({}, None, "Please optimize my database query."))
         self.assertFalse(is_subagent_session({}, None, "Can you do research on hermes and agy?"))
+
+    def test_is_subagent_session_by_known_registry(self):
+        from sage.guards import register_known_subagent
+        register_known_subagent("test-subagent-uuid-999")
+        self.assertTrue(is_subagent_session({"conversationId": "test-subagent-uuid-999"}, None, "normal prompt"))
+
+    def test_is_subagent_session_by_role_in_payload(self):
+        self.assertTrue(is_subagent_session({"agentRole": "Static Analysis Implementer"}, None, "run checks"))
+        self.assertTrue(is_subagent_session({"role": "QA Reviewer"}, None, "run checks"))
 
     def test_is_subagent_session_by_transcript(self):
         with open(self.transcript_path, "w") as f:

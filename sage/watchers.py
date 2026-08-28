@@ -127,6 +127,11 @@ def get_active_subagents(steps, conv_id=None, parse_ts_func=None):
                         "role": role,
                         "age_seconds": prev_age,
                     }
+                    try:
+                        from sage.guards import register_known_subagent
+                        register_known_subagent(cid)
+                    except Exception:
+                        pass
         if stype in ("GENERIC", "SYSTEM_MESSAGE") and SUBAGENT_INVOKE_FAILURE_RE.search(content):
             failed_batch = pending_batches.pop(0) if pending_batches else []
             for sid in failed_batch:

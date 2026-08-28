@@ -19,14 +19,6 @@ from sage.sage import (
     parse_sage_output,
     run_sage_model,
     save_sage_session,
-    # Backward-compatible aliases
-    _clear_sage_session,
-    _normalize_sage_dict,
-    build_sage_prompt,
-    get_or_create_sage_session,
-    parse_sage_output,
-    run_sage_model,
-    save_sage_session,
 )
 
 

@@ -14,7 +14,7 @@ from collections import defaultdict
 
 
 class PrintCallVisitor(ast.NodeVisitor):
-    """AST visitor targeting direct print() function calls."""
+    """AST visitor targeting direct and builtins print() function calls."""
 
     def __init__(self):
         self.print_lines = []
@@ -22,6 +22,9 @@ class PrintCallVisitor(ast.NodeVisitor):
     def visit_Call(self, node):
         if isinstance(node.func, ast.Name) and node.func.id == "print":
             self.print_lines.append(node.lineno)
+        elif isinstance(node.func, ast.Attribute) and node.func.attr == "print":
+            if isinstance(node.func.value, ast.Name) and node.func.value.id in ("builtins", "__builtins__"):
+                self.print_lines.append(node.lineno)
         self.generic_visit(node)
 
 
@@ -49,7 +52,7 @@ class TestStaticAnalysis(unittest.TestCase):
                 except SyntaxError as e:
                     self.fail(f"Syntax error in {rel_path}: {e}")
 
-    def test_all_sage_modules_are_strictly_under_200_lines(self):
+    def test_all_sage_modules_are_strictly_under_300_lines(self):
         pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
         self.assertGreater(len(pkg_files), 0, "No python files found in sage/")
         self.assertEqual(len(pkg_files), 24, "Expected exactly 24 modules in sage/")
@@ -66,9 +69,12 @@ class TestStaticAnalysis(unittest.TestCase):
                 )
 
     def test_all_modules_have_docstrings(self):
-        """Assert every sage module contains a non-empty module-level docstring."""
-        pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
-        self.assertGreater(len(pkg_files), 0, "No python files found in sage/")
+        """Assert every module in sage, hooks, statusline, and scripts contains a non-empty docstring."""
+        target_dirs = ["sage", "hooks", "statusline", "scripts"]
+        pkg_files = []
+        for d in target_dirs:
+            pkg_files.extend(glob.glob(f"{self.repo_root}/{d}/**/*.py", recursive=True))
+        self.assertGreater(len(pkg_files), 0, "No python files found in target directories")
         for filepath in sorted(pkg_files):
             rel_path = os.path.relpath(filepath, self.repo_root)
             with self.subTest(filepath=rel_path):
@@ -79,9 +85,12 @@ class TestStaticAnalysis(unittest.TestCase):
                 self.assertTrue(len(doc.strip()) > 0, f"Module {rel_path} has an empty docstring")
 
     def test_no_wildcard_imports_in_core_modules(self):
-        """Assert zero 'from module import *' statements in sage modules."""
-        pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
-        self.assertGreater(len(pkg_files), 0, "No python files found in sage/")
+        """Assert zero 'from module import *' statements in sage, hooks, statusline, and scripts."""
+        target_dirs = ["sage", "hooks", "statusline", "scripts"]
+        pkg_files = []
+        for d in target_dirs:
+            pkg_files.extend(glob.glob(f"{self.repo_root}/{d}/**/*.py", recursive=True))
+        self.assertGreater(len(pkg_files), 0, "No python files found in target directories")
         for filepath in sorted(pkg_files):
             rel_path = os.path.relpath(filepath, self.repo_root)
             with self.subTest(filepath=rel_path):
@@ -97,10 +106,11 @@ class TestStaticAnalysis(unittest.TestCase):
                             )
 
     def test_no_semicolons_in_sage_modules(self):
-        """Assert zero semicolon characters outside docstrings/strings in sage, hooks, and statusline."""
+        """Assert zero semicolon characters outside docstrings/strings in sage, hooks, statusline, and scripts."""
         target_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
         target_files.extend(glob.glob(f"{self.repo_root}/hooks/**/*.py", recursive=True))
         target_files.extend(glob.glob(f"{self.repo_root}/statusline/**/*.py", recursive=True))
+        target_files.extend(glob.glob(f"{self.repo_root}/scripts/**/*.py", recursive=True))
         self.assertGreater(len(target_files), 0, "No python files found in target directories")
 
         for filepath in sorted(target_files):
@@ -129,10 +139,11 @@ class TestStaticAnalysis(unittest.TestCase):
                     )
 
     def test_ast_single_statement_per_line_in_sage_modules(self):
-        """Assert AST single-statement per line in sage, hooks, and statusline."""
+        """Assert AST single-statement per line in sage, hooks, statusline, and scripts."""
         target_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
         target_files.extend(glob.glob(f"{self.repo_root}/hooks/**/*.py", recursive=True))
         target_files.extend(glob.glob(f"{self.repo_root}/statusline/**/*.py", recursive=True))
+        target_files.extend(glob.glob(f"{self.repo_root}/scripts/**/*.py", recursive=True))
         self.assertGreater(len(target_files), 0, "No python files found in target directories")
 
         for filepath in sorted(target_files):
@@ -168,7 +179,7 @@ class TestStaticAnalysis(unittest.TestCase):
                     )
 
     def test_no_forbidden_debugging_prints_in_library_modules(self):
-        """Assert no direct print() AST calls in library modules outside allowed entrypoints."""
+        """Assert no direct or builtins print() AST calls in library modules outside allowed entrypoints."""
         pkg_files = [
             f for f in glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
             if not f.endswith("__init__.py")
@@ -199,6 +210,7 @@ import sys
 def helper(x: int, y: str = "val;with;semi") -> bool:
     """Docstring; contains; semicolons; safely."""
     # Comment with semicolon; too
+    msg = f"format;{x};{y}"
     if x > 0:
         return True
     return False
@@ -227,6 +239,8 @@ def helper(x: int, y: str = "val;with;semi") -> bool:
             "while cond: do_something()\n",
             "for x in xs: pass\n",
             "def f(): return 42\n",
+            "try: x = 1\nexcept: pass\n",
+            "async def f(): return 1\n",
         ]:
             bad_tree = ast.parse(bad_packed)
             bad_line_stmts = defaultdict(list)
@@ -236,19 +250,34 @@ def helper(x: int, y: str = "val;with;semi") -> bool:
             bad_packed_lines = {l: s for l, s in bad_line_stmts.items() if len(s) > 1}
             self.assertEqual(len(bad_packed_lines), 1, f"Failed to detect packing in: {bad_packed}")
 
-        # 4. AST print visitor detection vs string literal tolerance
-        code_with_print_call = 'def test():\n    print("hello world")\n'
-        code_with_print_string = 'def test():\n    msg = "do not call print()"\n'
+        # 4. AST print visitor detection across nested structures and builtins
+        cases = [
+            ('def test():\n    print("hello world")\n', [2]),
+            ('def test():\n    builtins.print("hello")\n', [2]),
+            ('def test():\n    __builtins__.print("hello")\n', [2]),
+            ('fn = lambda x: print(x)\n', [1]),
+            ('def outer():\n    def inner():\n        print("nested")\n', [3]),
+            ('async def f():\n    print("async")\n', [2]),
+            ('results = [print(x) for x in range(3)]\n', [1]),
+            ('class C:\n    def m(self):\n        print("method")\n', [3]),
+        ]
+        for code, expected_lines in cases:
+            visitor = PrintCallVisitor()
+            visitor.visit(ast.parse(code))
+            self.assertEqual(visitor.print_lines, expected_lines, f"Failed for code:\n{code}")
 
-        v1 = PrintCallVisitor()
-        v1.visit(ast.parse(code_with_print_call))
-        self.assertEqual(v1.print_lines, [2])
+        # 5. AST print visitor tolerance for non-print calls and strings
+        benign_cases = [
+            'def test():\n    msg = "do not call print()"\n',
+            'def test():\n    custom_printer.print("ok")\n',
+            'def test():\n    logger.info("print this")\n',
+        ]
+        for benign_code in benign_cases:
+            visitor = PrintCallVisitor()
+            visitor.visit(ast.parse(benign_code))
+            self.assertEqual(len(visitor.print_lines), 0, f"False positive for benign code:\n{benign_code}")
 
-        v2 = PrintCallVisitor()
-        v2.visit(ast.parse(code_with_print_string))
-        self.assertEqual(len(v2.print_lines), 0)
-
-        # 5. Wildcard import detection
+        # 6. Wildcard import detection
         tree_wildcard = ast.parse("from os.path import *\n")
         wildcards = [
             alias.name

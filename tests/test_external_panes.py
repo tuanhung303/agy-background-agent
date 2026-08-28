@@ -64,7 +64,6 @@ class TestGetActiveExternalPanes(unittest.TestCase):
         """Kill-mutation for the runner steer ceiling: after 2 steers of the same
         pane, the stop gate must fall through (no more 'still streaming' block),
         otherwise the session hangs in an endless stop-block loop (2026-08-27)."""
-        import json
         from unittest.mock import patch
         from sage.runner import run_session_stop_audit
 
