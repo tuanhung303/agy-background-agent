@@ -6,17 +6,14 @@ import json
 import os
 import re
 
-from sage.config import DEFAULT_SENSITIVE_KEYWORDS, SENSITIVE_TRIGGER_ENABLED, _safe_bool
+from sage.config import DEFAULT_SENSITIVE_KEYWORDS, SENSITIVE_TRIGGER_ENABLED, _safe_bool, _safe_bool_multi
 
 
 def is_sensitive_trigger_enabled():
     """Returns True if sensitive keyword tool triggers are enabled in config/env."""
-    return _safe_bool(
-        "AGY_SAGE_SENSITIVE_TRIGGER",
-        _safe_bool(
-            "AGY_ADVISOR_SENSITIVE_TRIGGER",
-            _safe_bool("AGY_STOP_AUDIT_SENSITIVE_TRIGGER", SENSITIVE_TRIGGER_ENABLED),
-        ),
+    return _safe_bool_multi(
+        ("AGY_SAGE_SENSITIVE_TRIGGER", "AGY_ADVISOR_SENSITIVE_TRIGGER", "AGY_STOP_AUDIT_SENSITIVE_TRIGGER"),
+        SENSITIVE_TRIGGER_ENABLED,
     )
 
 

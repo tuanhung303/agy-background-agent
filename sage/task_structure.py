@@ -21,20 +21,8 @@ TEST_RUNNERS = ("pytest", "unittest", "cargo test", "npm test", "go test", "vite
 def _read_steps(steps_or_path):
     if isinstance(steps_or_path, list):
         return steps_or_path
-    if not isinstance(steps_or_path, str) or not os.path.exists(steps_or_path):
-        return []
-    steps = []
-    try:
-        with open(steps_or_path, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                if line.strip():
-                    try:
-                        steps.append(json.loads(line))
-                    except Exception:
-                        pass
-    except Exception:
-        pass
-    return steps
+    from sage.transcript import _read_transcript_steps
+    return _read_transcript_steps(steps_or_path)
 
 
 def _extract_file_path(args):

@@ -20,6 +20,7 @@ _REPO_DIR = os.path.abspath(os.path.join(_HOOK_DIR, ".."))
 if _REPO_DIR not in sys.path:
     sys.path.insert(0, _REPO_DIR)
 
+from sage.guards import is_subagent_payload  # noqa: E402
 from sage.session_state import get_state_file_path  # noqa: E402
 from sage.task_structure import EXEC_TOOLS, FILE_TOOLS  # noqa: E402
 
@@ -54,33 +55,11 @@ def _record_injection(conv_id):
         pass
 
 
-def _is_subagent_payload(payload):
-    """Subagent tool calls share the parent's conversationId; they must never be
-    blocked (the delegation command targets the MAIN agent only). Mirrors the
-    payload-key checks of sage.guards.is_subagent_session."""
-    conv_id = payload.get("conversationId") or payload.get("conversation_id")
-    if conv_id:
-        try:
-            from sage.guards import is_known_subagent
-            if is_known_subagent(conv_id):
-                return True
-        except Exception:
-            pass
-    if payload.get("isSubagent") or payload.get("is_subagent"):
-        return True
-    if payload.get("parentConversationId") or payload.get("parent_conversation_id"):
-        return True
-    role = str(payload.get("agentRole") or payload.get("role") or "").lower()
-    if role and ("subagent" in role or "implementer" in role or "research" in role or "auditor" in role or "worker" in role or "reviewer" in role or role in ("self", "scout", "qa")):
-        return True
-    return False
-
-
 def evaluate(payload):
     """Pure decision logic: returns dict for the PreToolUse output contract."""
     if os.environ.get("AGY_SAGE_DISABLED") == "1":
         return _passthrough()
-    if _is_subagent_payload(payload):
+    if is_subagent_payload(payload):
         return _passthrough()
     tool_call = payload.get("toolCall") if isinstance(payload.get("toolCall"), dict) else {}
     tool_name = str(tool_call.get("name") or "")

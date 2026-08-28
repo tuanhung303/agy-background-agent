@@ -23,8 +23,7 @@ def is_post_invocation():
 
 
 DESTRUCTIVE_ACTION_RE = re.compile(
-    r"(?:^|\s|\b)(rm\s+(?=[^;&|\n]*(?:--recursive(?=\s|[;&|]|$)|"
-    r"-(?!-)[a-zA-Z0-9]*r[a-zA-Z0-9]*(?=\s|[;&|]|$)))"
+    r"(?:^|\s|\b)(rm\s+(?=[^;&|\n]*(?:--recursive(?=\s|[;&|]|$)|-(?!-)[a-zA-Z0-9]*r[a-zA-Z0-9]*(?=\s|[;&|]|$)))"
     r"(?=[^;&|\n]*(?:--force(?=\s|[;&|]|$)|-(?!-)[a-zA-Z0-9]*f[a-zA-Z0-9]*(?=\s|[;&|]|$)))|"
     r"sudo\s+rm|mkfs|dd\s+if=|:\(\)\s*\{|git\s+reset\s+--hard|"
     r"git\s+push\s+[^;&|\n]*(?:--force(?=\s|[;&|]|$)|-(?!-)[a-zA-Z0-9]*f[a-zA-Z0-9]*(?=\s|[;&|]|$))|"
@@ -57,20 +56,12 @@ def emit_continue_response(message, is_post=None):
 
 
 def emit_recap_response(recap, is_post=None, kind="recap"):
-    """Releases conversation lock and emits recap termination or stop decision.
-
-    agy 1.1.22 resumed sessions drop `injectSteps` from PostInvocation hooks —
-    recaps silently vanished (0e07824f, 2026-08-28). The stop/reason channel
-    demonstrably lands (steering uses it), so post-invocation emits BOTH: the
-    injectSteps+terminate contract for CLIs that honor it, and decision:stop
-    with the same message so the recap always reaches the conversation.
-    """
+    """Releases conversation lock and emits recap termination or stop decision."""
     post = is_post if is_post is not None else is_post_invocation()
     release_lock()
     msg = format_hook_message(kind, recap)
     if post:
-        payload = {"injectSteps": [{"userMessage": msg}], "terminationBehavior": "terminate",
-                   "decision": "stop", "reason": msg}
+        payload = {"injectSteps": [{"userMessage": msg}], "terminationBehavior": "terminate", "decision": "stop", "reason": msg}
     else:
         payload = {"decision": "stop", "reason": msg}
     print(json.dumps(payload))
@@ -167,8 +158,10 @@ def is_known_subagent(conv_id):
     return False
 
 
-def is_subagent_session(payload, transcript_path, user_prompt, raw_user_prompt=""):
-    """Determines whether current session is a subagent/worker process."""
+def is_subagent_payload(payload):
+    """Determines whether a payload dictionary belongs to a subagent/worker process."""
+    if not isinstance(payload, dict):
+        return False
     conv_id = payload.get("conversationId") or payload.get("conversation_id")
     if conv_id and is_known_subagent(conv_id):
         return True
@@ -176,6 +169,13 @@ def is_subagent_session(payload, transcript_path, user_prompt, raw_user_prompt="
         return True
     role = str(payload.get("agentRole") or payload.get("role") or "").lower()
     if role and ("subagent" in role or "implementer" in role or "research" in role or "auditor" in role or "worker" in role or "reviewer" in role or role in ("self", "scout", "qa")):
+        return True
+    return False
+
+
+def is_subagent_session(payload, transcript_path, user_prompt, raw_user_prompt=""):
+    """Determines whether current session is a subagent/worker process."""
+    if is_subagent_payload(payload):
         return True
     markers = ("<subagent_reminder>", "</subagent_reminder>", "you are running as a subagent", "invoked by a caller agent", "caller agent (name:", "caller agent (id:", "[subagent_role:", "caller_agent_id", "caller_agent_name")
     subagent_pattern = r"\b(?:branch implementer|module implementer|research subagent|codebase researcher|implementer subagent)\b"

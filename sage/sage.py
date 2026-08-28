@@ -19,8 +19,8 @@ TEMPLATE_CANDIDATES = (
     os.path.expanduser("~/.config/agy/advisor_prompt.md"), os.path.abspath(os.path.join(os.path.dirname(__file__), "advisor_prompt.md")),
     os.path.expanduser("~/.config/agy/verifier_prompt.md"),
 )
-TEMPLATE_FILE, DEFAULT_TEMPLATE = TEMPLATE_CANDIDATES[0], 'Acts as wise strategist sage. JSON output: {"status": "on_track"|"watchout"|"off_track", ...}.'
-_clamp_diff, _acquire_spawn_lock, _release_spawn_lock = clamp_diff, acquire_spawn_lock, release_spawn_lock
+DEFAULT_TEMPLATE = 'Acts as wise strategist sage. JSON output: {"status": "on_track"|"watchout"|"off_track", ...}.'
+_clamp_diff = clamp_diff
 
 
 def get_or_create_sage_session(parent_conv_id):
@@ -46,8 +46,6 @@ def load_sage_template():
             except Exception:
                 pass
     return DEFAULT_TEMPLATE
-
-load_advisor_template = load_sage_template
 
 GOAL_MARKERS = ("[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:", "[LATEST ACTIVE USER REQUEST]:")
 STATUS_LEGEND = (

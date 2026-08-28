@@ -46,6 +46,7 @@ from sage.guards import (
     format_hook_message,
     is_post_invocation,
     is_steering_message,
+    is_subagent_payload,
     is_subagent_session,
 )
 from sage.events import (
@@ -120,6 +121,7 @@ __all__ = [
     "format_hook_message",
     "is_post_invocation",
     "is_steering_message",
+    "is_subagent_payload",
     "is_subagent_session",
     "get_transcript_path",
     "clean_user_prompt",

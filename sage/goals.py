@@ -68,9 +68,6 @@ def extract_pinned_goal(user_prompt: str, limit: int = 500) -> str:
     return summary[:limit].strip()
 
 
-extract_anchor_goal = extract_pinned_goal
-
-
 def extract_revised_goal(user_prompt: str, pinned_goal: Optional[str] = None, limit: int = 500, **kwargs) -> Optional[str]:
     """Extracts revised goal when subsequent turns introduce new scope."""
     base_goal = pinned_goal or kwargs.get("anchor_goal")
