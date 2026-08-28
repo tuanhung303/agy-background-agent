@@ -13,6 +13,7 @@ EVENT_SENSITIVE_TOOL = "sensitive_tool"
 EVENT_STALE_TASK = "stale_task"
 EVENT_PARALLEL_OPP = "parallel_opportunity"
 EVENT_FACILITATION = "facilitation"
+EVENT_FACILITATION_REPEAT = "facilitation_repeat"
 EVENT_NEW_PROMPT = "new_prompt"
 EVENT_FATIGUE = "fatigue"
 EVENT_CONFUSED_GOAL = "confused_goal"
@@ -35,7 +36,7 @@ STYLE_VERBOSE = "verbose"
 SEVERITY = {
     EVENT_TOOL_THRESHOLD: 1, EVENT_PARALLEL_OPP: 1, EVENT_FANOUT: 1, EVENT_FATIGUE: 1,
     EVENT_NEW_PROMPT: 1, EVENT_GOAL_CHANGE: 1,
-    EVENT_FACILITATION: 2, EVENT_HEARTBEAT: 2, EVENT_STALE_TASK: 2,
+    EVENT_FACILITATION: 2, EVENT_FACILITATION_REPEAT: 2, EVENT_HEARTBEAT: 2, EVENT_STALE_TASK: 2,
     EVENT_CONFUSED_GOAL: 2,
     EVENT_ERROR_LOOP: 3, EVENT_SENSITIVE_TOOL: 3, EVENT_FINAL_STOP: 3,
 }
@@ -75,7 +76,8 @@ PLAN_FINAL_STOP_DIRECTIVE = (
 ASK = {
     EVENT_TOOL_THRESHOLD: "",
     EVENT_PARALLEL_OPP: "",
-    EVENT_FACILITATION: "goal settled. facilitation mode: delegate ALL execution+tests to subagents via invoke_subagent. distill full payload: goal/scope/context_files/required_tests/DoD. do NOT run inline.",
+    EVENT_FACILITATION: "goal settled. facilitation command: delegate ALL execution+tests to subagents via invoke_subagent. distill full payload: goal/scope/context_files/required_tests/DoD. do NOT run inline.",
+    EVENT_FACILITATION_REPEAT: "facilitation command ignored. prior command: delegate execution to subagents via invoke_subagent. do NOT execute inline.",
     EVENT_HEARTBEAT: "waiting on bg task, hung, or progressing? unblock cmd if hung.",
     EVENT_STALE_TASK: "producing output or hung? keep watch or kill.",
     EVENT_ERROR_LOOP: "root cause. exact fix cmd. NO blind retry.",
@@ -202,7 +204,9 @@ def format_summon_message(event_type, style=STYLE_BALANCED, **kwargs):
         escalated = ESCALATED_ASK.get(event_type) if rep_val > 1 else ""
         ask = escalated or ASK.get(event_type, "")
     facts_str = render_facts(merged, style)
-    head = f"[EVT·{event_type} s{sev}] {facts_str}".rstrip() if facts_str else f"[EVT·{event_type} s{sev}]"
+    pfx = "CMD" if event_type.startswith("facilitation") else "EVT"
+    tag = "facilitation·repeat" if event_type == EVENT_FACILITATION_REPEAT else event_type
+    head = f"[{pfx}·{tag} s{sev}] {facts_str}".rstrip() if facts_str else f"[{pfx}·{tag} s{sev}]"
     if not ask:
         return head
     sep = "\n\n" if event_type == EVENT_FINAL_STOP else "\nASK "

@@ -1,33 +1,38 @@
-"""sage.facilitation - Post-settle delegation advice (advice-only, never blocks).
+"""sage.facilitation - Post-settle delegation command (command + fail-closed recap gate).
 
 After sage approves a recap (goal_settled in session state), the main agent
-becomes a facilitator: further execution and test work should be delegated to
-subagents with a fully distilled dispatch payload. This module detects the
-condition and builds the advisory signal; it never changes the gate verdict.
+becomes a facilitator: further execution and test work MUST be delegated to
+subagents via invoke_subagent with a fully distilled dispatch payload.
+Inline execution is rejected at the final recap gate unless an explicit
+receipt proves inline is the sole viable path.
 """
 
-from sage.events import EVENT_FACILITATION, format_summon_message
-from sage.guards import is_steering_message
+from sage.events import EVENT_FACILITATION, EVENT_FACILITATION_REPEAT, format_summon_message
 from sage.task_structure import EXEC_TOOLS, FILE_TOOLS, RESEARCH_TOOLS
-from sage.transcript import _read_transcript_steps
+from sage.transcript import _read_transcript_steps, is_explicit_user_input
 
 
-def immediate_settle_message(state=None, exec_calls=None):
-    """Advisory message dispatched immediately upon goal settlement."""
-    kwargs = {"signal_text": "goal settled; delegate execution to subagents with distilled payload"}
+def immediate_settle_message(state=None, exec_calls=None, repeat=0):
+    """Command message dispatched immediately upon goal settlement or mid-turn repeat."""
+    ev = EVENT_FACILITATION_REPEAT if (repeat and repeat > 0) else EVENT_FACILITATION
+    kwargs = {"signal_text": "DELEGATE execution to subagents via invoke_subagent. Do NOT execute inline."}
     if exec_calls is not None:
         kwargs["exec_calls"] = exec_calls
-    return format_summon_message(EVENT_FACILITATION, **kwargs)
+    return format_summon_message(ev, **kwargs)
 
 
-def _turn_tool_calls(steps):
+def _turn_tool_calls(steps, from_turn_idx=None):
     turn_idxs = [
         i for i, s in enumerate(steps)
-        if isinstance(s, dict) and s.get("type") == "USER_INPUT"
-        and str(s.get("source") or "").upper() in ("USER_EXPLICIT", "USER", "")
-        and not is_steering_message(str(s.get("content") or ""))
+        if isinstance(s, dict) and is_explicit_user_input(s)
     ]
-    t_steps = steps[turn_idxs[-1] + 1:] if turn_idxs else steps
+    if from_turn_idx is not None and from_turn_idx > 0 and turn_idxs:
+        idx = max(0, min(from_turn_idx - 1, len(turn_idxs) - 1))
+        t_steps = steps[turn_idxs[idx]:]
+    elif turn_idxs:
+        t_steps = steps[turn_idxs[-1] + 1:]
+    else:
+        t_steps = steps
     return [
         t for s in t_steps if isinstance(s, dict)
         for t in (s.get("tool_calls") if isinstance(s.get("tool_calls"), list) else [])
@@ -36,8 +41,8 @@ def _turn_tool_calls(steps):
 
 
 def facilitation_signal(transcript_path, state):
-    """Advisory text when the main agent executes inline after goal settle."""
-    if not state.get("goal_settled"):
+    """Command signal when the main agent executes inline after goal settle."""
+    if not state.get("goal_settled") and not state.get("facilitation_cmd_turn"):
         return ""
     steps = _read_transcript_steps(transcript_path) if transcript_path else []
     t_calls = _turn_tool_calls(steps)
@@ -46,5 +51,22 @@ def facilitation_signal(transcript_path, state):
     exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in (FILE_TOOLS | EXEC_TOOLS | RESEARCH_TOOLS))
     if exec_calls < 1:
         return ""
-    return immediate_settle_message(state, exec_calls=exec_calls)
+    repeat = int(state.get("facilitation_cmd_ignored", 0))
+    return immediate_settle_message(state, exec_calls=exec_calls, repeat=repeat)
+
+
+def check_facilitation_compliance(transcript_path, state):
+    """Checks whether the agent has complied with the facilitation command."""
+    if not state.get("goal_settled") and not state.get("facilitation_cmd_turn"):
+        return {"required": False, "compliant": True, "exec_calls": 0, "has_subagent": False}
+    steps = _read_transcript_steps(transcript_path) if transcript_path else []
+    cmd_turn = state.get("facilitation_cmd_turn")
+    t_calls = _turn_tool_calls(steps, from_turn_idx=cmd_turn)
+    has_subagent = any(str(t.get("name") or "") == "invoke_subagent" for t in t_calls)
+    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in (FILE_TOOLS | EXEC_TOOLS | RESEARCH_TOOLS))
+    if has_subagent:
+        return {"required": True, "compliant": True, "exec_calls": exec_calls, "has_subagent": True}
+    if exec_calls > 0:
+        return {"required": True, "compliant": False, "exec_calls": exec_calls, "has_subagent": False}
+    return {"required": True, "compliant": True, "exec_calls": 0, "has_subagent": False}
 

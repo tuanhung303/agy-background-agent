@@ -193,9 +193,10 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         return {"action": "progressed", "tools": latest[3], "lines": latest[7]}
     dec, text = classified.get("decision"), classified.get("text", "")
     res = {"seen": classified.get("seen")}
-    for k in ("recap", "category", "confidence", "pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "goal_status", "task_complexity", "pinned_emitted", "anchor_emitted"):
-        if k in classified and classified[k] is not None:
-            res[k] = classified[k]
+    for k in ("recap", "category", "confidence", "pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "goal_status", "task_complexity", "pinned_emitted", "anchor_emitted", "facilitation_override", "override_receipt"):
+        v = classified.get(k) if k in classified else verdict.get(k)
+        if v is not None:
+            res[k] = v
     if not final and classified.get("category") == "confused_goal":
         return {"action": "exit", "reason": "Confused goal recorded for final gate",
                 "pending_clarify": {"category": "confused_goal", "question": text}}
@@ -230,6 +231,13 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
                 user_prompt=user_prompt, agent_steps=agent_steps,
                 git_diff=git_diff, state=state, workspace_root=workspace_root)
     if act.get("action") == "healthy":
+        from sage.facilitation import check_facilitation_compliance
+        comp = check_facilitation_compliance(transcript_path, state)
+        if comp.get("required") and not comp.get("compliant") and not act.get("facilitation_override"):
+            return {
+                "action": "emit", "decision": "steer", "category": "missing_proof", "status": "off_track",
+                "text": "Execute delegation via invoke_subagent NOW", "seen": act.get("seen", {}),
+            }
         recap_txt = act.get("recap") or act.get("text") or "Work completed and verified successfully."
         act["recap"] = recap_txt
         act["note"] = f"Sage final assessment: hold (healthy). {act.get('text', '')}".strip()

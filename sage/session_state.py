@@ -87,6 +87,7 @@ def record_sage_recap(state_file: str, state: dict, total_tools: int, initial_li
     sage_holds = state.get("sage_holds", state.get("advisor_holds", 0)) + 1
     recap_count = state.get("recap_count", 0) + 1
     consecutive = state.get("consecutive_on_track", 0) + 1
+    cmd_turn = state.get("facilitation_cmd_turn") or (recap_count if extra.get("goal_settled") else None)
     save_session_state(
         state_file, state,
         sage_status="recap",
@@ -102,6 +103,7 @@ def record_sage_recap(state_file: str, state: dict, total_tools: int, initial_li
         advisor_error_streak=0,
         sage_recap=recap_text,
         advisor_recap=recap_text,
+        facilitation_cmd_turn=cmd_turn,
         **extra,
     )
 
@@ -182,6 +184,8 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     sage_holds = raw_state.get("sage_holds", raw_state.get("advisor_holds", 0))
     recap_count, sm_steers = raw_state.get("recap_count", 0), raw_state.get("session_mid_turn_steers", 0)
     goal_settled = bool(raw_state.get("goal_settled", False))
+    facilitation_cmd_turn = raw_state.get("facilitation_cmd_turn")
+    facilitation_cmd_ignored = int(raw_state.get("facilitation_cmd_ignored", 0) or 0)
     pinned_goal = raw_state.get("pinned_goal") or raw_state.get("anchor_goal")
     revised_goal = raw_state.get("revised_goal")
     derived_tasks = list(raw_state.get("derived_tasks", []))
@@ -210,6 +214,8 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "steer_suppress_count": steer_suppress_count,
         "last_par_cats": last_par_cats, "last_par_fp": last_par_fp,
         "goal_settled": goal_settled,
+        "facilitation_cmd_turn": facilitation_cmd_turn,
+        "facilitation_cmd_ignored": facilitation_cmd_ignored,
     }
 
     return clean_prompt, state_file, state, is_same
