@@ -125,6 +125,8 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     fac_sig = _facilitation_signal(transcript_path, state)
     if fac_sig:
         forced = True
+        state["cmd_ignored"] = int(state.get("cmd_ignored", state.get("facilitation_cmd_ignored", 0))) + 1
+        state["facilitation_cmd_ignored"] = state["cmd_ignored"]
         signal_note = f"{signal_note}\n{fac_sig}".strip() if signal_note else fac_sig
 
     diff_cnt = sum(int(m) for m in re.findall(r"^Changed lines: (\d+)", git_diff or "", re.M))

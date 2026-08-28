@@ -5,7 +5,7 @@ sage.runner - Main execution flow for the session stop audit hook.
 import json
 
 from sage.events import EVENT_ERROR_LOOP, format_summon_message
-from sage.facilitation import immediate_settle_message
+from sage.facilitation import immediate_delegate_message, immediate_settle_message
 from sage.git import get_git_diff, resolve_workspace_root
 from sage.goals import sync_goal_state
 from sage.guards import (
@@ -152,6 +152,13 @@ def run_session_stop_audit(raw_payload=None):
             gu["last_steer_category"] = act.get("category")
             gu["last_steer_tools"] = total_tool_calls
             gu["steer_suppress_count"] = 0  # budget: ≤2 suppressions per emitted steer
+            if act.get("pinned_emitted") and not state.get("delegate_cmd_turn"):
+                turn_idx = state.get("recap_count", 0) + 1
+                gu["delegate_cmd_turn"] = turn_idx
+                gu["facilitation_cmd_turn"] = turn_idx
+                del_msg = immediate_delegate_message(state, pinned_goal=act.get("pinned_goal"))
+                if del_msg:
+                    ftext = f"{ftext}\n\n{del_msg}"
             (record_advisor_emit if record_advisor_emit != record_sage_emit else record_sage_emit)(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, act.get("seen", state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))), **gu)
             log_audit(f"Mid-turn sage {('triggered steer' if fdec == 'steer' else 'watchout emitted')}: {ftext}")
             emit_continue_response(format_hook_message("sage", ftext), is_post=True)

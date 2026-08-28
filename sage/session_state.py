@@ -27,6 +27,12 @@ def save_session_state(state_file: str, state: dict, **updates) -> dict:
         updates["advisor_error_streak"] = updates["sage_error_streak"]
     elif "advisor_error_streak" in updates and "sage_error_streak" not in updates:
         updates["sage_error_streak"] = updates["advisor_error_streak"]
+    if "delegate_cmd_turn" in updates and "facilitation_cmd_turn" not in updates:
+        updates["facilitation_cmd_turn"] = updates["delegate_cmd_turn"]
+    if "cmd_ignored" in updates and "facilitation_cmd_ignored" not in updates:
+        updates["facilitation_cmd_ignored"] = updates["cmd_ignored"]
+    elif "facilitation_cmd_ignored" in updates and "cmd_ignored" not in updates:
+        updates["cmd_ignored"] = updates["facilitation_cmd_ignored"]
     state.update(updates)
     if "background_steered_tasks" in state and isinstance(state["background_steered_tasks"], (set, list)):
         state["background_steered_tasks"] = sorted(state["background_steered_tasks"])
@@ -87,7 +93,7 @@ def record_sage_recap(state_file: str, state: dict, total_tools: int, initial_li
     sage_holds = state.get("sage_holds", state.get("advisor_holds", 0)) + 1
     recap_count = state.get("recap_count", 0) + 1
     consecutive = state.get("consecutive_on_track", 0) + 1
-    cmd_turn = state.get("facilitation_cmd_turn") or (recap_count if extra.get("goal_settled") else None)
+    fac_turn = state.get("facilitation_cmd_turn") or (recap_count if extra.get("goal_settled") else None)
     save_session_state(
         state_file, state,
         sage_status="recap",
@@ -103,7 +109,7 @@ def record_sage_recap(state_file: str, state: dict, total_tools: int, initial_li
         advisor_error_streak=0,
         sage_recap=recap_text,
         advisor_recap=recap_text,
-        facilitation_cmd_turn=cmd_turn,
+        facilitation_cmd_turn=fac_turn,
         **extra,
     )
 
@@ -184,8 +190,10 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     sage_holds = raw_state.get("sage_holds", raw_state.get("advisor_holds", 0))
     recap_count, sm_steers = raw_state.get("recap_count", 0), raw_state.get("session_mid_turn_steers", 0)
     goal_settled = bool(raw_state.get("goal_settled", False))
-    facilitation_cmd_turn = raw_state.get("facilitation_cmd_turn")
-    facilitation_cmd_ignored = int(raw_state.get("facilitation_cmd_ignored", 0) or 0)
+    delegate_cmd_turn = raw_state.get("delegate_cmd_turn") or raw_state.get("facilitation_cmd_turn")
+    facilitation_cmd_turn = delegate_cmd_turn
+    cmd_ignored = int(raw_state.get("cmd_ignored", 0) or raw_state.get("facilitation_cmd_ignored", 0) or 0)
+    facilitation_cmd_ignored = cmd_ignored
     pinned_goal = raw_state.get("pinned_goal") or raw_state.get("anchor_goal")
     revised_goal = raw_state.get("revised_goal")
     derived_tasks = list(raw_state.get("derived_tasks", []))
@@ -215,7 +223,9 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "last_par_cats": last_par_cats, "last_par_fp": last_par_fp,
         "goal_settled": goal_settled,
         "facilitation_cmd_turn": facilitation_cmd_turn,
+        "delegate_cmd_turn": delegate_cmd_turn,
         "facilitation_cmd_ignored": facilitation_cmd_ignored,
+        "cmd_ignored": cmd_ignored,
     }
 
     return clean_prompt, state_file, state, is_same

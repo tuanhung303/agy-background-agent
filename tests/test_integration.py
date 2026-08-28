@@ -536,7 +536,10 @@ class TestIntegration(unittest.TestCase):
                 )
                 msg = json.loads(written.strip())["injectSteps"][0]["userMessage"]
                 self.assertTrue(msg.startswith("※ sage: [RECAP·on_track] Verified."))
-                self.assertIn("[CMD·facilitation", msg)
+                if step_index == 10:
+                    self.assertIn("[CMD·facilitation", msg)
+                else:
+                    self.assertIn("[CMD·delegate·confirm", msg)
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)

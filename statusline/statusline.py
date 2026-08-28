@@ -181,7 +181,7 @@ def get_sage_steer_badges(data):
     sage_status = str(state.get("sage_status", state.get("advisor_status", "hold"))).lower()
     recap_emitted = bool(state.get("recap_emitted", False))
     err_streak = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)) or 0)
-    cmd_ignored = int(state.get("facilitation_cmd_ignored", 0) or 0)
+    cmd_ignored = int(state.get("cmd_ignored", 0) or state.get("facilitation_cmd_ignored", 0) or 0)
 
     if cmd_ignored > 0:
         return [f"\033[31m● sage command ignored {cmd_ignored}×\033[0m"]
