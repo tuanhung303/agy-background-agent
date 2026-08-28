@@ -8,8 +8,15 @@ TIMER_SRC="$REPO_DIR/hooks/command-timer.py"
 STATUSLINE_SRC="$REPO_DIR/statusline/statusline.py"
 PROMPT_SRC="$REPO_DIR/sage/sage_prompt.md"
 
+ENFORCE_SRC="$REPO_DIR/hooks/sage-enforce.py"
+
 if [[ ! -f "$SAGE_SRC" ]]; then
   echo "Error: Hook file not found at $SAGE_SRC" >&2
+  exit 1
+fi
+
+if [[ ! -f "$ENFORCE_SRC" ]]; then
+  echo "Error: Hook file not found at $ENFORCE_SRC" >&2
   exit 1
 fi
 
@@ -28,7 +35,7 @@ if [[ ! -f "$PROMPT_SRC" ]]; then
   exit 1
 fi
 
-chmod +x "$SAGE_SRC" "$TIMER_SRC" "$STATUSLINE_SRC"
+chmod +x "$SAGE_SRC" "$ENFORCE_SRC" "$TIMER_SRC" "$STATUSLINE_SRC"
 chmod +x "$SCRIPT_DIR/install.sh"
 
 echo "Installing hooks, statusline, and prompt from $REPO_DIR..."
@@ -44,21 +51,26 @@ ln -sf "$SAGE_SRC" "$HOME/.config/agy/session-stop-audit.py"
 ln -sf "$SAGE_SRC" "$HOME/.gemini/config/hooks/session-stop-audit.py"
 echo "✓ Symlinked session-sage.py (with session-advisor.py and session-stop-audit.py compatibility links)"
 
-# 2. sage prompt symlink (and legacy advisor_prompt compatibility link)
+# 2. sage-enforce symlinks
+ln -sf "$ENFORCE_SRC" "$HOME/.config/agy/sage-enforce.py"
+ln -sf "$ENFORCE_SRC" "$HOME/.gemini/config/hooks/sage-enforce.py"
+echo "✓ Symlinked sage-enforce.py"
+
+# 3. sage prompt symlink (and legacy advisor_prompt compatibility link)
 ln -sf "$PROMPT_SRC" "$HOME/.config/agy/sage_prompt.md"
 ln -sf "$PROMPT_SRC" "$HOME/.config/agy/advisor_prompt.md"
 echo "✓ Symlinked sage_prompt.md (with advisor_prompt.md compatibility link)"
 
-# 3. command-timer symlinks
+# 4. command-timer symlinks
 ln -sf "$TIMER_SRC" "$HOME/.config/agy/command-timer.py"
 ln -sf "$TIMER_SRC" "$HOME/.gemini/config/hooks/command-timer.py"
 echo "✓ Symlinked command-timer.py"
 
-# 4. statusline symlink
+# 5. statusline symlink
 ln -sf "$STATUSLINE_SRC" "$HOME/.config/agy/statusline.py"
 echo "✓ Symlinked statusline.py"
 
-# 5. Configure ~/.gemini/config/hooks.json if needed
+# 6. Configure ~/.gemini/config/hooks.json if needed
 HOOKS_JSON="$HOME/.gemini/config/hooks.json"
 python3 - << PYEOF
 import json, os
@@ -83,6 +95,18 @@ data["session-sage"] = {
         "type": "command",
         "command": f"python3 {os.path.expanduser('~/.config/agy/session-sage.py')}",
         "timeout": 45
+    }]
+}
+
+# Ensure sage-enforce is registered
+data["sage-enforce"] = {
+    "PreToolUse": [{
+        "matcher": "*",
+        "hooks": [{
+            "type": "command",
+            "command": f"python3 {os.path.expanduser('~/.config/agy/sage-enforce.py')} pre_tool",
+            "timeout": 5
+        }]
     }]
 }
 
@@ -121,5 +145,5 @@ PYEOF
 echo "✓ Verified and updated hooks.json configuration"
 
 echo "Verifying symlink destinations:"
-ls -l "$HOME/.config/agy/session-sage.py" "$HOME/.gemini/config/hooks/session-sage.py" "$HOME/.config/agy/session-advisor.py" "$HOME/.gemini/config/hooks/command-timer.py" "$HOME/.config/agy/statusline.py" "$HOME/.config/agy/sage_prompt.md" "$HOME/.config/agy/advisor_prompt.md"
+ls -l "$HOME/.config/agy/session-sage.py" "$HOME/.gemini/config/hooks/session-sage.py" "$HOME/.config/agy/sage-enforce.py" "$HOME/.gemini/config/hooks/sage-enforce.py" "$HOME/.config/agy/session-advisor.py" "$HOME/.gemini/config/hooks/command-timer.py" "$HOME/.config/agy/statusline.py" "$HOME/.config/agy/sage_prompt.md" "$HOME/.config/agy/advisor_prompt.md"
 echo "Installation complete."

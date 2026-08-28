@@ -8,7 +8,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/harness-Antigravity%20(AGY)-0F766E?style=flat-square" alt="Antigravity">
   <img src="https://img.shields.io/badge/python-%E2%89%A53.10-1D4ED8?style=flat-square" alt="Python 3.10+">
-  <img src="https://img.shields.io/badge/tests-748%2B-15803D?style=flat-square" alt="748+ tests">
+  <img src="https://img.shields.io/badge/tests-830%2B-15803D?style=flat-square" alt="830+ tests">
   <img src="https://img.shields.io/badge/deps-zero-6D28D9?style=flat-square" alt="Zero deps">
 </p>
 
@@ -19,6 +19,31 @@ Fast agents fail when they enter repetitive error loops, drift from task require
 <p align="center">
   <img src="assets/architecture.svg" alt="agy-background-agent hook architecture" width="100%">
 </p>
+
+## Hook System
+
+- [hooks/session-sage.py](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/hooks/session-sage.py#L1-L48): Lifecycle supervisor entry point. Dispatches `PostInvocation` mid-turn assessments and `Stop` final gates. Evaluates goal pinning, steers worker progress, and verifies deliverables before allowing session exit.
+- [hooks/sage-enforce.py](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/hooks/sage-enforce.py#L1-L124): Zero-delay `PreToolUse` gate. When delegation is active (`delegate_cmd_turn`), blocks inline mutation tools (`run_command`, `write_to_file`, `replace_file_content`) to force subagent dispatch via `invoke_subagent`.
+- [hooks/command-timer.py](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/hooks/command-timer.py#L1-L328): Command execution duration tracker. Categorizes runs into 5 tiers (`0-10s OK`, `10-30s IMPROVE_NEXT_TIME`, `30-90s ADJUST_FILTER`, `90-900s HEAVY_RECOMMEND_BACKGROUND`, `>900s FORBIDDEN_EXCEEDED_LIMIT`) and injects ephemeral context feedback.
+
+## Sage Architecture
+
+- **Supervisor Engine** ([sage/sage.py:182](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/sage.py#L182-L204), [sage/executor.py:140](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/executor.py#L140-L208)): Runs slow-thinking model cascades in an isolated home environment (`~/.gemini/antigravity-cli/sage_isolated_home`) with dedicated conversation locking and session persistence.
+- **Transcript Parser** ([sage/transcript.py:67](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/transcript.py#L67-L104)): Extracts turn steps, sanitizes tool outputs, normalizes prompts, and builds bounded session history windows (`MAX_PRIOR_REQUESTS=5`).
+- **Triage & Deduplication** ([sage/triage.py:53](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/triage.py#L53-L184)): Classifies model verdicts with confidence thresholds (`SAGE_STEER_MIN_CONFIDENCE=0.7`, `SAGE_ESCALATE_MIN_CONFIDENCE=0.85`), applies category-independent keyed deduplication (`compute_advice_key`), and formats structured `[STEER·category]` or `[WATCH·category]` tags.
+- **Verification Ladder** ([sage/ladder.py:28](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/ladder.py#L28-L49)): Demands rising verification depth across 4 tiers (`static` -> `unit` -> `integration` -> `smoke`), preventing deep tasks from stopping at partial proof.
+- **Policies & Gating** ([sage/policies.py:104](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/policies.py#L104-L223), [sage/policies.py:225](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/policies.py#L225-L242)): Evaluates dynamic tool weight thresholds (`compute_dynamic_tool_threshold`), overrides cadence on tool repeat loops, and enforces the terminal stop gate.
+- **Watchers** ([sage/watchers.py:47](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/watchers.py#L47-L70), [sage/watchers.py:72](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/watchers.py#L72-L139), [sage/watchers.py:141](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/watchers.py#L141-L189)): Tracks active subagents, external terminal worker panes, and background tasks (300s grace period) to prevent premature termination while asynchronous work runs.
+- **Delegated Worker Evidence** ([sage/workers.py:111](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/workers.py#L111-L248)): Scans transcript lines for worker spawn/idle states, extracts screen tails with line citations, and validates empirical delivery before approval.
+- **Event Journal** ([sage/journal.py:30](file:///Users/__blitzzz/Documents/GitHub/agy-background-agent/sage/journal.py#L30-L51)): Centralized structured JSONL log (`/tmp/agy_sage_events.jsonl`) recording audit events, violations, and decisions with automatic 2MB rotation.
+
+## Task Complexity Classification & Routing
+
+Sage categorizes incoming objectives into three complexity classes:
+
+1. `simple_qa`: Single-fact queries, conceptual questions, or trivial edits. Relaxes tool weight intervals, skips mandatory delegation commands, and allows clean fast termination.
+2. `complex_code`: Single-module bug fixes, algorithmic updates, and localized refactoring. Enforces verification ladder progression (`unit` -> `integration`), monitors tool repeat loops, and requires live artifact verification.
+3. `multi_file`: Multi-module architectures, cross-directory features, and comprehensive benchmark tasks. Issues an immediate delegation command (`[CMD·delegate]`), locks inline execution in `sage-enforce.py`, mandates subagent dispatch via `invoke_subagent`, and checks full-tier verification (`unit` -> `integration` -> `smoke`).
 
 ## Benchmark: sage ON/OFF on DeepSWE-style long-horizon tasks
 

@@ -2,7 +2,7 @@
 sage.executor - Subprocess AGY execution with isolated home and session persistence.
 """
 import json, os, re, shutil, sqlite3, subprocess, time
-from sage.config import SAGE_EXEC_TIMEOUT, SAGE_EXEC_TIMEOUT, SAGE_TIMEOUT_BUDGET
+from sage.config import SAGE_EXEC_TIMEOUT, SAGE_TIMEOUT_BUDGET
 from sage.locking import acquire_spawn_lock, log_audit, release_spawn_lock, safe_id
 from sage.models import cache_working_model, resolve_model_candidates
 

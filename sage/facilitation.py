@@ -11,7 +11,7 @@ from sage.events import (
     EVENT_DELEGATE, EVENT_DELEGATE_VIOLATION, EVENT_FACILITATION,
     EVENT_FACILITATION_REPEAT, format_summon_message,
 )
-from sage.task_structure import EXEC_TOOLS, FILE_TOOLS, RESEARCH_TOOLS
+from sage.task_structure import EXEC_TOOLS, FILE_TOOLS
 from sage.transcript import _read_transcript_steps, is_explicit_user_input
 
 

@@ -47,6 +47,8 @@ def load_sage_template():
                 pass
     return DEFAULT_TEMPLATE
 
+load_advisor_template = load_sage_template
+
 GOAL_MARKERS = ("[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:", "[LATEST ACTIVE USER REQUEST]:")
 STATUS_LEGEND = (
     "Role lock: you remain the Sage to a separate executing agent. Do not write code, edit files, or finish the work; "
@@ -203,9 +205,6 @@ def run_sage_model(parent_conv_id, user_prompt, agent_steps_summary, git_diff=""
     )
 
 
-_ORIG_RUN = run_sage_model
-
-
 def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state, is_forced=False, signals="", workspace_root=None):
     last_verified = state.get("last_verified_tools", 0)
     delta = total_tool_calls - last_verified
@@ -230,9 +229,7 @@ def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_
     # mismatched --effort flag, so route through model selection — routine
     # unforced checks resolve "(Medium)", forced/final/deferral keep High.
     effort = "high" if is_forced else _routine_effort()
-    # ponytail: alias-probing chain removed with the advisor/verifier aliases — run_sage_model is canonical
-    _run_fn = run_sage_model
-    return _run_fn(
+    return run_sage_model(
         conv_id, user_prompt, steps_summary, git_diff=git_diff, signals=signals,
         pinned_goal=state.get("pinned_goal") or state.get("anchor_goal"), revised_goal=state.get("revised_goal"),
         derived_tasks=state.get("derived_tasks"), worker_facts=worker_facts,

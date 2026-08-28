@@ -20,7 +20,7 @@ from sage.sage import (
     _normalize_sage_dict,
     build_sage_prompt,
     extract_target_goal,
-    load_advisor_template,
+    load_sage_template,
     parse_sage_output,
 )
 from sage.guards import DESTRUCTIVE_ACTION_RE, is_destructive_action

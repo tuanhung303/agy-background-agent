@@ -114,8 +114,7 @@ def run_session_stop_audit(raw_payload=None):
             sig_kwargs["loop"] = True
         sig = format_summon_message(EVENT_ERROR_LOOP, **sig_kwargs) if sig_kwargs else ""
         save_session_state(state_file, state, sage_status="evaluating", last_audited_line_count=initial_line_count)
-        _flow_fn = sage_flow if sage_flow != sage_flow else sage_flow
-        act = _flow_fn(
+        act = sage_flow(
             "midturn", conv_id=conv_id, transcript_path=transcript_path,
             clean_prompt=clean_prompt, initial_line_count=initial_line_count,
             total_tool_calls=total_tool_calls, turn_tool_names=turn_tool_names,
@@ -140,7 +139,7 @@ def run_session_stop_audit(raw_payload=None):
         elif aact == "hold_dedup":
             if act.get("hammer_suppressed"):
                 save_session_state(state_file, state, steer_suppress_count=state.get("steer_suppress_count", 0) + 1)
-            (record_sage_hold if record_sage_hold != record_sage_hold else record_sage_hold)(state_file, state, total_tool_calls, initial_line_count, act.get("seen"))
+            record_sage_hold(state_file, state, total_tool_calls, initial_line_count, act.get("seen"))
             fail_safe_exit("Sage advice deduplicated")
         elif aact == "emit":
             fdec, ftext = act["decision"], act["text"]
@@ -158,16 +157,15 @@ def run_session_stop_audit(raw_payload=None):
                     ftext = f"{ftext}\n\n{del_msg}"
                 journal.write("delegate_cmd", conv_id=conv_id, detail=(act.get("pinned_goal") or "")[:120])
             journal.write("steer_emitted", conv_id=conv_id, detail=act.get("category") or fdec)
-            (record_sage_emit if record_sage_emit != record_sage_emit else record_sage_emit)(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, act.get("seen", state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))), **gu)
+            record_sage_emit(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, act.get("seen", state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))), **gu)
             log_audit(f"Mid-turn sage {('triggered steer' if fdec == 'steer' else 'watchout emitted')}: {ftext}")
             emit_continue_response(format_hook_message("sage", ftext), is_post=True)
         else:
-            (record_sage_hold if record_sage_hold != record_sage_hold else record_sage_hold)(state_file, state, total_tool_calls, initial_line_count)
+            record_sage_hold(state_file, state, total_tool_calls, initial_line_count)
             fail_safe_exit("Mid-turn sage passed (healthy)")
 
     git_diff = get_git_diff(ws_paths, turn_tool_names)
-    _gate_fn = final_sage_gate if final_sage_gate != final_sage_gate else final_sage_gate
-    gate = _gate_fn(conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state, workspace_root=workspace_root)
+    gate = final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state, workspace_root=workspace_root)
     gact = gate.get("action")
     log_audit(f"Final sage gate: {gact}" + (f" ({gate.get('reason', '')})" if gate.get("reason") else ""))
     if state.get("pending_clarify") and not state.get("clarify_asked"):
@@ -185,19 +183,19 @@ def run_session_stop_audit(raw_payload=None):
     elif gact == "emit":
         fdec, ftext = gate["decision"], gate["text"]
         gu = {k: gate[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in gate and gate[k] is not None}
-        (record_sage_emit if record_sage_emit != record_sage_emit else record_sage_emit)(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, gate.get("seen", state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))), **gu)
+        record_sage_emit(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, gate.get("seen", state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))), **gu)
         log_audit(f"Final sage-first {fdec}: {ftext}")
         journal.write("recap_rejected", conv_id=conv_id, detail=ftext)
         emit_continue_response(format_hook_message("sage", ftext), is_post=True)
     elif gact == "hold_dedup":
-        (record_sage_hold if record_sage_hold != record_sage_hold else record_sage_hold)(state_file, state, total_tool_calls, initial_line_count, gate.get("seen"))
+        record_sage_hold(state_file, state, total_tool_calls, initial_line_count, gate.get("seen"))
         fail_safe_exit("Final sage advice deduplicated")
     elif gact in ("hold", "healthy"):
         recap = gate.get("recap") or "Work completed and verified successfully."
         cat = gate.get("category", "on_track")
         sage_recap = f"[RECAP·{cat}] {recap}" if not recap.startswith("[RECAP") else recap
         gu = {k: gate[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in gate and gate[k] is not None}
-        (record_sage_recap if record_sage_recap != record_sage_recap else record_sage_recap)(state_file, state, total_tool_calls, initial_line_count, recap_text=sage_recap, goal_settled=True, **gu)
+        record_sage_recap(state_file, state, total_tool_calls, initial_line_count, recap_text=sage_recap, goal_settled=True, **gu)
         log_audit(f"Sage passed cleanly. Sage recap recorded: {sage_recap}")
         _clear_sage_session(conv_id)
         fac_msg = immediate_settle_message(state)
