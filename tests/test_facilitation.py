@@ -52,16 +52,22 @@ class TestFacilitationCommand(unittest.TestCase):
         self.assertIn("[CMD·delegate·confirm]", msg)
 
     def test_signal_fires_after_settle_with_inline_execution(self):
-        steps = [_user("next task"), _step("", [_cmd("uv run pytest -q")])]
+        steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
         with patch("sage.facilitation._read_transcript_steps", return_value=steps):
             sig = facilitation_signal("/tmp/fake.jsonl", {"goal_settled": True})
         self.assertIn("[CMD·delegate·violation]", sig)
         self.assertIn("exec inline detected — delegate NOW", sig)
 
     def test_no_signal_before_settle(self):
-        steps = [_user("next task"), _step("", [_cmd("uv run pytest -q")])]
+        steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
         with patch("sage.facilitation._read_transcript_steps", return_value=steps):
             sig = facilitation_signal("/tmp/fake.jsonl", {})
+        self.assertEqual(sig, "")
+
+    def test_no_signal_for_exec_tools_after_settle(self):
+        steps = [_user("next task"), _step("", [_cmd("uv run pytest -q")])]
+        with patch("sage.facilitation._read_transcript_steps", return_value=steps):
+            sig = facilitation_signal("/tmp/fake.jsonl", {"goal_settled": True})
         self.assertEqual(sig, "")
 
     def test_no_signal_when_subagent_already_used(self):
@@ -98,7 +104,7 @@ class TestFacilitationCommand(unittest.TestCase):
     def test_fail_closed_recap_gate_refuses_inline_after_settle(self):
         from sage import policies
 
-        steps = [_user("next task"), _step("", [_cmd("uv run pytest -q")])]
+        steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
         ctx = dict(
             conv_id="c", transcript_path="/tmp/fake.jsonl", clean_prompt="p",
             initial_line_count=3, total_tool_calls=30, turn_tool_names=["run_command"],
@@ -154,7 +160,7 @@ class TestFacilitationCommand(unittest.TestCase):
     def test_fail_closed_recap_gate_allows_override_receipt(self):
         from sage import policies
 
-        steps = [_user("next task"), _step("", [_cmd("uv run pytest -q")])]
+        steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
         ctx = dict(
             conv_id="c", transcript_path="/tmp/fake.jsonl", clean_prompt="p",
             initial_line_count=3, total_tool_calls=30, turn_tool_names=["run_command"],
@@ -177,7 +183,7 @@ class TestFacilitationCommand(unittest.TestCase):
         self.assertEqual(act["action"], "healthy")
 
     def test_midturn_repeat_escalation(self):
-        steps = [_user("next task"), _step("", [_cmd("uv run pytest -q")])]
+        steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
         with patch("sage.facilitation._read_transcript_steps", return_value=steps):
             sig0 = facilitation_signal("/tmp/fake.jsonl", {"goal_settled": True, "facilitation_cmd_ignored": 0})
             sig1 = facilitation_signal("/tmp/fake.jsonl", {"delegate_cmd_turn": 1, "facilitation_cmd_ignored": 1})
@@ -190,7 +196,7 @@ class TestFacilitationCommand(unittest.TestCase):
         would allow unproven inline execution to pass as healthy (killing the defect)."""
         from sage import policies
 
-        steps = [_user("next task"), _step("", [_cmd("uv run pytest -q")])]
+        steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
         ctx = dict(
             conv_id="c", transcript_path="/tmp/fake.jsonl", clean_prompt="p",
             initial_line_count=3, total_tool_calls=30, turn_tool_names=["run_command"],
@@ -237,7 +243,7 @@ class TestFacilitationCommand(unittest.TestCase):
     def test_fail_closed_recap_gate_refuses_inline_after_pin(self):
         from sage import policies
 
-        steps = [_user("next task"), _step("", [_cmd("uv run pytest -q")])]
+        steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
         ctx = dict(
             conv_id="c", transcript_path="/tmp/fake.jsonl", clean_prompt="p",
             initial_line_count=3, total_tool_calls=30, turn_tool_names=["run_command"],

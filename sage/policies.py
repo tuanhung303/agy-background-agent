@@ -157,6 +157,8 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
             delegated_cmd=deferral.get("delegated_cmd") if deferral.get("matched") else None,
             tail_todo=deferral.get("tail_todo") if deferral.get("matched") else None,
         )
+        if signal_note:
+            active_signal = f"{active_signal}\n{signal_note}".strip()
     elif signal_note:
         active_signal = signal_note
     elif par_sig.get("parallelizable"):

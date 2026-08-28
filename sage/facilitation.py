@@ -29,7 +29,9 @@ def immediate_delegate_message(state=None, pinned_goal=None):
 
 def immediate_settle_message(state=None, exec_calls=None, repeat=0):
     """Command message dispatched at settle. Deduplicates payload if already commanded at pin."""
-    if state and (state.get("delegate_cmd_turn") or (state.get("facilitation_cmd_turn") and not state.get("goal_settled"))):
+    if state and not repeat:
+        repeat = state.get("cmd_ignored", state.get("facilitation_cmd_ignored", 0))
+    if not repeat and state and (state.get("delegate_cmd_turn") or (state.get("facilitation_cmd_turn") and not state.get("goal_settled"))):
         return "[CMD·delegate·confirm] facilitation compliance confirmed — subagents executed."
     ev = EVENT_FACILITATION_REPEAT if (repeat and repeat > 0) else EVENT_FACILITATION
     if repeat and repeat > 0:
@@ -71,7 +73,8 @@ def facilitation_signal(transcript_path, state):
     t_calls = _turn_tool_calls(steps)
     if any(str(t.get("name") or "") == "invoke_subagent" for t in t_calls):
         return ""
-    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in (FILE_TOOLS | EXEC_TOOLS))
+    forbidden_tools = FILE_TOOLS if (state or {}).get("goal_settled") else (FILE_TOOLS | EXEC_TOOLS)
+    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in forbidden_tools)
     if exec_calls < 1:
         return ""
     return "[CMD·delegate·violation] exec inline detected — delegate NOW"
@@ -88,7 +91,8 @@ def check_facilitation_compliance(transcript_path, state):
     cmd_turn = (state or {}).get("delegate_cmd_turn") or (state or {}).get("facilitation_cmd_turn")
     t_calls = _turn_tool_calls(steps, from_turn_idx=cmd_turn)
     has_subagent = any(str(t.get("name") or "") == "invoke_subagent" for t in t_calls)
-    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in (FILE_TOOLS | EXEC_TOOLS))
+    forbidden_tools = FILE_TOOLS if (state or {}).get("goal_settled") else (FILE_TOOLS | EXEC_TOOLS)
+    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in forbidden_tools)
     if has_subagent:
         return {"required": True, "compliant": True, "exec_calls": exec_calls, "has_subagent": True}
     if exec_calls > 0:

@@ -55,7 +55,7 @@ class TestStaticAnalysis(unittest.TestCase):
     def test_all_sage_modules_are_strictly_under_300_lines(self):
         pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
         self.assertGreater(len(pkg_files), 0, "No python files found in sage/")
-        self.assertEqual(len(pkg_files), 24, "Expected exactly 24 modules in sage/")
+        self.assertEqual(len(pkg_files), 30, "Expected exactly 30 modules in sage/")
         for filepath in sorted(pkg_files):
             rel_path = os.path.relpath(filepath, self.repo_root)
             with self.subTest(filepath=rel_path):
