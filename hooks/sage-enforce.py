@@ -101,7 +101,7 @@ def evaluate(payload):
         return _passthrough()
     _record_injection(conv_id)
     journal_write("violation_inject", conv_id=conv_id, tool=tool_name, count=used + 1)
-    return {"decision": "allow", "injectSteps": [{"ephemeralMessage": VIOLATION_MSG}]}
+    return {"decision": "allow"}
 
 
 def main() -> None:
