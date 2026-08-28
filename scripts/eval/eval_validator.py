@@ -179,4 +179,9 @@ def run_policy_mutations(scenarios_by_id, drive_turn_fn, grade_fn):
             res = drive_turn_fn(scenarios_by_id["defer_delegated_exec"])
             probs = grade_fn(res, scenarios_by_id["defer_delegated_exec"].get("expect", {}))
             results.append(("policy:disable_transcript_deferral:defer_delegated_exec", len(probs) > 0))
+    if "post_approval_defer" in scenarios_by_id:
+        with mock.patch("sage.policies.detect_transcript_deferral", return_value={"matched": False}):
+            res = drive_turn_fn(scenarios_by_id["post_approval_defer"])
+            probs = grade_fn(res, scenarios_by_id["post_approval_defer"].get("expect", {}))
+            results.append(("policy:disable_transcript_deferral:post_approval_defer", len(probs) > 0))
     return results
