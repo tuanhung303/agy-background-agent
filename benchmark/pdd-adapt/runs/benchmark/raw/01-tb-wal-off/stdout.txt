@@ -1,7 +1,0 @@
-wal storage and recovery implementation repaired in [recovery.py](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/recovery.py#L10-L96) and [app.py](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/app.py#L396-L438).
-
-- linear recovery pass deduplicating by authoritative containing segment id without redundant deepcopies in [recovery.py:27-96](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/recovery.py#L27-L96).
-- dynamic next lsn allocation ensuring global durable prefix ordering under concurrent appends in [app.py:400-410](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/app.py#L400-L410).
-- full test suite passing across all 16 test cases in [test_wal.py:25-488](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py#L25-L488).
-
-計画通り: wal storage and recovery repaired with strict prefix ordering and full test verification.
