@@ -185,10 +185,10 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     # Preserved across turns:
     sage_holds = raw_state.get("sage_holds", raw_state.get("advisor_holds", 0))
     recap_count, sm_steers = raw_state.get("recap_count", 0), raw_state.get("session_mid_turn_steers", 0)
-    goal_settled = bool(raw_state.get("goal_settled", False))
-    delegate_cmd_turn = raw_state.get("delegate_cmd_turn") or raw_state.get("facilitation_cmd_turn")
+    goal_settled = bool(raw_state.get("goal_settled", False)) if is_same else False
+    delegate_cmd_turn = (raw_state.get("delegate_cmd_turn") or raw_state.get("facilitation_cmd_turn")) if is_same else None
     facilitation_cmd_turn = delegate_cmd_turn
-    cmd_ignored = int(raw_state.get("cmd_ignored", 0) or raw_state.get("facilitation_cmd_ignored", 0) or 0)
+    cmd_ignored = int(raw_state.get("cmd_ignored", 0) or raw_state.get("facilitation_cmd_ignored", 0) or 0) if is_same else 0
     facilitation_cmd_ignored = cmd_ignored
     pinned_goal = raw_state.get("pinned_goal") or raw_state.get("anchor_goal")
     revised_goal = raw_state.get("revised_goal")

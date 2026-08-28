@@ -148,7 +148,8 @@ def run_session_stop_audit(raw_payload=None):
             gu["last_steer_category"] = act.get("category")
             gu["last_steer_tools"] = total_tool_calls
             gu["steer_suppress_count"] = 0  # budget: ≤2 suppressions per emitted steer
-            if act.get("pinned_emitted") and not state.get("delegate_cmd_turn"):
+            comp = str(act.get("task_complexity") or state.get("task_complexity") or "").strip().lower()
+            if act.get("pinned_emitted") and not state.get("delegate_cmd_turn") and comp not in ("simple_qa", "qa"):
                 turn_idx = state.get("recap_count", 0) + 1
                 gu["delegate_cmd_turn"] = turn_idx
                 gu["facilitation_cmd_turn"] = turn_idx

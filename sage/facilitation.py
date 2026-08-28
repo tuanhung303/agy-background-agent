@@ -62,13 +62,16 @@ def _turn_tool_calls(steps, from_turn_idx=None):
 
 def facilitation_signal(transcript_path, state):
     """Violation-only alert when the main agent executes inline after goal pin or settle."""
-    if not state.get("goal_settled") and not state.get("facilitation_cmd_turn") and not state.get("delegate_cmd_turn"):
+    complexity = str((state or {}).get("task_complexity") or "").strip().lower()
+    if complexity in ("simple_qa", "qa"):
+        return ""
+    if not (state or {}).get("goal_settled") and not (state or {}).get("facilitation_cmd_turn") and not (state or {}).get("delegate_cmd_turn"):
         return ""
     steps = _read_transcript_steps(transcript_path) if transcript_path else []
     t_calls = _turn_tool_calls(steps)
     if any(str(t.get("name") or "") == "invoke_subagent" for t in t_calls):
         return ""
-    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in (FILE_TOOLS | EXEC_TOOLS | RESEARCH_TOOLS))
+    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in (FILE_TOOLS | EXEC_TOOLS))
     if exec_calls < 1:
         return ""
     return "[CMD·delegate·violation] exec inline detected — delegate NOW"
@@ -76,13 +79,16 @@ def facilitation_signal(transcript_path, state):
 
 def check_facilitation_compliance(transcript_path, state):
     """Checks whether the agent has complied with the delegation command."""
-    if not state.get("goal_settled") and not state.get("facilitation_cmd_turn") and not state.get("delegate_cmd_turn"):
+    complexity = str((state or {}).get("task_complexity") or "").strip().lower()
+    if complexity in ("simple_qa", "qa"):
+        return {"required": False, "compliant": True, "exec_calls": 0, "has_subagent": False}
+    if not (state or {}).get("goal_settled") and not (state or {}).get("facilitation_cmd_turn") and not (state or {}).get("delegate_cmd_turn"):
         return {"required": False, "compliant": True, "exec_calls": 0, "has_subagent": False}
     steps = _read_transcript_steps(transcript_path) if transcript_path else []
-    cmd_turn = state.get("delegate_cmd_turn") or state.get("facilitation_cmd_turn")
+    cmd_turn = (state or {}).get("delegate_cmd_turn") or (state or {}).get("facilitation_cmd_turn")
     t_calls = _turn_tool_calls(steps, from_turn_idx=cmd_turn)
     has_subagent = any(str(t.get("name") or "") == "invoke_subagent" for t in t_calls)
-    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in (FILE_TOOLS | EXEC_TOOLS | RESEARCH_TOOLS))
+    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in (FILE_TOOLS | EXEC_TOOLS))
     if has_subagent:
         return {"required": True, "compliant": True, "exec_calls": exec_calls, "has_subagent": True}
     if exec_calls > 0:

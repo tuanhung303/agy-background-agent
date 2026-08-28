@@ -89,10 +89,11 @@ class TestFacilitationCommand(unittest.TestCase):
             save_session_state(sf, {"turn_key": "old"}, goal_settled=True, facilitation_cmd_turn=1, facilitation_cmd_ignored=2)
             with patch("sage.session_state.get_state_file_path", return_value=sf), \
                     patch("sage.session_state._clear_sage_session"):
-                _, _, state, _ = load_and_sync_session_state(conv, "/nonexistent", "next task")
-        self.assertTrue(state.get("goal_settled"))
-        self.assertEqual(state.get("facilitation_cmd_turn"), 1)
-        self.assertEqual(state.get("facilitation_cmd_ignored"), 2)
+                _, _, state, is_same = load_and_sync_session_state(conv, "/nonexistent", "next task")
+        self.assertFalse(is_same)
+        self.assertFalse(state.get("goal_settled"))
+        self.assertIsNone(state.get("facilitation_cmd_turn"))
+        self.assertEqual(state.get("facilitation_cmd_ignored"), 0)
 
     def test_fail_closed_recap_gate_refuses_inline_after_settle(self):
         from sage import policies
@@ -367,6 +368,28 @@ class TestFacilitationCommand(unittest.TestCase):
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)
+
+
+    def test_simple_qa_exempt_from_facilitation_signal(self):
+        steps = [_user("explain oauth flow"), _step("", [_cmd("python3 query.py")])]
+        with patch("sage.facilitation._read_transcript_steps", return_value=steps):
+            sig = facilitation_signal("/tmp/fake.jsonl", {"goal_settled": True, "task_complexity": "simple_qa"})
+        self.assertEqual(sig, "")
+
+    def test_simple_qa_exempt_from_facilitation_compliance(self):
+        steps = [_user("put to clipboard"), _step("", [_cmd("cat msg.txt | pbcopy")])]
+        with patch("sage.facilitation._read_transcript_steps", return_value=steps):
+            comp = check_facilitation_compliance("/tmp/fake.jsonl", {"goal_settled": True, "task_complexity": "simple_qa", "delegate_cmd_turn": 1})
+        self.assertFalse(comp["required"])
+        self.assertTrue(comp["compliant"])
+
+    def test_research_and_mcp_tools_do_not_trip_facilitation_violation(self):
+        steps = [_user("check docs and copy"), _step("", [{"name": "call_mcp_tool", "args": {"tool": "clipboard_write"}}])]
+        with patch("sage.facilitation._read_transcript_steps", return_value=steps):
+            comp = check_facilitation_compliance("/tmp/fake.jsonl", {"goal_settled": True, "task_complexity": "complex_code", "delegate_cmd_turn": 1})
+        self.assertTrue(comp["required"])
+        self.assertTrue(comp["compliant"])
+        self.assertEqual(comp["exec_calls"], 0)
 
 
 if __name__ == "__main__":

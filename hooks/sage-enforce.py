@@ -88,6 +88,9 @@ def evaluate(payload):
         return _passthrough()
     if not (state.get("delegate_cmd_turn") or state.get("facilitation_cmd_turn") or state.get("goal_settled")):
         return _passthrough()
+    comp = str(state.get("task_complexity") or "").strip().lower()
+    if comp in ("simple_qa", "qa"):
+        return _passthrough()
     try:
         from sage.journal import write as journal_write
     except Exception:

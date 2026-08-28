@@ -74,6 +74,14 @@ class TestSageEnforceHook(unittest.TestCase):
         self.assertEqual(res, {"decision": "allow"})
         self.assertNotIn("injectSteps", res)
 
+    def test_simple_qa_exec_passes_without_violation(self):
+        res = _run_hook(
+            {"conversationId": self.conv_id, "toolCall": {"name": "run_command", "args": {}}},
+            state={"delegate_cmd_turn": 2, "task_complexity": "simple_qa"}, state_file=self.state_file,
+        )
+        self.assertEqual(res, {"decision": "allow"})
+        self.assertNotIn("injectSteps", res)
+
     def test_no_delegate_cmd_passes_clean(self):
         res = _run_hook(
             {"conversationId": self.conv_id, "toolCall": {"name": "run_command", "args": {}}},

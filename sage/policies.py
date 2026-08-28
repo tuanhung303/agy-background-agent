@@ -236,10 +236,12 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
         from sage.facilitation import check_facilitation_compliance
         comp = check_facilitation_compliance(transcript_path, state)
         if comp.get("required") and not comp.get("compliant") and not act.get("facilitation_override"):
-            return {
-                "action": "emit", "decision": "steer", "category": "missing_proof", "status": "off_track",
-                "text": "Execute delegation via invoke_subagent NOW", "seen": act.get("seen", {}),
-            }
+            prior_texts = state.get("sage_emitted_texts") or state.get("advisor_emitted_texts") or []
+            if "Execute delegation via invoke_subagent NOW" not in prior_texts and state.get("last_sage_text") != "Execute delegation via invoke_subagent NOW":
+                return {
+                    "action": "emit", "decision": "steer", "category": "missing_proof", "status": "off_track",
+                    "text": "Execute delegation via invoke_subagent NOW", "seen": act.get("seen", {}),
+                }
         recap_txt = act.get("recap") or act.get("text") or "Work completed and verified successfully."
         act["recap"] = recap_txt
         act["note"] = f"Sage final assessment: hold (healthy). {act.get('text', '')}".strip()

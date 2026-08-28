@@ -12,3 +12,4 @@ ORIGINAL_REQUEST.md
 .ruff_cache/
 .coverage
 htmlcov/
+.hermes/
