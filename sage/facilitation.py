@@ -39,7 +39,7 @@ def _is_safe_inline_tool(t):
 
 def immediate_delegate_message(state=None, pinned_goal=None):
     """Full delegation command dispatched at pin-time."""
-    kwargs = {"signal_text": "DELEGATE execution to subagents via invoke_subagent with a distilled payload."}
+    kwargs = {"signal_text": "Consider delegating execution to subagents via invoke_subagent. Should we split this into parallel tasks?"}
     if pinned_goal:
         kwargs["goal"] = pinned_goal
     return format_summon_message(EVENT_DELEGATE, **kwargs)
@@ -50,7 +50,7 @@ def immediate_settle_message(state=None, exec_calls=None, repeat=0):
     if state and not repeat:
         repeat = state.get("cmd_ignored", state.get("facilitation_cmd_ignored", 0))
     if not repeat and state and (state.get("delegate_cmd_turn") or (state.get("facilitation_cmd_turn") and not state.get("goal_settled"))):
-        return "[CMD·delegate·confirm] facilitation compliance confirmed — subagents executed."
+        return "[WATCH·delegate·confirm] Facilitation compliance confirmed — subagents executed."
     ev = EVENT_FACILITATION_REPEAT if (repeat and repeat > 0) else EVENT_FACILITATION
     if repeat and repeat > 0:
         try:
@@ -59,7 +59,7 @@ def immediate_settle_message(state=None, exec_calls=None, repeat=0):
             journal_write("cmd_repeat", conv_id=conv_id)
         except Exception:
             pass
-    kwargs = {"signal_text": "DELEGATE execution to subagents via invoke_subagent with a distilled payload."}
+    kwargs = {"signal_text": "Consider delegating execution to subagents via invoke_subagent. Should we split this into parallel tasks?"}
     if exec_calls is not None:
         kwargs["exec_calls"] = exec_calls
     return format_summon_message(ev, **kwargs)
@@ -95,7 +95,7 @@ def facilitation_signal(transcript_path, state):
     exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in forbidden_tools and not _is_safe_inline_tool(t))
     if exec_calls < 1:
         return ""
-    return "[CMD·delegate·violation] exec inline detected — delegate NOW"
+    return "[WATCH·delegate] Inline execution detected. Are you sure you don't want to delegate this to subagents?"
 
 
 def check_facilitation_compliance(transcript_path, state):

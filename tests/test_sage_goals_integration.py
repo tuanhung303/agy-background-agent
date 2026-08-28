@@ -152,7 +152,7 @@ def test_pinned_goal_triggers_delegate_command_at_pin():
     from sage.facilitation import immediate_delegate_message
     msg = immediate_delegate_message(pinned_goal="Refactor optimizer and add AST invariants")
     assert "[CMD·delegate" in msg
-    assert "delegate ALL execution+tests to subagents via invoke_subagent" in msg
-    assert "distill full payload: goal/scope/context_files/required_tests/DoD" in msg
+    assert "consider delegating execution+tests to subagents via invoke_subagent" in msg
+    assert "provide payload: goal/scope/context_files/required_tests/DoD" in msg
 
 

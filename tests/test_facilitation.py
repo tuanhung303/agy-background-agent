@@ -36,27 +36,27 @@ class TestFacilitationCommand(unittest.TestCase):
     def test_wording_cmd_facilitation(self):
         msg = immediate_settle_message()
         self.assertIn("[CMD·facilitation", msg)
-        self.assertIn("DELEGATE execution to subagents via invoke_subagent", msg)
+        self.assertIn("Consider delegating execution to subagents via invoke_subagent", msg)
         self.assertNotIn("Do NOT execute inline", msg)
 
     def test_immediate_delegate_message_at_pin(self):
         msg = immediate_delegate_message(pinned_goal="Implement feature X")
         self.assertIn("[CMD·delegate", msg)
-        self.assertIn("delegate ALL execution+tests to subagents via invoke_subagent", msg)
-        self.assertIn("distill full payload: goal/scope/context_files/required_tests/DoD", msg)
+        self.assertIn("consider delegating execution+tests to subagents via invoke_subagent", msg)
+        self.assertIn("provide payload: goal/scope/context_files/required_tests/DoD", msg)
 
     def test_settle_recap_payload_deduplicated_when_pin_command_emitted(self):
         msg = immediate_settle_message({"delegate_cmd_turn": 1})
-        self.assertNotIn("distill full payload", msg)
+        self.assertNotIn("provide payload", msg)
         self.assertNotIn("ASK", msg)
-        self.assertIn("[CMD·delegate·confirm]", msg)
+        self.assertIn("[WATCH·delegate·confirm]", msg)
 
     def test_signal_fires_after_settle_with_inline_execution(self):
         steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
         with patch("sage.facilitation._read_transcript_steps", return_value=steps):
             sig = facilitation_signal("/tmp/fake.jsonl", {"goal_settled": True})
-        self.assertIn("[CMD·delegate·violation]", sig)
-        self.assertIn("exec inline detected — delegate NOW", sig)
+        self.assertIn("[WATCH·delegate]", sig)
+        self.assertIn("Inline execution detected. Are you sure you don't want to delegate this to subagents?", sig)
 
     def test_no_signal_before_settle(self):
         steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
@@ -127,7 +127,7 @@ class TestFacilitationCommand(unittest.TestCase):
         self.assertEqual(act["action"], "emit")
         self.assertEqual(act["decision"], "steer")
         self.assertEqual(act["category"], "missing_proof")
-        self.assertIn("Execute delegation via invoke_subagent NOW", act["text"])
+        self.assertIn("Since this touches multiple modules, should we delegate the remaining work to subagents?", act["text"])
 
     def test_fail_closed_recap_gate_passes_when_subagent_invoked(self):
         from sage import policies
@@ -187,9 +187,9 @@ class TestFacilitationCommand(unittest.TestCase):
         with patch("sage.facilitation._read_transcript_steps", return_value=steps):
             sig0 = facilitation_signal("/tmp/fake.jsonl", {"goal_settled": True, "facilitation_cmd_ignored": 0})
             sig1 = facilitation_signal("/tmp/fake.jsonl", {"delegate_cmd_turn": 1, "facilitation_cmd_ignored": 1})
-        self.assertIn("[CMD·delegate·violation]", sig0)
-        self.assertIn("exec inline detected — delegate NOW", sig0)
-        self.assertIn("[CMD·delegate·violation]", sig1)
+        self.assertIn("[WATCH·delegate]", sig0)
+        self.assertIn("Inline execution detected. Are you sure you don't want to delegate this to subagents?", sig0)
+        self.assertIn("[WATCH·delegate]", sig1)
 
     def test_mutation_kill_compliance_check_gate_mutation(self):
         """Mutation test: verify that disabling check_facilitation_compliance in final_sage_gate
@@ -266,7 +266,7 @@ class TestFacilitationCommand(unittest.TestCase):
         self.assertEqual(act["action"], "emit")
         self.assertEqual(act["decision"], "steer")
         self.assertEqual(act["category"], "missing_proof")
-        self.assertIn("Execute delegation via invoke_subagent NOW", act["text"])
+        self.assertIn("Since this touches multiple modules, should we delegate the remaining work to subagents?", act["text"])
 
     def test_runner_pin_emits_delegate_command_and_sets_turn(self):
         import time
@@ -320,7 +320,7 @@ class TestFacilitationCommand(unittest.TestCase):
                 msg = data.get("reason") or (data.get("injectSteps", [{}])[0].get("userMessage", ""))
                 self.assertIn("[Pinned Goal] Refactor optimizer", msg)
                 self.assertIn("[CMD·delegate", msg)
-                self.assertIn("delegate ALL execution+tests to subagents", msg)
+                self.assertIn("consider delegating execution+tests to subagents", msg)
 
                 with open(state_file, "r") as sf:
                     saved = json.load(sf)
@@ -370,7 +370,7 @@ class TestFacilitationCommand(unittest.TestCase):
                 msg = data.get("reason") or (data.get("injectSteps", [{}])[0].get("userMessage", ""))
                 self.assertIn("[RECAP·on_track] All done", msg)
                 self.assertIn("[CMD·facilitation", msg)
-                self.assertIn("DELEGATE execution to subagents", msg)
+                self.assertIn("Consider delegating execution to subagents", msg)
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)

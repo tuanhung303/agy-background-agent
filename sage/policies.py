@@ -203,6 +203,14 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         return res
     prior_texts = state.get("sage_emitted_texts") or state.get("advisor_emitted_texts") or []
     if dec in ("steer", "watchout") and classified.get("category") and mode != "final":
+        if classified.get("category") == "parallelize_subagent":
+            write_tools = {"write_to_file", "replace_file_content", "multi_replace_file_content", "edit_file", "apply_diff"}
+            has_writes = turn_tool_names and any(t in write_tools for t in turn_tool_names)
+            if has_writes and (diff_cnt > 50 or total_tool_calls >= 15):
+                res["action"] = "hold_dedup"
+                res["half_done_suppressed"] = True
+                res["category"] = classified["category"]
+                return res
         if _hammer_suppressed(state, classified["category"], latest[3]):
             res["action"] = "hold_dedup"
             res["hammer_suppressed"] = True
@@ -232,10 +240,11 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
         comp = check_facilitation_compliance(transcript_path, state)
         if comp.get("required") and not comp.get("compliant") and not act.get("facilitation_override"):
             prior_texts = state.get("sage_emitted_texts") or state.get("advisor_emitted_texts") or []
-            if "Execute delegation via invoke_subagent NOW" not in prior_texts and state.get("last_sage_text") != "Execute delegation via invoke_subagent NOW":
+            msg = "Since this touches multiple modules, should we delegate the remaining work to subagents? If you have already completed it inline, ensure you provide live test evidence before stopping."
+            if msg not in prior_texts and state.get("last_sage_text") != msg:
                 return {
                     "action": "emit", "decision": "steer", "category": "missing_proof", "status": "off_track",
-                    "text": "Execute delegation via invoke_subagent NOW", "seen": act.get("seen", {}),
+                    "text": msg, "seen": act.get("seen", {}),
                 }
         recap_txt = act.get("recap") or act.get("text") or "Work completed and verified successfully."
         act["recap"] = recap_txt
