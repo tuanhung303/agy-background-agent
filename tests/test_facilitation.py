@@ -160,5 +160,62 @@ class TestFacilitationSignal(unittest.TestCase):
             self.assertNotIn(act["action"], ("emit", "error"))
 
 
+    def test_immediate_settle_message_format(self):
+        from sage.facilitation import immediate_settle_message
+        msg = immediate_settle_message()
+        self.assertIn("[EVT·facilitation", msg)
+        self.assertIn("goal settled", msg)
+        self.assertIn("delegate", msg)
+
+    def test_immediate_facilitation_dispatched_at_goal_settle(self):
+        import json
+        import tempfile
+        import time
+        from sage.runner import main
+
+        conv_id = f"test_fac_settle_{int(time.time() * 1000)}"
+        state_file = f"/tmp/agy_sage_{conv_id}.json"
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                tr = os.path.join(td, "transcript.jsonl")
+                with open(tr, "w") as f:
+                    f.write(json.dumps({
+                        "type": "USER_INPUT", "source": "USER_EXPLICIT",
+                        "content": "Implement feature X", "tool_calls": [],
+                        "created_at": "2026-08-28T10:00:00Z"}) + "\n")
+                    f.write(json.dumps({
+                        "type": "PLANNER_RESPONSE", "content": "Running task",
+                        "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "a.py"}}],
+                        "created_at": "2026-08-28T10:00:05Z"}) + "\n")
+
+                payload = {
+                    "conversationId": conv_id,
+                    "transcriptPath": tr,
+                    "workspacePaths": [td],
+                }
+
+                with patch("sage.runner.final_sage_gate",
+                           return_value={"action": "healthy", "recap": "All done"}), \
+                     patch("sage.runner.final_advisor_gate",
+                           return_value={"action": "healthy", "recap": "All done"}), \
+                     patch("sys.stdin.read", return_value=json.dumps(payload)), \
+                     patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
+                     patch("sys.stdout") as mock_stdout, \
+                     self.assertRaises(SystemExit) as cm:
+                    main()
+
+                self.assertEqual(cm.exception.code, 0)
+                written = "".join([c.args[0] for c in mock_stdout.write.mock_calls if c.args])
+                data = json.loads(written.strip())
+                msg = data.get("reason") or (data.get("injectSteps", [{}])[0].get("userMessage", ""))
+                self.assertIn("[RECAP·on_track] All done", msg)
+                self.assertIn("[EVT·facilitation", msg)
+                self.assertIn("delegate execution to subagents", msg)
+        finally:
+            if os.path.exists(state_file):
+                os.remove(state_file)
+
+
 if __name__ == "__main__":
     unittest.main()
+

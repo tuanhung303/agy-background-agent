@@ -5,6 +5,7 @@ sage.runner - Main execution flow for the session stop audit hook.
 import json
 
 from sage.events import EVENT_ERROR_LOOP, format_summon_message
+from sage.facilitation import immediate_settle_message
 from sage.git import get_git_diff, resolve_workspace_root
 from sage.goals import sync_goal_state
 from sage.guards import (
@@ -192,6 +193,9 @@ def run_session_stop_audit(raw_payload=None):
         (record_advisor_recap if record_advisor_recap != record_sage_recap else record_sage_recap)(state_file, state, total_tool_calls, initial_line_count, recap_text=sage_recap, goal_settled=True, **gu)
         log_audit(f"Sage passed cleanly. Sage recap recorded: {sage_recap}")
         _clear_sage_session(conv_id)
+        fac_msg = immediate_settle_message(state)
+        if fac_msg:
+            sage_recap = f"{sage_recap}\n\n{fac_msg}"
         emit_recap_response(sage_recap, kind="sage")
     elif gact == "error":
         err_streak = state.get("sage_error_streak", state.get("advisor_error_streak", 0)) + 1

@@ -12,6 +12,14 @@ from sage.task_structure import EXEC_TOOLS, FILE_TOOLS, RESEARCH_TOOLS
 from sage.transcript import _read_transcript_steps
 
 
+def immediate_settle_message(state=None, exec_calls=None):
+    """Advisory message dispatched immediately upon goal settlement."""
+    kwargs = {"signal_text": "goal settled; delegate execution to subagents with distilled payload"}
+    if exec_calls is not None:
+        kwargs["exec_calls"] = exec_calls
+    return format_summon_message(EVENT_FACILITATION, **kwargs)
+
+
 def _turn_tool_calls(steps):
     turn_idxs = [
         i for i, s in enumerate(steps)
@@ -38,7 +46,5 @@ def facilitation_signal(transcript_path, state):
     exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in (FILE_TOOLS | EXEC_TOOLS | RESEARCH_TOOLS))
     if exec_calls < 1:
         return ""
-    return format_summon_message(
-        EVENT_FACILITATION, exec_calls=exec_calls,
-        signal_text="goal settled; delegate execution to subagents with distilled payload",
-    )
+    return immediate_settle_message(state, exec_calls=exec_calls)
+
