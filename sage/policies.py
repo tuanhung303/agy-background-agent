@@ -180,7 +180,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         steer_min_conf=min(SAGE_STEER_MIN_CONFIDENCE, ADVISOR_STEER_MIN_CONFIDENCE),
         escalate_min_conf=min(SAGE_ESCALATE_MIN_CONFIDENCE, ADVISOR_ESCALATE_MIN_CONFIDENCE),
         anchor_emitted=bool(state.get("pinned_emitted", state.get("anchor_emitted", False))),
-        mode="final" if final else "midturn", deferral=deferral, approved=bool(approval.get("approved")))
+        mode="final" if final else "midturn", deferral=deferral)
     latest = extract_session_and_turn_data(transcript_path)
     progressed = (not final and is_post_invocation_completion_candidate(transcript_path, conv_id)) or latest[3] > total_tool_calls or latest[7] > initial_line_count
     if progressed and not classified.get("pinned_emitted") and classified.get("category") != "pinned_goal":

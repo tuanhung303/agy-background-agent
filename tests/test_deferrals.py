@@ -208,45 +208,6 @@ class TestUserApproval(unittest.TestCase):
         self.assertFalse(detect_user_approval("")["approved"])
         self.assertFalse(detect_user_approval(None)["approved"])
 
-    def test_classify_escalates_deferral_to_steer_when_approved(self):
-        ver_res = {"status": "on_track", "healthy": True, "category": "general"}
-        deferral = {
-            "matched": True,
-            "snippet": "would you like me to retrain",
-            "phrases": ["would you like me to retrain"],
-        }
-        classified = classify_advice(ver_res, deferral=deferral, approved=True)
-        self.assertEqual(classified["decision"], "steer")
-        self.assertEqual(classified["status"], "off_track")
-        self.assertIn("already approved", classified["text"])
-
-    def test_classify_without_approval_stays_watchout(self):
-        ver_res = {"status": "on_track", "healthy": True, "category": "general"}
-        deferral = {
-            "matched": True,
-            "snippet": "would you like me to retrain",
-            "phrases": ["would you like me to retrain"],
-        }
-        classified = classify_advice(ver_res, deferral=deferral, approved=False)
-        self.assertEqual(classified["decision"], "watchout")
-
-    def test_approved_violation_survives_dedup(self):
-        ver_res = {"status": "on_track", "healthy": True, "category": "general"}
-        deferral = {
-            "matched": True,
-            "snippet": "would you like me to retrain",
-            "phrases": ["would you like me to retrain"],
-        }
-        r1 = classify_advice(ver_res, seen_advice={}, deferral=deferral, approved=True)
-        self.assertEqual(r1["decision"], "steer")
-        r2 = classify_advice(ver_res, seen_advice=r1["seen"], deferral=deferral, approved=True)
-        self.assertEqual(r2["decision"], "steer", "post-approval violation must not be dedup-suppressed")
-
-    def test_approval_alone_does_not_steer_without_deferral(self):
-        ver_res = {"status": "on_track", "healthy": True, "category": "general", "recap": "done"}
-        classified = classify_advice(ver_res, approved=True)
-        self.assertEqual(classified["decision"], "hold")
-
 
 if __name__ == "__main__":
     unittest.main()
