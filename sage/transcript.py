@@ -2,7 +2,6 @@
 sage.transcript - Parsing, sanitization, and turn extraction from transcript.jsonl.
 """
 
-from datetime import datetime, timezone
 import hashlib, itertools, json, os, re
 
 from sage.config import MAX_PRIOR_REQUESTS, get_tool_weight
@@ -10,7 +9,11 @@ from sage.guards import is_steering_message
 from sage.locking import log_audit
 from sage.sanitizer import clean_user_prompt, sanitize_tool_output
 from sage.task_structure import get_parallelizable_signals
-from sage.watchers import get_active_background_tasks as _get_tasks, get_active_subagents as _get_subs
+from sage.watchers import (
+    _parse_iso_ts as _parse_ts,
+    get_active_background_tasks as _get_tasks,
+    get_active_subagents as _get_subs,
+)
 _INTER_AGENT_RE = re.compile(r"(?:^|\n)\s*(?:\[Message\]|sender=)|has gone idle", re.I)
 
 
@@ -22,14 +25,6 @@ def get_transcript_path(payload, conv_id):
         fb = os.path.expanduser(f"{base}/{conv_id}/.system_generated/logs/transcript.jsonl")
         if os.path.exists(fb):
             return fb
-
-
-def _parse_ts(ts_str):
-    try:
-        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00")) if ts_str else None
-        return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)) if dt else None
-    except Exception:
-        return None
 
 
 def is_explicit_user_input(step):

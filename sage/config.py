@@ -13,24 +13,22 @@ def _env_get(*keys, default=None):
     return default
 
 
-def _safe_int_multi(keys, default_val):
+def _safe_cast_multi(keys, default_val, caster):
     val = _env_get(*keys)
     if val is None:
         return default_val
     try:
-        return int(val)
+        return caster(val)
     except (ValueError, TypeError):
         return default_val
+
+
+def _safe_int_multi(keys, default_val):
+    return _safe_cast_multi(keys, default_val, int)
 
 
 def _safe_float_multi(keys, default_val):
-    val = _env_get(*keys)
-    if val is None:
-        return default_val
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        return default_val
+    return _safe_cast_multi(keys, default_val, float)
 
 
 def _safe_bool_multi(keys, default_val=True):

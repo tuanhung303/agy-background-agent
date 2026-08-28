@@ -10,6 +10,7 @@ import re
 from datetime import datetime, timezone
 
 from sage.sanitizer import delivered_state, is_live
+from sage.watchers import _parse_iso_ts
 
 _SPAWN_ENV = "AGY_SAGE_WORKER_SPAWN_RE"
 _DEFAULT_SPAWN_PATTERNS = (
@@ -66,13 +67,8 @@ def _line_map(transcript_path, steps):
 
 
 def _age(ts_str):
-    try:
-        dt = datetime.fromisoformat(str(ts_str).replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return max(0.0, (datetime.now(timezone.utc) - dt).total_seconds())
-    except Exception:
-        return None
+    dt = _parse_iso_ts(ts_str)
+    return max(0.0, (datetime.now(timezone.utc) - dt).total_seconds()) if dt else None
 
 
 def _fmt_age(age):

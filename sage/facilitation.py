@@ -12,7 +12,11 @@ from sage.events import (
     EVENT_FACILITATION_REPEAT, format_summon_message,
 )
 from sage.task_structure import EXEC_TOOLS, FILE_TOOLS
-from sage.transcript import _read_transcript_steps, is_explicit_user_input
+from sage.transcript import (
+    _read_transcript_steps,
+    _safe_tool_calls,
+    is_explicit_user_input,
+)
 
 
 def immediate_delegate_message(state=None, pinned_goal=None):
@@ -53,11 +57,7 @@ def _turn_tool_calls(steps, from_turn_idx=None):
         t_steps = steps[turn_idxs[-1] + 1:]
     else:
         t_steps = steps
-    return [
-        t for s in t_steps if isinstance(s, dict)
-        for t in (s.get("tool_calls") if isinstance(s.get("tool_calls"), list) else [])
-        if isinstance(t, dict) and t.get("name")
-    ]
+    return [t for s in t_steps for t in _safe_tool_calls(s) if t.get("name")]
 
 
 def facilitation_signal(transcript_path, state):

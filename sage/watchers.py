@@ -38,7 +38,7 @@ def _parse_iso_ts(ts_str):
     if not ts_str:
         return None
     try:
-        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(str(ts_str).replace("Z", "+00:00"))
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     except Exception:
         return None
