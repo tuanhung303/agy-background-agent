@@ -6,6 +6,7 @@ import math
 import re
 
 from sage.guards import is_destructive_action
+from sage.ladder import next_rung_suffix
 
 
 def _safe_emission_text(value):
@@ -45,9 +46,6 @@ def compute_advice_key(category, action, guidance=None):
     gui = re.sub(r"[^a-z0-9]+", " ", str(guidance or "").strip().lower()).strip()
     raw = (f"act|{act}" if act else (f"gui|{gui}" if gui else f"cat|{cat}")).encode("utf-8", errors="replace")
     return hashlib.sha1(raw).hexdigest()[:12]
-
-
-from sage.ladder import next_rung_suffix
 
 
 def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_conf=0.85, max_emissions=2, anchor_emitted=False, mode="midturn", deferral=None):

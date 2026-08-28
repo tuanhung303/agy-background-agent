@@ -19,7 +19,7 @@ TEST_RUNNERS = ("pytest", "unittest", "cargo test", "npm test", "go test", "vite
 def _read_steps(steps_or_path):
     if isinstance(steps_or_path, list):
         return steps_or_path
-    from sage.transcript import _read_transcript_steps
+    from sage.transcript import _read_transcript_steps  # late import: tránh circular
     return _read_transcript_steps(steps_or_path)
 
 
@@ -54,11 +54,6 @@ def _extract_test_target(args):
     return None
 
 
-def _extract_turn_tool_calls(steps):
-    from sage.transcript import _safe_tool_calls
-    return [t for s in steps for t in _safe_tool_calls(s) if t.get("name")]
-
-
 def get_parallelizable_signals(steps_or_path):
     """Analyzes transcript tool calls and prompt context for parallelizable workstreams.
 
@@ -80,7 +75,8 @@ def get_parallelizable_signals(steps_or_path):
         and not is_steering_message(str(s.get("content") or ""))
     ]
     t_steps = steps[turn_idxs[-1] + 1:] if turn_idxs else steps
-    t_calls = _extract_turn_tool_calls(t_steps)
+    from sage.transcript import _safe_tool_calls  # late import: tránh circular
+    t_calls = [t for s in t_steps for t in _safe_tool_calls(s) if t.get("name")]
 
     # If subagents were already dispatched in this turn, suppress parallelizable signal
     if any(str(t.get("name") or "") == "invoke_subagent" for t in t_calls):

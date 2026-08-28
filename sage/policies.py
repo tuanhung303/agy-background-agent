@@ -80,7 +80,7 @@ def _hammer_suppressed(state, category, turn_tools):
 
 def _facilitation_signal(transcript_path, state):
     """Advisory-only signal: delegate execution to subagents after goal settle."""
-    from sage.facilitation import facilitation_signal
+    from sage.facilitation import facilitation_signal  # late import: mock-friendly, tránh circular
     return facilitation_signal(transcript_path, state)
 
 
@@ -226,7 +226,7 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
                     user_prompt=user_prompt, agent_steps=agent_steps,
                     git_diff=git_diff, state=state, workspace_root=workspace_root)
     if act.get("action") == "healthy":
-        from sage.facilitation import check_facilitation_compliance
+        from sage.facilitation import check_facilitation_compliance  # late import: mock-friendly
         comp = check_facilitation_compliance(transcript_path, state)
         if comp.get("required") and not comp.get("compliant") and not act.get("facilitation_override"):
             prior_texts = state.get("sage_emitted_texts") or state.get("advisor_emitted_texts") or []

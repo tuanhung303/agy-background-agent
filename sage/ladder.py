@@ -23,25 +23,26 @@ _SUFFIX = {
     "unit": "Escalate: unit-green is partial proof; run an integration test before declaring the leg proven.",
     "integration": "Escalate: finish with a smoke test against the real artifact before declaring done.",
 }
+_TIER_INDEX = {t: i for i, (t, _) in enumerate(TIERS)}
 
 
 def deepest_tier(*texts) -> str:
     """Highest verification tier named across the given texts ('none' if none)."""
     joined = " ".join(str(t or "") for t in texts)
-    best, best_rank = "none", -1
+    best = "none"
     for tier, pat in TIERS:
-        if pat.search(joined) and _rank(tier) > best_rank:
-            best, best_rank = tier, _rank(tier)
+        if pat.search(joined):
+            best = tier
     return best
 
 
 def _rank(tier: str) -> int:
-    return {t: i for i, (t, _) in enumerate(TIERS)}.get(tier, -1)
+    return _TIER_INDEX.get(tier, -1)
 
 
 def next_rung_suffix(*texts) -> str:
     """Suffix demanding the next unproven rung, or '' when depth suffices."""
-    best = max(((_rank(deepest_tier(t)) for t in texts)), default=-1)
+    best = max((_TIER_INDEX.get(deepest_tier(t), -1) for t in texts), default=-1)
     if best >= len(TIERS) - 1:
         return ""
     tier = TIERS[best][0] if best >= 0 else "none"
