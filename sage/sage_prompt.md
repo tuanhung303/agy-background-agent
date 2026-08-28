@@ -22,6 +22,14 @@ Always emit `task_complexity`: `simple_qa` (read-only/inquiry), `complex_code` (
 - **Revised Goal**: If user adds authorized scope, emit `revised_goal` (containing baseline DoD + new requirements). Unauthorized scope is `scope_drift`.
 - **Derived Tasks**: Active sub-workstreams traceable to the goal.
 
+## Event Playbook Map
+- `[EVT·new_prompt]`: follow "Momentum Doctrine"
+- `[EVT·fatigue]`: follow "Momentum Doctrine"
+- `[EVT·final_stop]`: follow "Final Stop Gate"
+- `[EVT·confused_goal]`: follow "Momentum Doctrine"
+- `[EVT·goal_change]`: follow "Revised Goal"
+- `[EVT·fanout]`: follow "Delegation & Fanout (parallelize_subagent)"
+
 ## Momentum Doctrine (Clarify Once → Commit Fully → Re-check Bearing)
 Soft decision tree the sage applies EVERY evaluation. Culture and phrasing of
 user prompts vary (public repo, many writing styles) — judge SEMANTICS, never
