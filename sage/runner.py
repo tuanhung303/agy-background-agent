@@ -4,6 +4,7 @@ sage.runner - Main execution flow for the session stop audit hook.
 
 import json
 
+from sage import journal
 from sage.events import EVENT_ERROR_LOOP, format_summon_message
 from sage.facilitation import immediate_delegate_message, immediate_settle_message
 from sage.git import get_git_diff, resolve_workspace_root
@@ -154,6 +155,8 @@ def run_session_stop_audit(raw_payload=None):
                 del_msg = immediate_delegate_message(state, pinned_goal=act.get("pinned_goal"))
                 if del_msg:
                     ftext = f"{ftext}\n\n{del_msg}"
+                journal.write("delegate_cmd", conv_id=conv_id, detail=(act.get("pinned_goal") or "")[:120])
+            journal.write("steer_emitted", conv_id=conv_id, detail=act.get("category") or fdec)
             (record_sage_emit if record_sage_emit != record_sage_emit else record_sage_emit)(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, act.get("seen", state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))), **gu)
             log_audit(f"Mid-turn sage {('triggered steer' if fdec == 'steer' else 'watchout emitted')}: {ftext}")
             emit_continue_response(format_hook_message("sage", ftext), is_post=True)
@@ -183,6 +186,7 @@ def run_session_stop_audit(raw_payload=None):
         gu = {k: gate[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted") if k in gate and gate[k] is not None}
         (record_sage_emit if record_sage_emit != record_sage_emit else record_sage_emit)(state_file, state, total_tool_calls, initial_line_count, fdec, ftext, gate.get("seen", state.get("sage_advice_counts", state.get("advisor_advice_counts", {}))), **gu)
         log_audit(f"Final sage-first {fdec}: {ftext}")
+        journal.write("recap_rejected", conv_id=conv_id, detail=ftext)
         emit_continue_response(format_hook_message("sage", ftext), is_post=True)
     elif gact == "hold_dedup":
         (record_sage_hold if record_sage_hold != record_sage_hold else record_sage_hold)(state_file, state, total_tool_calls, initial_line_count, gate.get("seen"))
@@ -198,6 +202,7 @@ def run_session_stop_audit(raw_payload=None):
         fac_msg = immediate_settle_message(state)
         if fac_msg:
             sage_recap = f"{sage_recap}\n\n{fac_msg}"
+        journal.write("recap_pass", conv_id=conv_id)
         emit_recap_response(sage_recap, kind="sage")
     elif gact == "error":
         err_streak = state.get("sage_error_streak", state.get("advisor_error_streak", 0)) + 1

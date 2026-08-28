@@ -28,6 +28,13 @@ def immediate_settle_message(state=None, exec_calls=None, repeat=0):
     if state and (state.get("delegate_cmd_turn") or (state.get("facilitation_cmd_turn") and not state.get("goal_settled"))):
         return "[CMD·delegate·confirm] facilitation compliance confirmed — subagents executed."
     ev = EVENT_FACILITATION_REPEAT if (repeat and repeat > 0) else EVENT_FACILITATION
+    if repeat and repeat > 0:
+        try:
+            from sage.journal import write as journal_write
+            conv_id = (state or {}).get("conv_id") or (state or {}).get("conversation_id") or ""
+            journal_write("cmd_repeat", conv_id=conv_id)
+        except Exception:
+            pass
     kwargs = {"signal_text": "DELEGATE execution to subagents via invoke_subagent with a distilled payload."}
     if exec_calls is not None:
         kwargs["exec_calls"] = exec_calls

@@ -88,9 +88,16 @@ def evaluate(payload):
         return _passthrough()
     if not (state.get("delegate_cmd_turn") or state.get("facilitation_cmd_turn") or state.get("goal_settled")):
         return _passthrough()
-    if _injections_used(conv_id) >= MAX_INJECTIONS_PER_CONV:
+    try:
+        from sage.journal import write as journal_write
+    except Exception:
+        journal_write = lambda *args, **kwargs: None
+    used = _injections_used(conv_id)
+    if used >= MAX_INJECTIONS_PER_CONV:
+        journal_write("violation_suppressed", conv_id=conv_id, tool=tool_name, count=used)
         return _passthrough()
     _record_injection(conv_id)
+    journal_write("violation_inject", conv_id=conv_id, tool=tool_name, count=used + 1)
     return {"decision": "allow", "injectSteps": [{"ephemeralMessage": VIOLATION_MSG}]}
 
 

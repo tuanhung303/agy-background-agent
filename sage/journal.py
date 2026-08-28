@@ -23,6 +23,10 @@ ROTATE_BYTES = 2_000_000
 FIELDS = ("ts", "conv_id", "event", "tool", "decision", "count", "detail")
 
 
+def _get_path():
+    return os.environ.get("AGY_SAGE_JOURNAL", JOURNAL_PATH)
+
+
 def write(event, conv_id="", tool="", decision="", count=None, detail="", **extra):
     """Appends one structured event line. Best-effort: never raises."""
     try:
@@ -38,20 +42,22 @@ def write(event, conv_id="", tool="", decision="", count=None, detail="", **extr
         if extra:
             rec["extra"] = {k: str(v)[:120] for k, v in extra.items() if v not in (None, "")}
         line = json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n"
-        _rotate_if_needed()
-        with open(JOURNAL_PATH, "a", encoding="utf-8") as f:
+        path = _get_path()
+        _rotate_if_needed(path)
+        with open(path, "a", encoding="utf-8") as f:
             f.write(line)
     except Exception:
         pass
 
 
-def _rotate_if_needed():
+def _rotate_if_needed(path=None):
     try:
-        if os.path.exists(JOURNAL_PATH) and os.path.getsize(JOURNAL_PATH) > ROTATE_BYTES:
-            prev = JOURNAL_PATH + ".prev"
+        p = path or _get_path()
+        if os.path.exists(p) and os.path.getsize(p) > ROTATE_BYTES:
+            prev = p + ".prev"
             if os.path.exists(prev):
                 os.unlink(prev)
-            os.rename(JOURNAL_PATH, prev)
+            os.rename(p, prev)
     except Exception:
         pass
 
@@ -60,7 +66,8 @@ def read(conv_id=None, event=None, tail=100):
     """Reads journal entries, newest last, with optional conv/event filters."""
     rows = []
     try:
-        for path in (JOURNAL_PATH, JOURNAL_PATH + ".prev"):
+        p = _get_path()
+        for path in (p, p + ".prev"):
             if not os.path.exists(path):
                 continue
             with open(path, "r", encoding="utf-8") as f:
