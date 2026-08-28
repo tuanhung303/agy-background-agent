@@ -397,6 +397,37 @@ class TestFacilitationCommand(unittest.TestCase):
         self.assertTrue(comp["compliant"])
         self.assertEqual(comp["exec_calls"], 0)
 
+    def test_safe_inline_tools_do_not_trip_facilitation_violation(self):
+        steps = [
+            _user("write a spec"),
+            _step("", [
+                {"name": "write_to_file", "args": {"TargetFile": "spec.md"}},
+                {"name": "run_command", "args": {"CommandLine": "ls -la"}},
+                {"name": "run_command", "args": {"CommandLine": "cat spec.md"}},
+                {"name": "write_to_file", "args": {"TargetFile": "/scratch/temp.json"}}
+            ])
+        ]
+        with patch("sage.facilitation._read_transcript_steps", return_value=steps):
+            comp = check_facilitation_compliance("/tmp/fake.jsonl", {"goal_settled": False, "task_complexity": "complex_code", "delegate_cmd_turn": 1})
+        self.assertTrue(comp["required"])
+        self.assertTrue(comp["compliant"])
+        self.assertEqual(comp["exec_calls"], 0)
+
+    def test_unsafe_inline_tools_do_trip_facilitation_violation(self):
+        steps = [
+            _user("write code"),
+            _step("", [
+                {"name": "write_to_file", "args": {"TargetFile": "main.py"}},
+                {"name": "run_command", "args": {"CommandLine": "pytest"}},
+                {"name": "run_command", "args": {"CommandLine": "ls -la > out.txt"}}
+            ])
+        ]
+        with patch("sage.facilitation._read_transcript_steps", return_value=steps):
+            comp = check_facilitation_compliance("/tmp/fake.jsonl", {"goal_settled": False, "task_complexity": "complex_code", "delegate_cmd_turn": 1})
+        self.assertTrue(comp["required"])
+        self.assertFalse(comp["compliant"])
+        self.assertEqual(comp["exec_calls"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()

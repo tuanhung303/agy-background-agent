@@ -19,6 +19,24 @@ from sage.transcript import (
 )
 
 
+def _is_safe_inline_tool(t):
+    name = str(t.get("name") or "")
+    args = t.get("args") or t.get("arguments") or {}
+    
+    if name in ("write_to_file", "write_file", "create_file"):
+        path = str(args.get("TargetFile") or args.get("file") or args.get("AbsolutePath") or "").lower()
+        if path.endswith((".md", ".txt", ".csv", ".json", ".jsonl")) or "/scratch/" in path or "/brain/" in path:
+            return True
+            
+    if name in ("run_command", "bash", "exec", "terminal"):
+        cmd = str(args.get("CommandLine") or args.get("command") or args.get("cmd") or "").strip().lower()
+        if cmd.startswith(("ls", "cat", "echo", "grep", "find", "fd", "tree", "pwd", "head", "tail", "wc")):
+            if not any(op in cmd for op in (">", "rm ", "mv ", "cp ", "chmod ", "chown ", "wget", "curl")):
+                return True
+                
+    return False
+
+
 def immediate_delegate_message(state=None, pinned_goal=None):
     """Full delegation command dispatched at pin-time."""
     kwargs = {"signal_text": "DELEGATE execution to subagents via invoke_subagent with a distilled payload."}
@@ -74,7 +92,7 @@ def facilitation_signal(transcript_path, state):
     if any(str(t.get("name") or "") == "invoke_subagent" for t in t_calls):
         return ""
     forbidden_tools = FILE_TOOLS if (state or {}).get("goal_settled") else (FILE_TOOLS | EXEC_TOOLS)
-    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in forbidden_tools)
+    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in forbidden_tools and not _is_safe_inline_tool(t))
     if exec_calls < 1:
         return ""
     return "[CMD·delegate·violation] exec inline detected — delegate NOW"
@@ -92,7 +110,7 @@ def check_facilitation_compliance(transcript_path, state):
     t_calls = _turn_tool_calls(steps, from_turn_idx=cmd_turn)
     has_subagent = any(str(t.get("name") or "") == "invoke_subagent" for t in t_calls)
     forbidden_tools = FILE_TOOLS if (state or {}).get("goal_settled") else (FILE_TOOLS | EXEC_TOOLS)
-    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in forbidden_tools)
+    exec_calls = sum(1 for t in t_calls if str(t.get("name") or "") in forbidden_tools and not _is_safe_inline_tool(t))
     if has_subagent:
         return {"required": True, "compliant": True, "exec_calls": exec_calls, "has_subagent": True}
     if exec_calls > 0:
