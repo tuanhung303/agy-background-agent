@@ -126,7 +126,7 @@ BANNED_DEFERRAL_PATTERNS = tuple(pat for _, pats in DEFERRAL_TAXONOMY for pat in
 
 # Approval detection lives in sage.sensitive; re-exported here so callers of
 # the deferral/sanitizer API keep a single import surface.
-from sage.sensitive import APPROVAL_NEGATIONS, APPROVAL_PATTERNS, detect_user_approval  # noqa: E402,F401
+from sage.sensitive import detect_user_approval  # noqa: E402,F401
 
 
 def strip_code_blocks(text: Optional[str]) -> str:

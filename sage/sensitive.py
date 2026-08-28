@@ -6,7 +6,7 @@ import json
 import os
 import re
 
-from sage.config import DEFAULT_SENSITIVE_KEYWORDS, SENSITIVE_TRIGGER_ENABLED, _safe_bool, _safe_bool_multi
+from sage.config import DEFAULT_SENSITIVE_KEYWORDS, SENSITIVE_TRIGGER_ENABLED, _safe_bool_multi
 
 
 def is_sensitive_trigger_enabled():

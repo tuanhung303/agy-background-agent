@@ -19,9 +19,6 @@ JOURNAL_PATH = os.environ.get("AGY_SAGE_JOURNAL", "/tmp/agy_sage_events.jsonl")
 # Journal hygiene: rotate at ~2MB, keep one .prev generation.
 ROTATE_BYTES = 2_000_000
 
-# Fixed schema fields keep lines greppable; unknown keys go into "extra".
-FIELDS = ("ts", "conv_id", "event", "tool", "decision", "count", "detail")
-
 
 def _get_path():
     return os.environ.get("AGY_SAGE_JOURNAL", JOURNAL_PATH)

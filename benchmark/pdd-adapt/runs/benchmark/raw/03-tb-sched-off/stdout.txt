@@ -1,0 +1,16 @@
+batching plans generated and validated against the analytical cost model.
+
+[scheduler.py:1](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/task_file/scheduler.py#L1-L259) clusters prompt lengths with 1d dynamic programming and packs batches sorted by decode length.
+
+evaluation metrics:
+- bucket 1: cost 1.504e11 (target < 3.0e11), pad ratio 0.0260 (target < 0.055), p95 latency 1.24e5 ms (target < 2.1e6 ms), sequential timecost 1.59e5 ms (target < 2.7e8 ms)
+- bucket 2: cost 4.124e10 (target < 4.8e10), pad ratio 0.0619 (target < 0.15), p95 latency 3.84e4 ms (target < 2.1e5 ms), sequential timecost 4.58e4 ms (target < 3.2e7 ms)
+- total unique shapes across both buckets: 6 (seq_align in [128, 256, 512, 1024, 2048, 4032], max allowed 8)
+
+artifacts written:
+- [plan_b1.jsonl:1](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/task_file/output_data/plan_b1.jsonl#L1)
+- [plan_b2.jsonl:1](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/task_file/output_data/plan_b2.jsonl#L1)
+
+all 11 unit and integration tests passed.
+
+計画通り: shape-aware batching plans generated with 6 unique shapes meeting all cost, pad ratio, and latency constraints.

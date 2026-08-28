@@ -3,7 +3,7 @@ sage.goals - Anchor goal synthesis, in-flight revision tracking, and derived tas
 """
 
 import re
-from typing import Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Set
 
 CODE_EDIT_KEYWORDS = (
     "fix", "refactor", "implement", "create", "test", "edit", "add",

@@ -1,0 +1,10 @@
+the batching plans meet all hardware alignment constraints, shape limits, and threshold targets across both request buckets.
+
+metrics summary:
+- bucket 1: cost 1.504e11 (< 3.0e11), pad ratio 0.0260 (< 0.055), p95 latency 1.242e5 ms (< 2.1e6 ms), sequential timecost 1.586e5 ms (< 2.7e8 ms)
+- bucket 2: cost 4.124e10 (< 4.8e10), pad ratio 0.0619 (< 0.15), p95 latency 3.844e4 ms (< 2.1e5 ms), sequential timecost 4.575e4 ms (< 3.2e7 ms)
+- unique shapes count: 6 total <= 8 max shapes ([128, 256, 512, 1024, 2048, 4032])
+- deliverables written: [plan_b1.jsonl](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/task_file/output_data/plan_b1.jsonl) and [plan_b2.jsonl](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/task_file/output_data/plan_b2.jsonl)
+- implementation verified in [scheduler.py:1](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/task_file/scheduler.py#L1) and [test_scheduler.py:1](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/task_file/tests/test_scheduler.py#L1) (11/11 tests passing)
+
+計画通り: shape-aware batching plan generated and verified within all cost, padding, latency, and shape limits.

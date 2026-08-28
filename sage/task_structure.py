@@ -2,9 +2,7 @@
 sage.task_structure - Heuristics for analyzing task structure and parallelizable workstreams.
 """
 
-import json
 import os
-import re
 
 from sage.guards import is_steering_message
 

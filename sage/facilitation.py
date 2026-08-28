@@ -8,7 +8,7 @@ explicit receipt proves inline is the sole viable path.
 """
 
 from sage.events import (
-    EVENT_DELEGATE, EVENT_DELEGATE_VIOLATION, EVENT_FACILITATION,
+    EVENT_DELEGATE, EVENT_FACILITATION,
     EVENT_FACILITATION_REPEAT, format_summon_message,
 )
 from sage.task_structure import EXEC_TOOLS, FILE_TOOLS

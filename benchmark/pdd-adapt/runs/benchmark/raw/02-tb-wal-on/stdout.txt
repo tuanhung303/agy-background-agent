@@ -1,0 +1,31 @@
+I have dispatched the test execution, AST constraint audit, and engine contract verification to the subagent. Standing by for the subagent's report.
+waiting for subagent verification to complete.
+monitoring subagent execution.
+all 16 tests in [test_wal.py](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:1) passed.
+
+### verification results
+command: `uv run --with pytest pytest test_wal.py -v`
+output:
+- [test_ast_forbidden_patterns](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:25) PASSED
+- [test_recovery_invalid_snapshots](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:73) PASSED
+- [test_recovery_durable_prefix_and_omitted_count](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:87) PASSED
+- [test_recovery_gap_stops_replay](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:118) PASSED
+- [test_recovery_duplicate_lsn_lowest_segment_id_authoritative](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:142) PASSED
+- [test_recovery_order_invariance](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:171) PASSED
+- [test_recovery_deep_detachment](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:194) PASSED
+- [test_segment_out_of_order_appends_and_durable_sort](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:241) PASSED
+- [test_segment_manager_operations](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:270) PASSED
+- [test_engine_single_thread_lifecycle](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:297) PASSED
+- [test_engine_delayed_lower_lsn_concurrency](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:322) PASSED
+- [test_engine_heavy_concurrent_writers](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:379) PASSED
+- [test_engine_closed_waiter_raises_runtime_error](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:421) PASSED
+- [test_engine_deep_detachment](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:453) PASSED
+- [test_recovery_edge_cases_and_authoritative_segment_id](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:488) PASSED
+- [test_recovery_performance](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:532) PASSED
+
+### audit summary
+- ast compliance in [app/__init__.py](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/__init__.py:1), [app/config.py](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/config.py:1), [app/recovery.py](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/recovery.py:1), and [app/app.py](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/app.py:1): 0 banned imports (`subprocess`, `socket`, `asyncio`, `multiprocessing`, `shutil`, `ctypes`), 0 `eval`/`exec`/`compile` calls, 0 bare/Exception pass clauses, 0 `typing.Any`/`typing.cast`, and 0 disk writes.
+- recovery contracts in [`recover_from_snapshot`](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/recovery.py#L10) and [`recover_engine`](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/app.py#L471): durable prefix `entries[:durable_count]` replayed, 1-indexed contiguous LSN sequence stopping at first gap, authoritative containing `segment_id` resolution with lowest ID tie-breaking, order invariance, and deep copy isolation.
+- engine concurrency in [`Engine`](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/app.py#L296) and [`SegmentManager`](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/app.py#L142): strict sequential durable prefix exposure, concurrent writer barrier synchronization, and preservation of internal manager interfaces and segment snapshot schemas.
+
+計画通り: wal storage verified green against all recovery, concurrency, ast, and engine contracts.

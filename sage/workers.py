@@ -9,7 +9,7 @@ import os
 import re
 from datetime import datetime, timezone
 
-from sage.sanitizer import sanitize_tool_output, delivered_state, is_live
+from sage.sanitizer import delivered_state, is_live
 
 _SPAWN_ENV = "AGY_SAGE_WORKER_SPAWN_RE"
 _DEFAULT_SPAWN_PATTERNS = (

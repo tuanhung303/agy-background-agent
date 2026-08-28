@@ -1,0 +1,7 @@
+wal storage implementation under [/Users/__blitzzz/.gemini/antigravity-cli/scratch/app/app.py](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/app.py:1) and [/Users/__blitzzz/.gemini/antigravity-cli/scratch/app/recovery.py](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/app/recovery.py:1) has been verified and repaired.
+
+all tests in [/Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py](file:///Users/__blitzzz/.gemini/antigravity-cli/scratch/test_wal.py:1) pass cleanly with 16/16 test cases covering ast constraints, recovery gap handling, segment authority, deep detachment, and concurrency ordering.
+
+recommend setting `/Users/__blitzzz/.gemini/antigravity-cli/scratch` as the active workspace if working on this project further.
+
+計画通り: repaired wal-backed storage engine and snapshot recovery logic with full test verification.
