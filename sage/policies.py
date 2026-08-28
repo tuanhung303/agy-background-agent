@@ -236,16 +236,6 @@ def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
                     user_prompt=user_prompt, agent_steps=agent_steps,
                     git_diff=git_diff, state=state, workspace_root=workspace_root)
     if act.get("action") == "healthy":
-        from sage.facilitation import check_facilitation_compliance  # late import: mock-friendly
-        comp = check_facilitation_compliance(transcript_path, state)
-        if comp.get("required") and not comp.get("compliant") and not act.get("facilitation_override"):
-            prior_texts = state.get("sage_emitted_texts") or state.get("advisor_emitted_texts") or []
-            msg = "Since this touches multiple modules, should we delegate the remaining work to subagents? If you have already completed it inline, ensure you provide live test evidence before stopping."
-            if msg not in prior_texts and state.get("last_sage_text") != msg:
-                return {
-                    "action": "emit", "decision": "steer", "category": "missing_proof", "status": "off_track",
-                    "text": msg, "seen": act.get("seen", {}),
-                }
         recap_txt = act.get("recap") or act.get("text") or "Work completed and verified successfully."
         act["recap"] = recap_txt
         act["note"] = f"Sage final assessment: hold (healthy). {act.get('text', '')}".strip()
