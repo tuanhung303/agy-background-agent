@@ -230,7 +230,8 @@ def evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_
     # mismatched --effort flag, so route through model selection — routine
     # unforced checks resolve "(Medium)", forced/final/deferral keep High.
     effort = "high" if is_forced else _routine_effort()
-    _run_fn = run_sage_model if run_sage_model is not _ORIG_RUN else (run_advisor_model if run_advisor_model is not _ORIG_RUN else (run_verifier_model if run_verifier_model is not _ORIG_RUN else run_sage_model))
+    # ponytail: alias-probing chain removed with the advisor/verifier aliases — run_sage_model is canonical
+    _run_fn = run_sage_model
     return _run_fn(
         conv_id, user_prompt, steps_summary, git_diff=git_diff, signals=signals,
         pinned_goal=state.get("pinned_goal") or state.get("anchor_goal"), revised_goal=state.get("revised_goal"),
