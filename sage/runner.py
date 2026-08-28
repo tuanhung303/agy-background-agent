@@ -25,7 +25,7 @@ from sage.session_state import (
 )
 from sage.transcript import (
     extract_session_and_turn_data,
-    get_active_background_tasks, get_active_subagents, get_active_external_panes,
+    get_active_background_tasks, get_active_external_panes,
     get_transcript_path,
     has_recent_tool_errors, has_repeated_tool_calls,
     is_post_invocation_completion_candidate,
@@ -49,13 +49,6 @@ def run_session_stop_audit(raw_payload=None):
     clean_prompt, state_file, state, is_same = load_and_sync_session_state(conv_id, transcript_path, raw_user_prompt)
     sync_goal_state(state, user_prompt, total_tool_calls, turn_tool_names)
     save_session_state(state_file, state)
-
-    active_subagents = get_active_subagents(transcript_path, conv_id)
-    if active_subagents:
-        if not is_post_invocation():
-            log_audit("Active subagents detected during Stop event -> Blocking stop")
-            emit_continue_response("Subagent work in progress; waiting for subagents", is_post=False)
-        fail_safe_exit("Subagent work in progress; waiting for subagents")
 
     active_panes = get_active_external_panes(transcript_path)
     if active_panes:

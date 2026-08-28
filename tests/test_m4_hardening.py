@@ -275,7 +275,7 @@ class TestTriageHardening(unittest.TestCase):
             "confidence": 0.8,
         }
         res_same = classify_advice(raw_same, seen_advice={})
-        self.assertNotIn("Why:", res_same["text"])
+        self.assertNotIn("Rationale:", res_same["text"])
 
         raw_diff = {
             "status": "off_track",
@@ -285,7 +285,7 @@ class TestTriageHardening(unittest.TestCase):
             "confidence": 0.8,
         }
         res_diff = classify_advice(raw_diff, seen_advice={})
-        self.assertIn("Why:", res_diff["text"])
+        self.assertIn("Rationale:", res_diff["text"])
 
     def test_strict_length_clamping_under_2000_chars(self):
         raw_long = {

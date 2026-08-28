@@ -18,10 +18,10 @@ TIERS = (
 )
 
 _SUFFIX = {
-    "none": "Escalate: name and run at least unit tests plus one integration test before moving on.",
-    "static": "Escalate: static checks alone prove nothing runtime; run the unit suite, then an integration test.",
-    "unit": "Escalate: unit-green is partial proof; run an integration test before declaring the leg proven.",
-    "integration": "Escalate: finish with a smoke test against the real artifact before declaring done.",
+    "none": "DOD: provide empirical proof of behavior before moving on.",
+    "static": "DOD: static checks prove nothing at runtime; execute the actual code and verify behavior.",
+    "unit": "DOD: isolated local tests are insufficient for core changes; provide cross-component or end-to-end empirical proof.",
+    "integration": "DOD: partial integration complete; finalize with a real-world smoke test in the target environment.",
 }
 _TIER_INDEX = {t: i for i, (t, _) in enumerate(TIERS)}
 

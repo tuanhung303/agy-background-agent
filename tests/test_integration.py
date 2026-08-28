@@ -723,16 +723,18 @@ class TestIntegration(unittest.TestCase):
             }) + "\n")
 
         payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
-        with patch("sys.argv", ["session-sage.py"]), \
+        gate_result = {"action": "healthy", "recap": "Subagent work completed"}
+        with patch("sage.runner.final_sage_gate", return_value=gate_result) as gate_mock, \
+             patch("sys.argv", ["session-sage.py"]), \
              patch("sys.stdin.read", return_value=json.dumps(payload)), \
              patch("sys.stdout") as mock_stdout, \
              self.assertRaises(SystemExit):
             main()
 
+        gate_mock.assert_called_once()
         written = "".join([c.args[0] for c in mock_stdout.write.mock_calls if c.args])
         data = json.loads(written.strip())
-        self.assertEqual(data.get("decision"), "continue")
-        self.assertIn("Subagent work in progress", data.get("reason", ""))
+        self.assertEqual(data.get("decision"), "stop")
 
     def test_stop_event_blocks_termination_when_background_tasks_active(self):
         conv_id = f"test_stop_bg_task_{int(time.time() * 1000)}"

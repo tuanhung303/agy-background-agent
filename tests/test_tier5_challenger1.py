@@ -789,34 +789,34 @@ class TestHooksAndRunnerAdversarial(unittest.TestCase):
             run_session_stop_audit(raw_payload)
 
     @patch("sage.runner.acquire_conversation_lock", return_value=MagicMock())
-    @patch("sage.runner.get_active_subagents", return_value=[{"subagent_id": "sub_1", "role": "Worker"}])
-    @patch("sage.runner.extract_session_and_turn_data", return_value=("prompt", "raw", [], 5, set(), None, None, 10))
+    @patch("sage.runner.extract_session_and_turn_data", return_value=("prompt", "raw", ["step1"], 5, {"write_to_file"}, None, None, 10))
     @patch("sage.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {}, True))
-    def test_r2_active_subagent_stop_blocking(self, mock_sync, mock_extract, mock_subs, mock_lock):
-        """Test runner blocks stop event when active subagents are in flight."""
+    def test_r2_active_subagent_stop_blocking(self, mock_sync, mock_extract, mock_lock):
+        """Test runner does not block stop event when active subagents are in flight."""
         raw_payload = json.dumps({"conversationId": "conv_sub"})
-        with patch("sage.runner.is_post_invocation", return_value=False):
+        with patch("sage.runner.is_post_invocation", return_value=False), \
+             patch("sage.runner.final_sage_gate", return_value={"action": "hold_dedup"}) as mock_gate, \
+             patch("sage.runner.record_sage_hold"):
             with self.assertRaises(SystemExit):
                 run_session_stop_audit(raw_payload)
+            mock_gate.assert_called_once()
 
     @patch("sage.runner.acquire_conversation_lock", return_value=MagicMock())
-    @patch("sage.runner.get_active_subagents", return_value=[])
     @patch("sage.runner.extract_session_and_turn_data", return_value=("prompt", "raw", [], 0, set(), None, None, 10))
     @patch("sage.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {}, True))
-    def test_r3_runner_fast_paths_and_stale_transcripts(self, mock_sync, mock_extract, mock_subs, mock_lock):
+    def test_r3_runner_fast_paths_and_stale_transcripts(self, mock_sync, mock_extract, mock_lock):
         """Test runner fast path exits on 0 tool calls conversational turns."""
         raw_payload = json.dumps({"conversationId": "conv_0tools"})
         with self.assertRaises(SystemExit):
             run_session_stop_audit(raw_payload)
 
     @patch("sage.runner.acquire_conversation_lock", return_value=MagicMock())
-    @patch("sage.runner.get_active_subagents", return_value=[])
     @patch("sage.runner.extract_session_and_turn_data", return_value=("prompt", "raw", ["step1"], 10, {"write_to_file"}, None, None, 10))
     @patch("sage.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {"recap_emitted": False}, True))
     @patch("sage.runner.is_post_invocation", return_value=True)
     @patch("sage.runner.is_post_invocation_completion_candidate", return_value=False)
     @patch("sage.runner.sage_flow")
-    def test_r4_runner_midturn_and_final_gate_cascades(self, mock_adv, mock_comp, mock_post, mock_sync, mock_extract, mock_subs, mock_lock):
+    def test_r4_runner_midturn_and_final_gate_cascades(self, mock_adv, mock_comp, mock_post, mock_sync, mock_extract, mock_lock):
         """Test runner midturn advisor emit and progressed actions."""
         # Emit action
         mock_adv.return_value = {"action": "emit", "decision": "steer", "text": "Fix loop", "seen": {}}
@@ -826,17 +826,17 @@ class TestHooksAndRunnerAdversarial(unittest.TestCase):
 
         # Progressed action
         mock_adv.return_value = {"action": "progressed", "tools": 12, "lines": 20}
+        raw_payload = json.dumps({"conversationId": "conv_mid"})
         with self.assertRaises(SystemExit):
             run_session_stop_audit(raw_payload)
 
     @patch("sage.runner.acquire_conversation_lock", return_value=MagicMock())
-    @patch("sage.runner.get_active_subagents", return_value=[])
     @patch("sage.runner.extract_session_and_turn_data", return_value=("prompt", "raw", ["step1"], 16, {"write_to_file"}, None, None, 10))
     @patch("sage.runner.load_and_sync_session_state", return_value=("prompt", "/tmp/s.json", {"mid_turn_steers": 0}, True))
     @patch("sage.runner.is_post_invocation", return_value=False)
     @patch("sage.runner.final_sage_gate", return_value={"action": "hold_dedup", "seen": {"k1": 2}})
     @patch("sage.runner.record_sage_hold")
-    def test_r5_runner_final_advisor_hold_dedup_terminates(self, mock_hold, mock_gate, mock_post, mock_sync, mock_extract, mock_subs, mock_lock):
+    def test_r5_runner_final_advisor_hold_dedup_terminates(self, mock_hold, mock_gate, mock_post, mock_sync, mock_extract, mock_lock):
         """Test runner terminates cleanly when the final advisor's repeated advice is deduplicated (no steering cap)."""
         raw_payload = json.dumps({"conversationId": "conv_hold_dedup"})
         with self.assertRaises(SystemExit):

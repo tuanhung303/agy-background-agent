@@ -364,7 +364,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         }
         res = classify_advice(advice)
         self.assertLessEqual(len(res["text"]), 2000)
-        self.assertIn("Ev: Error log: ", res["text"])
+        self.assertIn("Found: Error log: ", res["text"])
 
     # ------------------------------------------------------------------------
     # F5: Low Latency & Zero Unnecessary Holds

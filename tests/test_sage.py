@@ -595,7 +595,6 @@ class TestSage(unittest.TestCase):
              patch("sage.runner.get_transcript_path", return_value="/tmp/dummy.jsonl"), \
              patch("sage.runner.extract_session_and_turn_data", return_value=("do work", "do work", [], 5, {"run_command"}, 0, 0, 10)), \
              patch("sage.runner.load_and_sync_session_state", return_value=("do work", "/tmp/state.json", {}, False)), \
-             patch("sage.runner.get_active_subagents", return_value=[]), \
              patch("sage.runner.get_active_background_tasks", return_value=[]), \
              patch("sage.runner.is_subagent_session", return_value=False), \
              patch("sage.runner.is_post_invocation", return_value=True), \

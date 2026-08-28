@@ -57,12 +57,11 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
         return transcript_file, state_file, payload
 
     @patch("sage.runner.acquire_conversation_lock", return_value=True)
-    @patch("sage.runner.get_active_subagents", return_value=[])
     @patch("sage.runner.get_active_background_tasks", return_value=[])
     @patch("sage.runner.is_subagent_session", return_value=False)
     @patch("sage.runner.get_git_diff", return_value="")
     def test_midturn_advisor_all_action_permutations(
-        self, mock_diff, mock_sub, mock_bg, mock_subagents, mock_lock
+        self, mock_diff, mock_sub, mock_bg, mock_lock
     ):
         """Test every midturn sage_flow action branch: exit, yield, progressed, error, hold_dedup, emit, healthy."""
         actions_to_test = [
@@ -96,12 +95,11 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
                         self.assertIn(act_dict["text"], emitted_arg)
 
     @patch("sage.runner.acquire_conversation_lock", return_value=True)
-    @patch("sage.runner.get_active_subagents", return_value=[])
     @patch("sage.runner.get_active_background_tasks", return_value=[])
     @patch("sage.runner.is_subagent_session", return_value=False)
     @patch("sage.runner.get_git_diff", return_value="")
     def test_final_advisor_gate_all_outcome_permutations(
-        self, mock_diff, mock_sub, mock_bg, mock_subagents, mock_lock
+        self, mock_diff, mock_sub, mock_bg, mock_lock
     ):
         """Test final advisor gate outcomes: healthy recap, steer emit, dedup hold, model error, and skip."""
         outcomes = [

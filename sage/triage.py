@@ -129,7 +129,7 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         head = pinned if pinned else (action or "Establish baseline objective.")
         if action and action != pinned:
             head = f"{head} | Next: {action}"
-        parts = [f"{tag} {head}"]
+        parts = [head]
         # Receipt surfacing: make the interpretation audit-visible in the
         # emitted text, not just in internal state.
         interp = _safe_emission_text(ver_res.get("interpretation"))
@@ -141,13 +141,13 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         blind_spots = [_safe_emission_text(item) for item in (ver_res.get("blind_spots") or [])]
         questions = [_safe_emission_text(item) for item in (ver_res.get("questions") or [])]
         head = action or "; ".join(questions if questions else (blind_spots if is_steer else wouts)) or guidance or "Course correction required."
-        parts = [f"{tag} {head}"]
+        parts = [head]
         if evidence:
-            parts.append(f"Ev: {evidence}")
+            parts.append(f"Found: {evidence}")
         if questions and action:
             parts.append(f"Questions: {'; '.join(questions)}")
         if guidance and action and guidance != action:
-            parts.append(f"Why: {guidance}")
+            parts.append(f"Rationale: {guidance}")
         if pinned and (category == "scope_drift" or "drift" in str(ver_res.get("goal_status") or "").lower()):
             parts.append(f"Pinned: {pinned}")
 
@@ -157,7 +157,8 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         ladder_bits = [pinned, action, guidance]
         if len(" | ".join(parts)) < 1900 and (sfx := next_rung_suffix(*ladder_bits)):
             parts.append(sfx)
-    text = " | ".join(parts)[:2000]
+    parts.append(tag)
+    text = " | ".join(parts)
     res = {
         "decision": "steer" if is_steer else "watchout",
         "status": "off_track" if is_steer else "watchout",

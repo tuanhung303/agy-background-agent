@@ -261,7 +261,7 @@ class TestTriage(unittest.TestCase):
         self.assertIn("[WATCH·grill_me]", res["text"])
         self.assertIn("Use ask_question to interview user on plan blind spots", res["text"])
         self.assertIn("Questions: Which migration tool to use? (Recommended: Alembic); Should we support SQLite fallback?", res["text"])
-        self.assertIn("Why: Grill-me on migration strategy and rollback plan.", res["text"])
+        self.assertIn("Rationale: Grill-me on migration strategy and rollback plan.", res["text"])
 
         # Verify grill_me is not dedup-suppressed
         res2 = classify_advice(ver_res, seen_advice=res["seen"])
