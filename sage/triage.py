@@ -132,7 +132,7 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     if is_pinned:
         p_clean = _lc_first(pinned) if pinned else _lc_first(action or "establish baseline objective.")
         a_clean = _lc_first(action)
-        head = f"{p_clean} -> next: {a_clean}" if (action and action != pinned) else p_clean
+        head = f"{p_clean.rstrip('.')}. next: {a_clean}" if (action and action != pinned) else p_clean
         parts = [head]
         interp = _safe_emission_text(ver_res.get("interpretation"))
         if interp:
@@ -156,9 +156,9 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
         else:
             target = g_clean or "course correction required."
         if e_clean:
-            body = f"{e_clean} -> {target}"
+            body = f"{e_clean.rstrip('.')}. {target}"
         elif g_clean and g_clean != a_clean:
-            body = f"{g_clean} -> {target}"
+            body = f"{g_clean.rstrip('.')}. {target}"
         else:
             body = target
         parts = [body]

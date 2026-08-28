@@ -111,7 +111,7 @@ class TestTriage(unittest.TestCase):
         res = classify_advice(ver_res, escalate_min_conf=0.85)
         self.assertEqual(res["decision"], "steer")
         self.assertEqual(res["category"], "irreversible_risk")
-        self.assertIn("check git -> stop rm", res["text"])
+        self.assertIn("check git. stop rm", res["text"])
 
     def test_classify_advice_never_emits_destructive_metadata(self):
         for payload in (
@@ -263,7 +263,7 @@ class TestTriage(unittest.TestCase):
         res = classify_advice(ver_res)
         self.assertEqual(res["decision"], "watchout")
         self.assertEqual(res["category"], "grill_me")
-        self.assertIn("plan contains unverified DB migration assumption -> use ask_question to interview user on plan blind spots; which migration tool to use? (Recommended: Alembic); should we support SQLite fallback?", res["text"])
+        self.assertIn("plan contains unverified DB migration assumption. use ask_question to interview user on plan blind spots; which migration tool to use? (Recommended: Alembic); should we support SQLite fallback?", res["text"])
 
         # Verify grill_me is not dedup-suppressed
         res2 = classify_advice(ver_res, seen_advice=res["seen"])
@@ -281,7 +281,7 @@ class TestTriage(unittest.TestCase):
         res = classify_advice(ver_res)
         self.assertEqual(res["decision"], "watchout")
         self.assertEqual(res["category"], "confused_goal")
-        self.assertIn("user prompt refers vaguely to past task 'làm nốt hôm trước' -> apply recall workflow to inspect recent transcripts and git history", res["text"])
+        self.assertIn("user prompt refers vaguely to past task 'làm nốt hôm trước'. apply recall workflow to inspect recent transcripts and git history", res["text"])
 
     def test_classify_advice_prove_it_works_fake_verification(self):
         ver_res = {
@@ -296,7 +296,7 @@ class TestTriage(unittest.TestCase):
         self.assertEqual(res["decision"], "steer")
         self.assertEqual(res["status"], "off_track")
         self.assertEqual(res["category"], "fake_verification")
-        self.assertIn("agent claimed tests passed without executing command -> run `uv run pytest tests/test_api.py` and inspect real output", res["text"])
+        self.assertIn("agent claimed tests passed without executing command. run `uv run pytest tests/test_api.py` and inspect real output", res["text"])
 
 
 if __name__ == "__main__":

@@ -285,7 +285,7 @@ class TestTriageHardening(unittest.TestCase):
             "confidence": 0.8,
         }
         res_diff = classify_advice(raw_diff, seen_advice={})
-        self.assertIn("tests will verify changes without regressions -> run test suite", res_diff["text"])
+        self.assertIn("tests will verify changes without regressions. run test suite", res_diff["text"])
 
     def test_strict_length_clamping_under_2000_chars(self):
         raw_long = {

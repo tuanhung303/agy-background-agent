@@ -25,12 +25,18 @@ def _is_safe_inline_tool(t):
     
     if name in ("write_to_file", "write_file", "create_file"):
         path = str(args.get("TargetFile") or args.get("file") or args.get("AbsolutePath") or "").lower()
-        if path.endswith((".md", ".txt", ".csv", ".json", ".jsonl")) or "/scratch/" in path or "/brain/" in path:
+        if path.endswith((".md", ".txt", ".csv", ".json", ".jsonl", ".yml", ".yaml")) or "/scratch/" in path or "/brain/" in path:
             return True
             
     if name in ("run_command", "bash", "exec", "terminal"):
         cmd = str(args.get("CommandLine") or args.get("command") or args.get("cmd") or "").strip().lower()
-        if cmd.startswith(("ls", "cat", "echo", "grep", "find", "fd", "tree", "pwd", "head", "tail", "wc")):
+        if cmd.startswith("git ") or cmd == "git":
+            return True
+        safe_prefixes = (
+            "ls", "cat", "echo", "grep", "find", "fd", "tree", "pwd", "head", "tail", "wc",
+            "pytest", "uv run pytest", "npm test", "pnpm test", "cargo test", "go test", "statusline"
+        )
+        if any(cmd.startswith(p) for p in safe_prefixes):
             if not any(op in cmd for op in (">", "rm ", "mv ", "cp ", "chmod ", "chown ", "wget", "curl")):
                 return True
                 

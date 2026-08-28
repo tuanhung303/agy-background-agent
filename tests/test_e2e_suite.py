@@ -239,7 +239,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         res = classify_advice(advice, seen_advice={})
         self.assertEqual(res["decision"], "steer")
         self.assertEqual(res["category"], "loop_detection")
-        self.assertIn("3 consecutive test failures -> break infinite test loop: run pytest tests/test_core.py -x", res["text"])
+        self.assertIn("3 consecutive test failures. break infinite test loop: run pytest tests/test_core.py -x", res["text"])
 
     def test_f3_02_irreversible_risk_category_escalation(self):
         """Verifies high-confidence irreversible_risk is escalated from watchout to steer."""
@@ -254,7 +254,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         self.assertEqual(res["decision"], "steer")
         self.assertEqual(res["status"], "off_track")
         self.assertEqual(res["category"], "irreversible_risk")
-        self.assertIn("destructive query detected on production connection -> avoid dropping prod database: verify target environment first", res["text"])
+        self.assertIn("destructive query detected on production connection. avoid dropping prod database: verify target environment first", res["text"])
 
     def test_f3_03_parallelize_category_handling(self):
         """Verifies parallelize category normalization and keyed deduplication."""
@@ -268,7 +268,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         res1 = classify_advice(advice, seen_advice={})
         self.assertEqual(res1["decision"], "watchout")
         self.assertEqual(res1["category"], "parallelize")
-        self.assertIn("independent subtasks detected -> dispatch subagents for backend and frontend modules", res1["text"])
+        self.assertIn("independent subtasks detected. dispatch subagents for backend and frontend modules", res1["text"])
 
         # Second emission should deduplicate to hold_dedup
         res2 = classify_advice(advice, seen_advice=res1["seen"])
@@ -286,7 +286,7 @@ class TestTier1FeatureCoverage(BaseE2ETestCase):
         res = classify_advice(trap_advice)
         self.assertEqual(res["decision"], "watchout")
         self.assertEqual(res["category"], "architectural_trap")
-        self.assertIn("shared mutable dictionary causes race conditions -> refactor global state: use dependency injection instead", res["text"])
+        self.assertIn("shared mutable dictionary causes race conditions. refactor global state: use dependency injection instead", res["text"])
 
     def test_f3_05_confidence_tag_formatting(self):
         """Verifies confidence tag formatting across various confidence representations."""
@@ -811,7 +811,7 @@ class TestTier3CrossFeatureInteractions(BaseE2ETestCase):
         triage1 = classify_advice(parsed, seen_advice={})
         self.assertEqual(triage1["decision"], "steer")
         self.assertEqual(triage1["category"], "loop_detection")
-        self.assertIn("failing on assertion in line 12 -> pytest tests/test_e2e.py -k test_f1", triage1["text"])
+        self.assertIn("failing on assertion in line 12. pytest tests/test_e2e.py -k test_f1", triage1["text"])
 
         # Second triage with same seen map -> repeatable allows second emission, but count increments
         triage2 = classify_advice(parsed, seen_advice=triage1["seen"])

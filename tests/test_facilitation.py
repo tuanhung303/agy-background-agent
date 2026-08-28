@@ -418,7 +418,7 @@ class TestFacilitationCommand(unittest.TestCase):
             _user("write code"),
             _step("", [
                 {"name": "write_to_file", "args": {"TargetFile": "main.py"}},
-                {"name": "run_command", "args": {"CommandLine": "pytest"}},
+                {"name": "run_command", "args": {"CommandLine": "curl -X POST http://api"}},
                 {"name": "run_command", "args": {"CommandLine": "ls -la > out.txt"}}
             ])
         ]
