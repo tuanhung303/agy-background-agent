@@ -31,9 +31,25 @@ def _passthrough():
     return {"decision": "allow"}
 
 
+def _is_subagent_payload(payload):
+    """Subagent tool calls share the parent's conversationId; they must never be
+    blocked (the delegation command targets the MAIN agent only). Mirrors the
+    payload-key checks of sage.guards.is_subagent_session."""
+    if payload.get("isSubagent") or payload.get("is_subagent"):
+        return True
+    if payload.get("parentConversationId") or payload.get("parent_conversation_id"):
+        return True
+    role = str(payload.get("agentRole") or payload.get("role") or "").lower()
+    if role and ("subagent" in role or "implementer" in role or "research" in role or "auditor" in role or "worker" in role or role in ("self", "scout", "qa")):
+        return True
+    return False
+
+
 def evaluate(payload):
     """Pure decision logic: returns dict for the PreToolUse output contract."""
     if os.environ.get("AGY_SAGE_DISABLED") == "1":
+        return _passthrough()
+    if _is_subagent_payload(payload):
         return _passthrough()
     tool_call = payload.get("toolCall") if isinstance(payload.get("toolCall"), dict) else {}
     tool_name = str(tool_call.get("name") or "")

@@ -95,6 +95,18 @@ class TestSageEnforceHook(unittest.TestCase):
         )
         self.assertEqual(json.loads(proc.stdout), {"decision": "allow"})
 
+    def test_subagent_payload_never_injects(self):
+        # Regression (2026-08-28): subagents share the parent's conversationId,
+        # so they matched the delegate state and got blocked → recursive
+        # subagent spawning. Subagent tool calls must pass clean.
+        for payload in (
+            {"conversationId": self.conv_id, "isSubagent": True, "toolCall": {"name": "run_command", "args": {}}},
+            {"conversationId": self.conv_id, "parentConversationId": "parent-1", "toolCall": {"name": "write_to_file", "args": {}}},
+            {"conversationId": self.conv_id, "agentRole": "research", "toolCall": {"name": "run_command", "args": {}}},
+        ):
+            res = _run_hook(payload, state={"delegate_cmd_turn": 2}, state_file=self.state_file)
+            self.assertNotIn("injectSteps", res, f"subagent blocked: {payload}")
+
 
 if __name__ == "__main__":
     unittest.main()
