@@ -39,6 +39,9 @@ class TestSageEnforceHook(unittest.TestCase):
     def tearDown(self):
         if os.path.exists(self.state_file):
             os.unlink(self.state_file)
+        counter = f"/tmp/agy_sage_enforce_{self.conv_id}.json"
+        if os.path.exists(counter):
+            os.unlink(counter)
 
     def test_inline_exec_after_delegate_cmd_injects_violation(self):
         res = _run_hook(
@@ -106,6 +109,17 @@ class TestSageEnforceHook(unittest.TestCase):
         ):
             res = _run_hook(payload, state={"delegate_cmd_turn": 2}, state_file=self.state_file)
             self.assertNotIn("injectSteps", res, f"subagent blocked: {payload}")
+
+    def test_violation_injected_only_once_per_conv(self):
+        # Regression (2026-08-28): every inline tool call re-injected the
+        # violation message, flooding the main agent's context during long
+        # validate/verify stretches. Exactly ONE injection per conv, then quiet.
+        payload = {"conversationId": self.conv_id, "toolCall": {"name": "run_command", "args": {}}}
+        first = _run_hook(payload, state={"delegate_cmd_turn": 2}, state_file=self.state_file)
+        self.assertIn("injectSteps", first)
+        for _ in range(3):
+            res = _run_hook(payload, state={"delegate_cmd_turn": 2}, state_file=self.state_file)
+            self.assertNotIn("injectSteps", res, "flood: repeat injection after the first")
 
 
 if __name__ == "__main__":

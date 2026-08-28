@@ -25,10 +25,33 @@ from sage.task_structure import EXEC_TOOLS, FILE_TOOLS  # noqa: E402
 
 BLOCKED_TOOLS = EXEC_TOOLS | FILE_TOOLS
 VIOLATION_MSG = "[CMD·delegate·violation] exec inline blocked — delegate via invoke_subagent NOW"
+# Flood control: inject at most ONCE per conv, then a per-conv counter lets the
+# PostInvocation gate / statusline surface "ignored N×" without spamming context.
+MAX_INJECTIONS_PER_CONV = 1
 
 
 def _passthrough():
     return {"decision": "allow"}
+
+
+def _counter_path(conv_id):
+    return f"/tmp/agy_sage_enforce_{conv_id}.json" if conv_id else ""
+
+
+def _injections_used(conv_id):
+    try:
+        with open(_counter_path(conv_id), "r", encoding="utf-8") as f:
+            return int(json.load(f).get("count", 0))
+    except Exception:
+        return 0
+
+
+def _record_injection(conv_id):
+    try:
+        with open(_counter_path(conv_id), "w", encoding="utf-8") as f:
+            json.dump({"count": _injections_used(conv_id) + 1}, f)
+    except Exception:
+        pass
 
 
 def _is_subagent_payload(payload):
@@ -65,6 +88,9 @@ def evaluate(payload):
         return _passthrough()
     if not (state.get("delegate_cmd_turn") or state.get("facilitation_cmd_turn") or state.get("goal_settled")):
         return _passthrough()
+    if _injections_used(conv_id) >= MAX_INJECTIONS_PER_CONV:
+        return _passthrough()
+    _record_injection(conv_id)
     return {"decision": "allow", "injectSteps": [{"ephemeralMessage": VIOLATION_MSG}]}
 
 
