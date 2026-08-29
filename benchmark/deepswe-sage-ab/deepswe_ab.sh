@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 TASK="$1"; ARM="$2"; LABEL="$3"
 MODEL_TIER="${4:-Gemini 3.7 Flash (High)}"
+RUN_MODE="${RUN_MODE:-headless-agy-p}"
 BENCH=/Users/__blitzzz/Documents/GitHub/deep-swe-bench/tasks/$TASK
 BASE=/Users/__blitzzz/Documents/GitHub/deep-swe-bench/tasks/$TASK/tests/config.json
 RUNROOT=/tmp/deepswe_harness/runs/${LABEL}
@@ -80,6 +81,20 @@ if [ "$SPAWN_WT" != "$WORK" ]; then
 fi
 
 START_EPOCH=$(date +%s)
+AGY_VERSION=$(agy --version 2>/dev/null || echo unknown)
+REPO_SHA=$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)
+python3 - "$AGY_VERSION" "$RUN_MODE" "$MODEL_TIER" "$REPO_SHA" "$TASK" "$EVID/provenance.json" <<'PY'
+import json, sys
+data = {
+    "agy_version": sys.argv[1],
+    "mode": sys.argv[2],
+    "model": sys.argv[3],
+    "repo_sha": sys.argv[4],
+    "task": sys.argv[5],
+}
+with open(sys.argv[6], "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+PY
 echo "[ab] dispatched at $START_EPOCH; waiting for completion..."
 $S watch --topic "dswe-$LABEL" --timeout-ms 10800000 --poll-secs 30 --stall-secs 600
 WATCH=$?
@@ -101,6 +116,7 @@ PY
 )
 echo "turns=$TURNS" >> "$EVID/metrics.txt"
 echo "wall_secs=$((END_EPOCH-START_EPOCH)) watch_exit=$WATCH" >> "$EVID/metrics.txt"
+echo "agy_version=$AGY_VERSION mode=$RUN_MODE model=$MODEL_TIER repo_sha=$REPO_SHA task=$TASK" >> "$EVID/metrics.txt"
 
 # workspace diff -> model.patch
 cd "$WORK"
@@ -115,4 +131,4 @@ git diff --binary "$(git rev-list HEAD -1)" > "$EVID/model-uncommitted.patch" 2>
 python3 "$SCRIPT_DIR/grade.py" "$WORK" "$TASK" "$EVID"
 
 $S close --topic "dswe-$LABEL" >/dev/null 2>&1 || true
-echo "[ab] evidence and results in $EVID"
+echo "[ab] evidence and results in $EVID (agy=$AGY_VERSION mode=$RUN_MODE model=$MODEL_TIER repo_sha=$REPO_SHA)"
