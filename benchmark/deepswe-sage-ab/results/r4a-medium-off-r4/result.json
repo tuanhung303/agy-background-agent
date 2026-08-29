@@ -1,0 +1,13 @@
+{
+ "arm": "r4a-medium-off",
+ "task": "kysely-window-grouping-helpers",
+ "model": "Gemini 3.7 Flash (Medium)",
+ "sage": "OFF",
+ "f2p": "254/254",
+ "p2p": "22/22",
+ "reward": 1.0,
+ "partial": 1.0,
+ "turns": 182,
+ "wall_min": 8.8,
+ "note": "headless agy -p (60m print-timeout); graded via local verifier replication, names stripped; OFF baseline variance vs r3a (72 turns) is huge — n=1 turn counts are noise"
+}

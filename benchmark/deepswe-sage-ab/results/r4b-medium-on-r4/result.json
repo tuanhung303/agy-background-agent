@@ -1,0 +1,15 @@
+{
+ "arm": "r4b-medium-on",
+ "task": "kysely-window-grouping-helpers",
+ "model": "Gemini 3.7 Flash (Medium)",
+ "sage": "ON (post-optimization: directive tone, no stop-block on healthy bg wait)",
+ "f2p": "250/254",
+ "p2p": "22/22",
+ "reward": 0.0,
+ "partial": 0.992,
+ "turns_main": 40,
+ "turns_subagents": 436,
+ "subagents": 3,
+ "wall_min": 20.4,
+ "note": "agent FANNED OUT to 3 parallel subagents (part1/2/3) — first observed delegation conversion; wall 38->20.4 min vs r3d; same single-root-cause miss as r3d (GROUPING SETS compile assertion, 4 dialects); OFF arms 2/2 pass vs ON 0/2 pass on binary reward"
+}

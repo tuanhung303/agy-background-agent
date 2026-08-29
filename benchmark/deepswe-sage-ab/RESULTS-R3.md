@@ -45,3 +45,28 @@ counts are NOT comparable; within-round comparison is.
 - Brain transcripts: r3a f061f669, r3d 98552391 (first attempt 00080ed2, timeout-killed).
 - Claude session: f0559a89-7e16-43c8-aa09-6309a50b1cee.
 - Evidence dirs: /tmp/deepswe_harness/runs/{r3a-medium-off,r3d-medium-on,opus-r3}.
+
+---
+
+# R4 addendum — same task, after the small optimizations (2026-08-29)
+
+Post-r3 changes merged: directive-tone delegation doctrine, no force-continue stop on healthy
+background waits, sage read-only MCP tools, --model shorthand normalization, 60m print-timeout harness.
+
+| arm | sage | f2p | p2p | reward | partial | turns | wall |
+|---|---|---|---|---|---|---|---|
+| r4a | OFF | 254/254 | 22/22 | 1.0 | 1.0 | 182 | 8.8 min |
+| r4b | ON | 250/254 | 22/22 | 0.0 | 0.992 | 40 main + 436 in 3 subagents | 20.4 min |
+
+Findings:
+1. **Behavior change is real**: r4b is the first observed delegation conversion — the agent fanned
+   out to 3 parallel subagents (r3d ran 173 serial turns and ignored the nudge). Wall time halved
+   (38 -> 20.4 min) despite ~476 total turns (parallelism hides them).
+2. **Binary reward unchanged**: the same single-root-cause GROUPING SETS compile assertion missed
+   across 4 dialects, identical to r3d. Across rounds: OFF 2/2 pass, ON 0/2 pass on binary reward.
+   The ON runs churn more and end with the exact-string mismatch unrepaired.
+3. **OFF baseline variance is dominant**: 72 (r3a) vs 182 (r4a) turns on the identical task+model
+   label. n=1 turn counts are noise; no overhead-reduction claim is possible from main-turn drops
+   (173 -> 40) without counting the 436 subagent turns.
+4. Next leverage: the remaining failure is ONE precise string assertion — the MCP self-verify loop
+   (sage reads the failing junit/CTRF itself, orders the exact fix) targets exactly this.
