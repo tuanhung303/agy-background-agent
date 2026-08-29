@@ -36,14 +36,13 @@ class TestFacilitationCommand(unittest.TestCase):
     def test_wording_cmd_facilitation(self):
         msg = immediate_settle_message()
         self.assertIn("[CMD·facilitation", msg)
-        self.assertIn("Consider delegating execution to subagents via invoke_subagent", msg)
+        self.assertIn("Delegate execution to subagents via invoke_subagent", msg)
         self.assertNotIn("Do NOT execute inline", msg)
 
     def test_immediate_delegate_message_at_pin(self):
         msg = immediate_delegate_message(pinned_goal="Implement feature X")
         self.assertIn("[CMD·delegate", msg)
-        self.assertIn("consider delegating execution+tests to subagents via invoke_subagent", msg)
-        self.assertIn("provide payload: goal/scope/context_files/required_tests/DoD", msg)
+        self.assertIn("delegate execution+tests to subagents via invoke_subagent", msg)
 
     def test_settle_recap_payload_deduplicated_when_pin_command_emitted(self):
         msg = immediate_settle_message({"delegate_cmd_turn": 1})
@@ -284,7 +283,7 @@ class TestFacilitationCommand(unittest.TestCase):
                 msg = data.get("reason") or (data.get("injectSteps", [{}])[0].get("userMessage", ""))
                 self.assertIn("[Pinned Goal] Refactor optimizer", msg)
                 self.assertIn("[CMD·delegate", msg)
-                self.assertIn("consider delegating execution+tests to subagents", msg)
+                self.assertIn("delegate execution+tests to subagents", msg)
 
                 with open(state_file, "r") as sf:
                     saved = json.load(sf)
@@ -334,7 +333,7 @@ class TestFacilitationCommand(unittest.TestCase):
                 msg = data.get("reason") or (data.get("injectSteps", [{}])[0].get("userMessage", ""))
                 self.assertIn("[RECAP·on_track] All done", msg)
                 self.assertIn("[CMD·facilitation", msg)
-                self.assertIn("Consider delegating execution to subagents", msg)
+                self.assertIn("Delegate execution to subagents", msg)
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)
