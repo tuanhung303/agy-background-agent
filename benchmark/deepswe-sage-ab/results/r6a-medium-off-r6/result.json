@@ -1,0 +1,13 @@
+{
+ "arm": "r6a-medium-off",
+ "task": "kysely-window-grouping-helpers",
+ "model": "Gemini 3.7 Flash (Medium)",
+ "sage": "OFF",
+ "f2p": "254/254",
+ "p2p": "22/22",
+ "reward": 1.0,
+ "partial": 1.0,
+ "turns": 180,
+ "wall_min": 11,
+ "note": "graded with held-out patch; agent-committed test file removed pre-apply"
+}

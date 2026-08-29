@@ -90,3 +90,27 @@ Findings:
 4. Next diagnostic (before more A/B rounds): read the ON transcripts to see whether sage steering
    (stop-gate blocks, review-gate, QA mandates) correlates with stopping before held-out
    conformance is checked — the OFF runs iterate until the held-out-shaped strings/types match.
+
+---
+
+# R6 addendum — first round after the spec conformance sweep (2026-08-29)
+
+Diagnosis that drove the change: r5b's blind review passed a non-conformant implementation because
+it verified the agent's PARAPHRASED DoD, never the original spec's reject-clauses ("accepts
+number|bigint, not reference expressions"). Fix: Spec Conformance Sweep in the final gate + review
+contract (verify the ORIGINAL request clause-by-clause, negative case per accept/reject clause).
+
+| arm | sage | f2p | p2p | reward | partial | turns |
+|---|---|---|---|---|---|---|
+| r6a | OFF | 254/254 | 22/22 | 1.0 | 1.0 | 180 |
+| r6b | ON (conformance sweep) | 218/254 | 22/22 | 0.0 | 0.929 | 197 (solo) |
+
+1. The sweep measurably fixed the compile layer: build is clean, the type-rejection conformance
+   that killed r5b (0/254) passes — ON same-task trajectory 0/254 -> 218/254, partial 0.5 -> 0.929.
+2. Remaining failures cluster in RUNTIME semantics (lag/lead offsets/defaultValue must be emitted
+   as query parameters; bigint bucket acceptance) plus the persistent GROUPING SETS 4-dialect
+   cluster — inspected-but-not-executed negative cases still slip through.
+3. Cross-round binary: OFF 4/4 vs ON 0/4 (one-sided Fisher ~0.014). However the ON failure LAYER
+   changed every round (string -> type -> runtime), i.e. each general fix moved the frontier —
+   convergence-in-progress, not noise. Next general lever: review contract must EXECUTE negative
+   cases (run them), not verify their existence.

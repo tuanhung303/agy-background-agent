@@ -1,0 +1,12 @@
+{
+ "arm": "r6b-medium-on",
+ "task": "kysely-window-grouping-helpers",
+ "model": "Gemini 3.7 Flash (Medium)",
+ "sage": "ON (typed taxonomy + spec conformance sweep)",
+ "f2p": "218/254",
+ "p2p": "22/22",
+ "reward": 0.0,
+ "partial": 0.929,
+ "turns_main": 197,
+ "note": "conformance sweep fixed the compile layer (build clean, @ts-expect-error conformance passes — r5b failed here); remaining 36 f2p failures in 2-3 root causes: lag/lead runtime semantics (offset/defaultValue must be query parameters; bigint bucket acceptance) + the persistent GROUPING SETS 4-dialect compile cluster. ON trajectory on same task: 0/254 -> 218/254"
+}
