@@ -1,26 +1,22 @@
-"""
-sage.policies - Decision policies for background task watching and terminal sage gating.
-"""
+"""sage.policies - Decision policies for background task watching and terminal sage gating."""
 import re
 from sage.config import (
-    ADAPTIVE_CADENCE_ENABLED, DIFF_SPIKE_THRESHOLD, MAX_MID_TURN_STEERS,
-    MAX_TOOL_SCORE_THRESHOLD, MID_TURN_SAGE_ENABLED, MIN_TOOL_SCORE_THRESHOLD,
-    SAGE_ESCALATE_MIN_CONFIDENCE, SAGE_MAX_ERROR_STREAK, SAGE_STEER_MIN_CONFIDENCE,
-    SAGE_TOOL_SCORE_THRESHOLD,
+    ADAPTIVE_CADENCE_ENABLED, DIFF_SPIKE_THRESHOLD, MAX_MID_TURN_STEERS, MAX_TOOL_SCORE_THRESHOLD,
+    MID_TURN_SAGE_ENABLED, MIN_TOOL_SCORE_THRESHOLD, SAGE_ESCALATE_MIN_CONFIDENCE, SAGE_MAX_ERROR_STREAK,
+    SAGE_STEER_MIN_CONFIDENCE, SAGE_TOOL_SCORE_THRESHOLD,
 )
 from sage.events import (
-    DELEGATE_REVIEW_PAYLOAD, EVENT_FINAL_STOP, EVENT_PARALLEL_OPP,
-    EVENT_TOOL_THRESHOLD, format_summon_message, playbook_reminder,
+    DELEGATE_REVIEW_PAYLOAD, EVENT_FINAL_STOP, EVENT_PARALLEL_OPP, EVENT_TOOL_THRESHOLD, format_summon_message,
+    playbook_reminder,
 )
 from sage.sage import evaluate_mid_turn_progress
 from sage.sanitizer import detect_transcript_deferral, detect_user_approval
 from sage.task_structure import _classify_subagents, get_parallelizable_signals
 from sage.transcript import (
-    _read_transcript_steps, calculate_turn_tool_score, extract_session_and_turn_data,
-    has_new_user_activity, has_repeated_tool_calls, is_post_invocation_completion_candidate,
+    _read_transcript_steps, calculate_turn_tool_score, extract_session_and_turn_data, has_new_user_activity,
+    has_repeated_tool_calls, is_post_invocation_completion_candidate,
 )
 from sage.triage import classify_advice
-
 _playbook_reminder = playbook_reminder
 BG_STALE_SECONDS = 300.0
 
@@ -69,9 +65,8 @@ def _facilitation_signal(transcript_path, state):
     return facilitation_signal(transcript_path, state)
 
 
-def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
-              total_tool_calls, turn_tool_names, user_prompt, agent_steps,
-              git_diff, state, forced=False, signal_note="", workspace_root=None):
+def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls,
+              turn_tool_names, user_prompt, agent_steps, git_diff, state, forced=False, signal_note="", workspace_root=None):
     """Unified policy flow for sage decisions (mid-turn or final)."""
     final = mode == "final"
     if not MID_TURN_SAGE_ENABLED:
@@ -82,6 +77,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     if es >= SAGE_MAX_ERROR_STREAK:
         return {"action": "skip", "reason": f"sage circuit breaker open (streak={es})"} if final else {"action": "exit", "reason": f"sage circuit breaker open (streak={es})"}
     par_sig = get_parallelizable_signals(transcript_path) if not final else {}
+    assist_active = bool(par_sig.get("signal_text", "").startswith("ASSIST_MODE") or "assist_mode" in par_sig.get("categories", []))
     if par_sig.get("parallelizable"):
         stable_details = [d for d in par_sig.get("details", []) if not d.startswith("mid-task tool accumulation")]
         fp = [sorted(par_sig.get("categories", [])), sorted(stable_details)]
@@ -93,7 +89,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
             signal_note = f"{signal_note}\n{stext}".strip()
     if par_sig.get("shared_files") and state is not None:
         state["shared_files"] = par_sig["shared_files"]
-    fac_sig = _facilitation_signal(transcript_path, state)
+    fac_sig = _facilitation_signal(transcript_path, state) if not assist_active else ""
     if fac_sig:
         forced = True
         state["cmd_ignored"] = int(state.get("cmd_ignored", state.get("facilitation_cmd_ignored", 0))) + 1
@@ -127,8 +123,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
                 return {"action": "emit", "decision": "watchout", "category": "missing_proof", "text": DELEGATE_REVIEW_PAYLOAD}
         is_plan_turn = bool(re.search(r"(?i)\b/plan\b", str(user_prompt or "")) or re.search(r"(?i)\bplan\b", str(clean_prompt or "")))
         active_signal = format_summon_message(
-            EVENT_FINAL_STOP, total_tools=total_tool_calls, diff=diff_cnt or None,
-            is_plan=is_plan_turn or None,
+            EVENT_FINAL_STOP, total_tools=total_tool_calls, diff=diff_cnt or None, is_plan=is_plan_turn or None,
             deferral=deferral.get("snippet") if deferral.get("matched") else None,
             deferral_cat=deferral.get("category") if deferral.get("matched") else None,
             delegated_cmd=deferral.get("delegated_cmd") if deferral.get("matched") else None,
@@ -142,8 +137,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
         active_signal = format_summon_message(EVENT_PARALLEL_OPP, signal_text=par_sig.get("signal_text", ""))
     else:
         active_signal = format_summon_message(
-            EVENT_TOOL_THRESHOLD, total_tools=total_tool_calls,
-            mix=list(turn_tool_names)[-5:] if turn_tool_names else None,
+            EVENT_TOOL_THRESHOLD, total_tools=total_tool_calls, mix=list(turn_tool_names)[-5:] if turn_tool_names else None,
             deferral=deferral.get("snippet") if deferral.get("matched") else None,
             delegated_cmd=deferral.get("delegated_cmd") if deferral.get("matched") else None,
         )
@@ -177,8 +171,11 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     if dec in ("steer", "watchout") and classified.get("category") and mode != "final":
         cat = classified["category"]
         write_tools = {"write_to_file", "replace_file_content", "multi_replace_file_content", "edit_file", "apply_diff"}
-        if cat == "parallelize_subagent" and turn_tool_names and any(t in write_tools for t in turn_tool_names) and (diff_cnt > 50 or total_tool_calls >= 15):
-            return {**res, "action": "hold_dedup", "half_done_suppressed": True, "category": cat}
+        if cat in ("parallelize_subagent", "parallelize"):
+            if assist_active:
+                return {**res, "action": "hold_dedup", "assist_suppressed": True, "category": cat}
+            if turn_tool_names and any(t in write_tools for t in turn_tool_names) and (diff_cnt > 50 or total_tool_calls >= 15):
+                return {**res, "action": "hold_dedup", "half_done_suppressed": True, "category": cat}
         if _hammer_suppressed(state, cat, latest[3]):
             return {**res, "action": "hold_dedup", "hammer_suppressed": True, "category": cat}
     if (dec in ("steer", "watchout") and text and text in prior_texts) or dec == "hold_dedup":
@@ -188,9 +185,8 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
     return {**res, "action": "healthy", "text": text}
 
 
-def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count,
-                    total_tool_calls, turn_tool_names, user_prompt,
-                    agent_steps, git_diff, state, workspace_root=None):
+def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls,
+                    turn_tool_names, user_prompt, agent_steps, git_diff, state, workspace_root=None):
     """Sage assessment at a finishing stop — the sole terminal gate."""
     act = sage_flow("final", conv_id=conv_id, transcript_path=transcript_path, clean_prompt=clean_prompt,
                     initial_line_count=initial_line_count, total_tool_calls=total_tool_calls,

@@ -157,9 +157,18 @@ def get_parallelizable_signals(steps_or_path, workspace_root=None):
         if "QA" not in suggested_roles:
             suggested_roles.append("QA")
 
+    total_writes = sum(file_write_counts.values())
+    top3_writes = sum(sorted(file_write_counts.values(), reverse=True)[:3])
+    seam_ratio = (top3_writes / total_writes) if total_writes > 0 else 0.0
+
     parallelizable = len(categories) > 0
     signal_text = ""
-    if parallelizable:
+    if len(file_write_counts) > 3 and seam_ratio > 0.3:
+        if "assist_mode" not in categories:
+            categories.append("assist_mode")
+        signal_text = "ASSIST_MODE: High coupling: most work touches shared files. Use Assist Mode — no delegation orders."
+        parallelizable = True
+    elif parallelizable:
         roles_str = ", ".join(dict.fromkeys(suggested_roles))
         details_str = "; ".join(details)
         lead = "Delegation opportunity" if categories == ["context_fatigue_delegation"] else "Independent workstreams detected"

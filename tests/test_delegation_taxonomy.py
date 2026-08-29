@@ -456,5 +456,160 @@ class TestSageWorktreeScript(unittest.TestCase):
             self.assertEqual(branch_check.stdout.strip(), "")
 
 
+class TestAssistModeRouting(unittest.TestCase):
+    """Tests for Assist Mode seam-ratio routing, signal emission, and delegation suppression."""
+
+    def test_sage_prompt_contains_mode_routing_table_and_assist_mode_block(self):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        prompt_path = os.path.join(repo_root, "sage", "sage_prompt.md")
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn("Mode Routing Table", content)
+        self.assertIn("Single Player (`simple_qa`)", content)
+        self.assertIn("Teamplay (`multi_file`)", content)
+        self.assertIn("Assist (`complex_code` / coupled `multi_file`)", content)
+        self.assertIn(
+            "[Mode: Assist] High coupling — shared state or monolithic integration files. "
+            "Act as a staff-level reviewer; budget 3-5 steers. DISCOVER (Phase 1): read the raw request with verification tools; "
+            "generate an acceptance checklist; hand it to the executor at goal pin. HINT: point to repo conventions or adjacent patterns (max 2 times). "
+            "WATCH: track the checklist; remind once per untouched item. EXHAUSTION FALLBACK: if the budget is hit before completion, issue one final directive to finalize, "
+            "then yield completely. VALIDATE (Phase 3): run the expectation-gap check and hostile audit yourself via verification tools; "
+            "report findings in a single steer. Do NOT delegate review.",
+            content,
+        )
+
+    def test_assist_mode_signal_fires_when_write_ratio_exceeds_threshold(self):
+        # 5 files: core/main.py (5 writes), core/engine.py (3 writes), core/config.py (2 writes),
+        # pkg1/a.py (1 write), pkg2/b.py (1 write). Total = 12. Top 3 = 10 (ratio = 10/12 = 0.833 > 0.3)
+        steps = [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Update core integration and leaf modules"},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/main.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/main.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/main.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/main.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/main.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/engine.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/engine.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/engine.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/config.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/config.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "pkg1/a.py"}}]},
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "pkg2/b.py"}}]},
+        ]
+        res = get_parallelizable_signals(steps)
+        self.assertTrue(res["parallelizable"])
+        self.assertIn("assist_mode", res["categories"])
+        self.assertEqual(
+            res["signal_text"],
+            "ASSIST_MODE: High coupling: most work touches shared files. Use Assist Mode — no delegation orders.",
+        )
+
+    def test_delegation_suppressed_when_assist_mode_active(self):
+        from unittest.mock import patch
+        import tempfile
+        from sage.policies import sage_flow
+
+        with tempfile.TemporaryDirectory() as td:
+            tr_path = os.path.join(td, "transcript.jsonl")
+            steps = [
+                {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Update coupled integration"},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/a.py"}}]},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/a.py"}}]},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/b.py"}}]},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/c.py"}}]},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "pkg/d.py"}}]},
+            ]
+            with open(tr_path, "w") as f:
+                for s in steps:
+                    f.write(json.dumps(s) + "\n")
+
+            state = {"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0}
+            fake_verdict = {
+                "status": "watchout",
+                "task_complexity": "multi_file",
+                "category": "parallelize_subagent",
+                "action": "[CMD·delegate:leaf] Split work into subagents",
+                "guidance": "Delegate now",
+                "confidence": 0.9,
+            }
+
+            with patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.policies.evaluate_mid_turn_progress", return_value=fake_verdict), \
+                 patch("sage.policies.has_new_user_activity", return_value=False), \
+                 patch("sage.policies.extract_session_and_turn_data", return_value=(None, None, None, 10, None, None, None, 5)), \
+                 patch("sage.policies.is_post_invocation_completion_candidate", return_value=False):
+                res = sage_flow(
+                    mode="midturn",
+                    conv_id="c_test_assist",
+                    transcript_path=tr_path,
+                    clean_prompt="Update coupled integration",
+                    initial_line_count=5,
+                    total_tool_calls=10,
+                    turn_tool_names=["write_to_file"],
+                    user_prompt="Update coupled integration",
+                    agent_steps=[],
+                    git_diff="Changed lines: 10",
+                    state=state,
+                    forced=True,
+                )
+            self.assertEqual(res.get("action"), "hold_dedup")
+            self.assertTrue(res.get("assist_suppressed"))
+
+    def test_delegate_commands_still_emitted_for_disjoint_files(self):
+        from unittest.mock import patch
+        import tempfile
+        from sage.policies import sage_flow
+
+        # 10 disjoint files, 1 write each: top 3 = 3/10 = 0.3 <= 0.3 -> PARALLELIZABLE, not assist mode
+        steps = [{"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Update disjoint plugins"}]
+        for i in range(10):
+            steps.append({"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": f"plugin_{i}/mod_{i}.py"}}]})
+
+        sig = get_parallelizable_signals(steps)
+        self.assertTrue(sig["parallelizable"])
+        self.assertNotIn("assist_mode", sig["categories"])
+        self.assertTrue(sig["signal_text"].startswith("PARALLELIZABLE:"))
+        self.assertIn("Implementer", sig["suggested_roles"])
+
+        with tempfile.TemporaryDirectory() as td:
+            tr_path = os.path.join(td, "transcript.jsonl")
+            with open(tr_path, "w") as f:
+                for s in steps:
+                    f.write(json.dumps(s) + "\n")
+
+            state = {"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0}
+            fake_verdict = {
+                "status": "watchout",
+                "task_complexity": "multi_file",
+                "category": "parallelize_subagent",
+                "action": "[CMD·delegate:leaf] Split work into subagents",
+                "guidance": "Delegate now",
+                "confidence": 0.9,
+            }
+
+            with patch("sage.policies.MID_TURN_SAGE_ENABLED", 1), \
+                 patch("sage.policies.evaluate_mid_turn_progress", return_value=fake_verdict), \
+                 patch("sage.policies.has_new_user_activity", return_value=False), \
+                 patch("sage.policies.extract_session_and_turn_data", return_value=(None, None, None, 10, None, None, None, 10)), \
+                 patch("sage.policies.is_post_invocation_completion_candidate", return_value=False):
+                res = sage_flow(
+                    mode="midturn",
+                    conv_id="c_test_disjoint",
+                    transcript_path=tr_path,
+                    clean_prompt="Update disjoint plugins",
+                    initial_line_count=10,
+                    total_tool_calls=10,
+                    turn_tool_names=["write_to_file"],
+                    user_prompt="Update disjoint plugins",
+                    agent_steps=[],
+                    git_diff="Changed lines: 10",
+                    state=state,
+                    forced=True,
+                )
+            self.assertEqual(res.get("action"), "emit")
+            self.assertEqual(res.get("decision"), "watchout")
+            self.assertIn("[CMD·delegate:leaf]", res.get("text", ""))
+
+
 if __name__ == "__main__":
     unittest.main()
