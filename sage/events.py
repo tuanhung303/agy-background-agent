@@ -26,7 +26,7 @@ SEVERITY = {
     EVENT_HEARTBEAT: 2, EVENT_STALE_TASK: 2, EVENT_CONFUSED_GOAL: 2,
     EVENT_ERROR_LOOP: 3, EVENT_SENSITIVE_TOOL: 3, EVENT_FINAL_STOP: 3,
 }
-FACT_RANK = ("why", "sig", "cmd", "kw", "tool", "fails", "loop", "err", "bg", "age", "task", "sub", "plan", "deferral", "deferral_cat", "delegated_cmd", "tail_todo", "exec_after_edit", "test_cmd", "tools", "mix", "diff", "steers", "rep", "dur")
+FACT_RANK = ("why", "shared", "legs", "sig", "cmd", "kw", "tool", "fails", "loop", "err", "bg", "age", "task", "sub", "plan", "deferral", "deferral_cat", "delegated_cmd", "tail_todo", "exec_after_edit", "test_cmd", "tools", "mix", "diff", "steers", "rep", "dur")
 FILLER_RE = re.compile(r"\b(?:the|a|an|is|are|was|were|be|been|being|that|which|there|please|kindly|simply|just|really|very|currently|also)\b", re.I)
 POLARITY_TOKENS = ("NOT", "NO", "ONLY", "UNLESS", "BEFORE", "MUST")
 _WS_RE = re.compile(r"\s{2,}")
@@ -128,7 +128,16 @@ def _normalize_kwargs(kwargs):
             if old_k in ("age_seconds", "duration") and isinstance(v, (int, float)):
                 v = bucket_seconds(v)
             norm[new_k] = v
-    ignored = ("facts", "style", "fallback_signal", "score", "delta", "delta_tools", "pinned_goal", "anchor_goal", "goal", "revised_goal")
+    shared = kwargs.get("shared") or kwargs.get("shared_files")
+    if shared:
+        if isinstance(shared, (list, tuple, set)):
+            norm["shared"] = ",".join(str(s) for s in shared)
+        elif isinstance(shared, str) and shared.strip():
+            s = shared.strip()
+            norm["shared"] = s[7:] if s.startswith("shared=") else s
+    if "legs" in kwargs and kwargs["legs"] is not None:
+        norm["legs"] = str(kwargs["legs"])
+    ignored = ("facts", "style", "fallback_signal", "score", "delta", "delta_tools", "pinned_goal", "anchor_goal", "goal", "revised_goal", "shared_files")
     for k, v in kwargs.items():
         if k not in mapping and k not in ignored:
             norm.setdefault(k, v)
@@ -156,18 +165,6 @@ def format_summon_message(event_type, style=STYLE_BALANCED, **kwargs):
     else:
         ask = ""
     facts_str = render_facts(merged, style)
-    if "{shared}" in ask:
-        shared = kwargs.get("shared") or merged.get("shared") or kwargs.get("shared_files") or merged.get("shared_files")
-        if isinstance(shared, (list, tuple, set)) and shared:
-            shared_str = f" shared={','.join(str(s) for s in shared)}"
-        elif isinstance(shared, str) and shared.strip():
-            s = shared.strip()
-            shared_str = s if s.startswith(" shared=") else (f" {s}" if s.startswith("shared=") else f" shared={s}")
-        else:
-            shared_str = ""
-        ask = ask.replace("{shared}", shared_str)
-    if "legs=N" in ask and (kwargs.get("legs") or merged.get("legs")):
-        ask = ask.replace("legs=N", f"legs={kwargs.get('legs') or merged.get('legs')}")
     pfx = "CMD" if (event_type.startswith("facilitation") or event_type.startswith("delegate")) else "EVT"
     tag = "facilitation·repeat" if event_type == EVENT_FACILITATION_REPEAT else ("delegate·violation" if event_type == EVENT_DELEGATE_VIOLATION else event_type)
     head = f"[{pfx}·{tag} s{sev}] {facts_str}".rstrip() if facts_str else f"[{pfx}·{tag} s{sev}]"

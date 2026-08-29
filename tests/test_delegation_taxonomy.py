@@ -16,7 +16,8 @@ from sage.events import (
     format_summon_message,
 )
 from sage.policies import final_sage_gate, sage_flow
-from sage.task_structure import get_parallelizable_signals
+from sage.session_state import load_and_sync_session_state, save_session_state
+from sage.task_structure import _classify_subagents, get_parallelizable_signals
 
 
 class TestDelegationTaxonomyTemplates(unittest.TestCase):
@@ -42,18 +43,26 @@ class TestDelegationTaxonomyTemplates(unittest.TestCase):
         self.assertIn("Max 2 review cycles.", content)
         self.assertNotIn("Should we", content)
 
-    def test_format_summon_message_delegate_and_facilitation_no_ask_duplication(self):
-        msg_del = format_summon_message(EVENT_DELEGATE, signal_text="delegate work")
+    def test_format_summon_message_delegate_and_facilitation_with_live_shared_and_legs(self):
+        msg_del = format_summon_message(
+            EVENT_DELEGATE,
+            signal_text="delegate work",
+            shared=["index.ts", "src/visitor.py"],
+        )
         self.assertIn("[CMD·delegate s2]", msg_del)
+        self.assertIn("shared=index.ts,src/visitor.py", msg_del)
         self.assertNotIn("ASK", msg_del)
 
-        msg_fac = format_summon_message(EVENT_FACILITATION, signal_text="parallel work")
+        msg_fac = format_summon_message(
+            EVENT_FACILITATION, signal_text="parallel work", legs=3
+        )
         self.assertIn("[CMD·facilitation s2]", msg_fac)
+        self.assertIn("legs=3", msg_fac)
         self.assertNotIn("ASK", msg_fac)
 
 
 class TestTaskStructureSharedFiles(unittest.TestCase):
-    """Tests shared-file detection for the {shared} parameter."""
+    """Tests shared-file detection and relative/absolute path normalization."""
 
     def test_shared_file_detection_by_name_and_frequency(self):
         synthetic_steps = [
@@ -88,6 +97,30 @@ class TestTaskStructureSharedFiles(unittest.TestCase):
         base_names = [os.path.basename(f).lower() for f in shared]
         self.assertTrue(any("index.ts" in b for b in base_names))
 
+    def test_relative_and_absolute_path_normalization_against_repo(self):
+        with tempfile.TemporaryDirectory() as td:
+            abs_index = os.path.join(td, "src", "index.ts")
+            synthetic_steps = [
+                {
+                    "type": "USER_INPUT",
+                    "source": "USER_EXPLICIT",
+                    "content": "Refactor",
+                },
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "tool_calls": [
+                        {"name": "write_to_file", "args": {"TargetFile": abs_index}},
+                        {"name": "replace_file_content", "args": {"TargetFile": "src/index.ts"}},
+                        {"name": "replace_file_content", "args": {"TargetFile": "./src/index.ts"}},
+                        {"name": "write_to_file", "args": {"TargetFile": "pkg/b.py"}},
+                    ],
+                },
+            ]
+            result = get_parallelizable_signals(synthetic_steps, workspace_root=td)
+            shared = result.get("shared_files", [])
+            # All three references to index.ts should normalize to src/index.ts
+            self.assertIn("src/index.ts", shared)
+
     def test_shared_files_empty_when_subagents_already_dispatched(self):
         synthetic_steps = [
             {
@@ -106,6 +139,62 @@ class TestTaskStructureSharedFiles(unittest.TestCase):
         result = get_parallelizable_signals(synthetic_steps)
         self.assertFalse(result["parallelizable"])
         self.assertEqual(result.get("shared_files"), [])
+
+
+class TestSubagentClassification(unittest.TestCase):
+    """Tests _classify_subagents excludes research/scout and classifies build vs review."""
+
+    def test_research_and_scout_subagents_excluded_from_build(self):
+        steps = [
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [
+                    {
+                        "name": "invoke_subagent",
+                        "args": {
+                            "Subagents": [
+                                {"Role": "Research Subagent", "Prompt": "Search docs", "TypeName": "research"},
+                                {"Role": "Codebase Scout", "Prompt": "Explore repository"},
+                            ]
+                        },
+                    }
+                ],
+            }
+        ]
+        has_build, has_review = _classify_subagents(steps)
+        self.assertFalse(has_build)
+        self.assertFalse(has_review)
+
+    def test_implementer_counts_as_build_and_reviewer_counts_as_review(self):
+        build_steps = [
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [
+                    {
+                        "name": "invoke_subagent",
+                        "args": {"Subagents": [{"Role": "Implementer", "Prompt": "Write feature"}]},
+                    }
+                ],
+            }
+        ]
+        has_build, has_review = _classify_subagents(build_steps)
+        self.assertTrue(has_build)
+        self.assertFalse(has_review)
+
+        review_steps = [
+            {
+                "type": "PLANNER_RESPONSE",
+                "tool_calls": [
+                    {
+                        "name": "invoke_subagent",
+                        "args": {"Subagents": [{"Role": "Code Reviewer", "Prompt": "Blind audit"}]},
+                    }
+                ],
+            }
+        ]
+        has_build_rev, has_review_rev = _classify_subagents(review_steps)
+        self.assertFalse(has_build_rev)
+        self.assertTrue(has_review_rev)
 
 
 class TestPoliciesReviewLegGate(unittest.TestCase):
@@ -173,7 +262,7 @@ class TestPoliciesReviewLegGate(unittest.TestCase):
             )
             self.assertNotEqual(act2.get("text"), act.get("text"))
 
-    def test_review_gate_does_not_block_when_review_leg_present(self):
+    def test_review_gate_does_not_block_research_scout_subagents(self):
         with tempfile.TemporaryDirectory() as td:
             tr_path = os.path.join(td, "transcript.jsonl")
             with open(tr_path, "w") as f:
@@ -181,7 +270,7 @@ class TestPoliciesReviewLegGate(unittest.TestCase):
                     json.dumps({
                         "type": "USER_INPUT",
                         "source": "USER_EXPLICIT",
-                        "content": "Add feature",
+                        "content": "Investigate bug",
                     }) + "\n"
                 )
                 f.write(
@@ -192,8 +281,7 @@ class TestPoliciesReviewLegGate(unittest.TestCase):
                                 "name": "invoke_subagent",
                                 "args": {
                                     "Subagents": [
-                                        {"Role": "Implementer", "Prompt": "Write feature"},
-                                        {"Role": "Reviewer", "Prompt": "Blind read-only audit of diff"},
+                                        {"Role": "Research", "Prompt": "Search error logs", "TypeName": "research"}
                                     ]
                                 },
                             }
@@ -206,19 +294,19 @@ class TestPoliciesReviewLegGate(unittest.TestCase):
                 mode="final",
                 conv_id="c_test",
                 transcript_path=tr_path,
-                clean_prompt="Add feature",
+                clean_prompt="Investigate bug",
                 initial_line_count=1,
                 total_tool_calls=5,
                 turn_tool_names=["invoke_subagent"],
-                user_prompt="Add feature",
+                user_prompt="Investigate bug",
                 agent_steps=[],
                 git_diff="",
                 state=state,
             )
-            # Should not be blocked by the review gate
             self.assertFalse(state.get("review_gate_fired", False))
 
-    def test_review_gate_does_not_block_when_no_delegations(self):
+    def test_review_gate_fired_persisted_in_session_state(self):
+        conv_id = f"c_persist_test_{os.getpid()}"
         with tempfile.TemporaryDirectory() as td:
             tr_path = os.path.join(td, "transcript.jsonl")
             with open(tr_path, "w") as f:
@@ -226,39 +314,32 @@ class TestPoliciesReviewLegGate(unittest.TestCase):
                     json.dumps({
                         "type": "USER_INPUT",
                         "source": "USER_EXPLICIT",
-                        "content": "Simple task",
-                    }) + "\n"
-                )
-                f.write(
-                    json.dumps({
-                        "type": "PLANNER_RESPONSE",
-                        "tool_calls": [
-                            {"name": "write_to_file", "args": {"TargetFile": "a.py"}}
-                        ],
+                        "content": "Build system",
                     }) + "\n"
                 )
 
-            state = {"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0}
-            act = sage_flow(
-                mode="final",
-                conv_id="c_test",
-                transcript_path=tr_path,
-                clean_prompt="Simple task",
-                initial_line_count=1,
-                total_tool_calls=5,
-                turn_tool_names=["write_to_file"],
-                user_prompt="Simple task",
-                agent_steps=[],
-                git_diff="",
-                state=state,
+            clean_prompt, state_file, state, is_same = load_and_sync_session_state(
+                conv_id, tr_path, "Build system"
             )
             self.assertFalse(state.get("review_gate_fired", False))
+
+            # Simulate review gate firing and saving state
+            save_session_state(state_file, state, review_gate_fired=True)
+
+            # Reload session state and verify flag persisted
+            clean_prompt2, state_file2, state2, is_same2 = load_and_sync_session_state(
+                conv_id, tr_path, "Build system"
+            )
+            self.assertTrue(state2.get("review_gate_fired"))
+
+            if os.path.exists(state_file):
+                os.remove(state_file)
 
 
 class TestSageWorktreeScript(unittest.TestCase):
     """Tests scripts/sage_worktree.sh spawn and prune in a temporary git repository."""
 
-    def test_spawn_and_prune_dry_run_and_force(self):
+    def test_spawn_and_prune_dry_run_and_force_from_subfolder(self):
         repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         script_path = os.path.join(repo_root, "scripts", "sage_worktree.sh")
 
@@ -288,10 +369,14 @@ class TestSageWorktreeScript(unittest.TestCase):
                 capture_output=True,
             )
 
-            # 1. Spawn worktree
+            # Create a subfolder and spawn from inside it
+            subfolder = os.path.join(td, "src", "nested")
+            os.makedirs(subfolder, exist_ok=True)
+
+            # 1. Spawn worktree from subfolder
             spawn_res = subprocess.run(
                 [script_path, "spawn", "sess-test", "leg-1"],
-                cwd=td,
+                cwd=subfolder,
                 check=True,
                 capture_output=True,
                 text=True,
@@ -312,7 +397,7 @@ class TestSageWorktreeScript(unittest.TestCase):
             # 2. Prune dry-run (default and explicit)
             prune_dry = subprocess.run(
                 [script_path, "prune"],
-                cwd=td,
+                cwd=subfolder,
                 check=True,
                 capture_output=True,
                 text=True,
@@ -334,7 +419,7 @@ class TestSageWorktreeScript(unittest.TestCase):
             # 3. Prune force / remove
             prune_force = subprocess.run(
                 [script_path, "prune", "--force"],
-                cwd=td,
+                cwd=subfolder,
                 check=True,
                 capture_output=True,
                 text=True,

@@ -34,6 +34,18 @@ def _extract_file_path(args):
     return None
 
 
+def _normalize_repo_path(fpath, root=None):
+    if not fpath:
+        return ""
+    repo = os.path.abspath(root or os.getcwd())
+    abs_p = os.path.abspath(os.path.join(repo, fpath) if not os.path.isabs(fpath) else fpath)
+    try:
+        rel = os.path.relpath(abs_p, repo)
+        return abs_p if rel.startswith("..") else rel
+    except ValueError:
+        return abs_p
+
+
 def _extract_research_target(tool_name, args):
     if not isinstance(args, dict):
         return None
@@ -55,7 +67,8 @@ def _extract_test_target(args):
 
 def _classify_subagents(tsteps):
     """Classifies subagent invocations in transcript steps into (has_build, has_review)."""
-    has_build, has_review, rkw = False, False, ("review", "read-only", "audit")
+    has_build, has_review = False, False
+    review_kw, research_kw = ("review", "read-only", "audit"), ("research", "scout")
     from sage.transcript import _safe_tool_calls
     for s in tsteps:
         for t in _safe_tool_calls(s):
@@ -64,14 +77,16 @@ def _classify_subagents(tsteps):
                 subs = args.get("Subagents") if isinstance(args, dict) else None
                 for item in (subs if isinstance(subs, list) and subs else [args]):
                     txt = str(item).lower() if not isinstance(item, dict) else f"{item.get('Role', '')} {item.get('Prompt', '')} {item.get('TypeName', '')}".lower()
-                    if any(kw in txt for kw in rkw):
+                    if any(kw in txt for kw in review_kw):
                         has_review = True
+                    elif any(kw in txt for kw in research_kw):
+                        pass
                     else:
                         has_build = True
     return has_build, has_review
 
 
-def get_parallelizable_signals(steps_or_path):
+def get_parallelizable_signals(steps_or_path, workspace_root=None):
     """Analyzes transcript tool calls and prompt context for parallelizable workstreams."""
     steps = _read_steps(steps_or_path)
     turn_idxs = [
@@ -97,7 +112,7 @@ def get_parallelizable_signals(steps_or_path):
         if name in FILE_TOOLS:
             fpath = _extract_file_path(args)
             if fpath:
-                norm = os.path.normpath(fpath)
+                norm = _normalize_repo_path(fpath, workspace_root)
                 file_write_counts[norm] = file_write_counts.get(norm, 0) + 1
                 files_by_dir.setdefault(os.path.dirname(norm), set()).add(norm)
         if name in RESEARCH_TOOLS:

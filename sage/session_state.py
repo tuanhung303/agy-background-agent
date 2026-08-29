@@ -198,6 +198,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     task_complexity = raw_state.get("task_complexity")
     last_par_cats = list(raw_state.get("last_par_cats", [])) if is_same else []
     last_par_fp = raw_state.get("last_par_fp", []) if is_same else []
+    review_gate_fired = bool(raw_state.get("review_gate_fired", False)) if is_same else False
 
     state = {
         "turn_key": turn_key, "prompt_hash": prompt_hash,
@@ -222,6 +223,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "delegate_cmd_turn": delegate_cmd_turn,
         "facilitation_cmd_ignored": facilitation_cmd_ignored,
         "cmd_ignored": cmd_ignored,
+        "review_gate_fired": review_gate_fired,
     }
 
     return clean_prompt, state_file, state, is_same

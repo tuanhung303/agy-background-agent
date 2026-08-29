@@ -11,10 +11,11 @@ case "$cmd" in
     fi
     session_id="$2"
     leg_id="$3"
-    wt_dir=".worktrees/sage/${session_id}-${leg_id}"
+    toplevel=$(git rev-parse --show-toplevel)
+    wt_dir="${toplevel}/.worktrees/sage/${session_id}-${leg_id}"
     branch_name="sage/${session_id}/${leg_id}"
 
-    mkdir -p ".worktrees/sage"
+    mkdir -p "${toplevel}/.worktrees/sage"
     git worktree add -b "${branch_name}" "${wt_dir}"
 
     now=$(date +%s)
