@@ -82,9 +82,9 @@ PLAN_FINAL_STOP_DIRECTIVE = (
 ASK = {
     EVENT_TOOL_THRESHOLD: "",
     EVENT_PARALLEL_OPP: "",
-    EVENT_DELEGATE: "goal pinned. consider delegating execution+tests to subagents via invoke_subagent. provide payload: goal/scope/context_files/required_tests/DoD.",
+    EVENT_DELEGATE: "goal pinned. delegate execution+tests to subagents via invoke_subagent.",
     EVENT_DELEGATE_VIOLATION: "inline execution detected. are you sure you don't want to delegate?",
-    EVENT_FACILITATION: "goal settled. facilitation suggestion: consider delegating execution+tests to subagents via invoke_subagent. provide payload: goal/scope/context_files/required_tests/DoD.",
+    EVENT_FACILITATION: "goal settled. delegate execution+tests to subagents via invoke_subagent.",
     EVENT_FACILITATION_REPEAT: "facilitation suggestion ignored. prior suggestion: consider delegating execution to subagents.",
     EVENT_HEARTBEAT: "waiting on bg task, hung, or progressing? unblock cmd if hung.",
     EVENT_STALE_TASK: "producing output or hung? keep watch or kill.",

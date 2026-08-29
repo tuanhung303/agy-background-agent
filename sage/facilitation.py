@@ -45,7 +45,7 @@ def _is_safe_inline_tool(t):
 
 def immediate_delegate_message(state=None, pinned_goal=None):
     """Full delegation command dispatched at pin-time."""
-    kwargs = {"signal_text": "Consider delegating execution to subagents via invoke_subagent. Should we split this into parallel tasks?"}
+    kwargs = {"signal_text": "Delegate execution to subagents via invoke_subagent. Split this into parallel tasks."}
     if pinned_goal:
         kwargs["goal"] = pinned_goal
     return format_summon_message(EVENT_DELEGATE, **kwargs)
@@ -65,7 +65,7 @@ def immediate_settle_message(state=None, exec_calls=None, repeat=0):
             journal_write("cmd_repeat", conv_id=conv_id)
         except Exception:
             pass
-    kwargs = {"signal_text": "Consider delegating execution to subagents via invoke_subagent. Should we split this into parallel tasks?"}
+    kwargs = {"signal_text": "Delegate execution to subagents via invoke_subagent. Split this into parallel tasks."}
     if exec_calls is not None:
         kwargs["exec_calls"] = exec_calls
     return format_summon_message(ev, **kwargs)
