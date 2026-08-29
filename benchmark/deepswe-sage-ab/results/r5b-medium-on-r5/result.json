@@ -1,0 +1,13 @@
+{
+ "arm": "r5b-medium-on",
+ "task": "kysely-window-grouping-helpers",
+ "model": "Gemini 3.7 Flash (Medium)",
+ "sage": "ON (typed delegation taxonomy live)",
+ "f2p": "0/254",
+ "p2p": "22/22",
+ "reward": 0.0,
+ "partial": 0.5,
+ "turns_main": 91,
+ "wall_min": 22,
+ "note": "NEW failure mode: type-level conformance — held-out test's @ts-expect-error directives unused (agent API more permissive than reference), tsc fails, scored test never compiles. Ran SOLO (no fanout this round; 1 invoke_subagent mention, review gate present in transcript). ON arms now 0/3 binary reward vs OFF 3/3 across r3d/r4b/r5b — Fisher one-sided p=0.05, pattern needs diagnosis before more benchmarking"
+}

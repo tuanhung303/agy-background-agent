@@ -70,3 +70,23 @@ Findings:
    (173 -> 40) without counting the 436 subagent turns.
 4. Next leverage: the remaining failure is ONE precise string assertion — the MCP self-verify loop
    (sage reads the failing junit/CTRF itself, orders the exact fix) targets exactly this.
+
+---
+
+# R5 addendum — first round with the typed delegation taxonomy (2026-08-29)
+
+| arm | sage | f2p | p2p | reward | turns | wall |
+|---|---|---|---|---|---|---|
+| r5a | OFF | 254/254 | 22/22 | 1.0 | 168 | 11 min |
+| r5b | ON (typed taxonomy) | 0/254 | 22/22 | 0.0 | 91 (solo) | 22 min |
+
+1. r5b did NOT fan out (solo run) — new failure mode is type-conformance: the agent's API accepted
+   call shapes the reference rejects (unused @ts-expect-error -> tsc fails -> scored test never built).
+2. Cross-round: OFF 3/3 binary pass vs ON 0/3 (r3d, r4b, r5b). One-sided Fisher p = 0.05.
+   Small n, but the sage-ON-correlates-with-failure pattern is now at the significance boundary.
+3. Grading harness note: r5b committed its own window-frame.test.ts; graders must restore the base
+   tree / remove agent-committed test files before applying the held-out patch (grade.py's
+   subprocess_apply already does this; the local verifier flow must too).
+4. Next diagnostic (before more A/B rounds): read the ON transcripts to see whether sage steering
+   (stop-gate blocks, review-gate, QA mandates) correlates with stopping before held-out
+   conformance is checked — the OFF runs iterate until the held-out-shaped strings/types match.

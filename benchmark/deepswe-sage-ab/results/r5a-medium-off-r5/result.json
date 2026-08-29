@@ -1,0 +1,13 @@
+{
+ "arm": "r5a-medium-off",
+ "task": "kysely-window-grouping-helpers",
+ "model": "Gemini 3.7 Flash (Medium)",
+ "sage": "OFF",
+ "f2p": "254/254",
+ "p2p": "22/22",
+ "reward": 1.0,
+ "partial": 1.0,
+ "turns": 168,
+ "wall_min": 11,
+ "note": "headless agy -p (60m); graded with held-out test.patch applied post-hoc"
+}
