@@ -2,7 +2,10 @@
 sage.guards - Lifecycle guards, subagent detection, and fail-safe exit helpers.
 """
 from datetime import datetime, timezone
-import json, os, re, sys
+import json
+import os
+import re
+import sys
 from sage.config import MIN_TOOLS_FOR_DURATION_TRIGGER, SENSITIVE_TRIGGER_ENABLED, TOOL_CALL_THRESHOLD, TURN_DURATION_THRESHOLD
 from sage.locking import log_audit, release_lock
 
