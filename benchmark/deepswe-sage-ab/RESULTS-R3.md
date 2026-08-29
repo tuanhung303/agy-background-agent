@@ -137,3 +137,16 @@ contract (verify the ORIGINAL request clause-by-clause, negative case per accept
    dominated by a coin flip neither arm controls. Measuring sage's value on this task is no
    longer informative — the frontier moved to: harder/multiple tasks (baseline-fail selection),
    per EXECUTION-TIMES.md ledger.
+
+---
+
+# R8 addendum — Assist Mode round, incomplete (2026-08-29)
+
+| arm | sage | result |
+|---|---|---|
+| r8a | OFF | reward 1.0, 180 turns (baseline stable) |
+| r8b | ON (Assist Mode live) | INCOMPLETE — agy silent-death stall at ~45 min; resume blocked by individual quota exhaustion (resets ~34.5h). Work tree preserved. |
+
+r8b had spawned ~7 sessions (main + legs) before stalling. Whether Assist Mode routing
+actually suppressed delegation on this coupled task needs the transcript post-mortem once
+quota resets. ON Assist-Mode value remains unproven — first round with the de-scarred prompt.
