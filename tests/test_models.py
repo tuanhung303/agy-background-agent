@@ -161,6 +161,59 @@ class TestModels(unittest.TestCase):
         _WORKING_MODEL["model"] = None
         self.assertEqual(get_cached_working_model(), "Gemini 3.6 Flash (High)")
 
+    def test_bare_flash_alias_resolution(self):
+        mock_models = [
+            "Gemini 4.0 Flash (High)",
+            "Gemini 3.8 Flash (Medium)",
+            "Gemini 3.7 Flash (Low)",
+            "Gemini 3.1 Pro (High)",
+        ]
+        flash_high = _expand_alias("flash", mock_models, "high")
+        self.assertNotIn("flash", flash_high)
+        self.assertEqual(flash_high[0], "Gemini 4.0 Flash (High)")
+
+        flash_med = _expand_alias("flash", mock_models, "medium")
+        self.assertNotIn("flash", flash_med)
+        self.assertEqual(flash_med[0], "Gemini 3.8 Flash (Medium)")
+
+        flash_low = _expand_alias("flash", mock_models, "low")
+        self.assertNotIn("flash", flash_low)
+        self.assertEqual(flash_low[0], "Gemini 3.7 Flash (Low)")
+
+    def test_resolve_model_candidates_bare_flash_normalized(self):
+        candidates = resolve_model_candidates(spec="flash", effort="high")
+        self.assertNotIn("flash", candidates)
+        self.assertEqual(candidates[0], "Gemini 3.7 Flash (High)")
+        self.assertTrue(all(" " in c and "(" in c for c in candidates))
+
+        candidates_med = resolve_model_candidates(spec="flash", effort="medium")
+        self.assertNotIn("flash", candidates_med)
+        self.assertEqual(candidates_med[0], "Gemini 3.7 Flash (Medium)")
+
+        candidates_combo = resolve_model_candidates(spec="flash,pro", effort="high")
+        self.assertNotIn("flash", candidates_combo)
+        self.assertNotIn("pro", candidates_combo)
+        self.assertEqual(candidates_combo[0], "Gemini 3.7 Flash (High)")
+
+    def test_resolve_model_candidates_env_flash_alias(self):
+        with patch.dict("os.environ", {"AGY_SAGE_MODEL": "flash", "AGY_SAGE_EFFORT": "high"}):
+            candidates = resolve_model_candidates()
+            self.assertNotIn("flash", candidates)
+            self.assertEqual(candidates[0], "Gemini 3.7 Flash (High)")
+
+    def test_slug_and_unrecognized_model_handling(self):
+        mock_models = [
+            "Gemini 3.7 Flash (High)",
+            "Gemini 3.7 Flash (Medium)",
+            "Gemini 3.1 Pro (High)",
+        ]
+        slug_res = _expand_alias("gemini-3.7-flash-high", mock_models, "high")
+        self.assertIn("Gemini 3.7 Flash (High)", slug_res)
+
+        bogus_cands = resolve_model_candidates(spec="bogus-model-xyz", effort="high")
+        self.assertNotIn("bogus-model-xyz", bogus_cands)
+        self.assertTrue(len(bogus_cands) > 0)
+
     def test_resolve_model_candidates_max_candidates_cap(self):
         candidates = resolve_model_candidates("auto", max_candidates=3)
         self.assertLessEqual(len(candidates), 3)

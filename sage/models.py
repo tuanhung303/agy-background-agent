@@ -20,6 +20,12 @@ _MODEL_CACHE_FILE = "/tmp/agy_available_models.json"
 _WORKING_MODEL_FILE = "/tmp/agy_sage_working_model.txt"
 _LEGACY_WORKING_MODEL_FILE = "/tmp/agy_advisor_working_model.txt"
 
+KNOWN_ALIASES = {
+    "auto", "latest", "default", "flash", "gemini-flash", "flash-high", "flash-hi",
+    "flash-medium", "flash-med", "flash-low", "flash-lo", "flash-lite", "flash-light",
+    "pro", "gemini-pro", "pro-high", "pro-hi", "pro-medium", "pro-med", "pro-low", "pro-lo",
+}
+
 
 def parse_model_version(name):
     """Extracts ((major, minor), tier_rank, effort_rank) tuple from model string."""
@@ -120,41 +126,59 @@ def get_cached_working_model():
     return None
 
 
-def _expand_alias(alias, available, effort):
-    """Expands a single alias token into an ordered list of candidate models."""
-    low_alias = alias.lower()
-    sorted_avail = sorted(available, key=model_sort_key, reverse=True)
-    if low_alias in ("auto", "latest", "default"):
-        target_effort = (effort or "high").lower()
-        exact = [m for m in sorted_avail if "flash" in m.lower() and target_effort in m.lower()]
-        other_flash = [m for m in sorted_avail if "flash" in m.lower() and m not in exact]
-        other_models = [m for m in sorted_avail if m not in exact and m not in other_flash]
-        return exact + other_flash + other_models
-    if low_alias == "flash-high":
-        return [m for m in sorted_avail if "flash" in m.lower() and "high" in m.lower()] + [m for m in sorted_avail if "flash" in m.lower()]
-    if low_alias == "flash-medium":
-        return [m for m in sorted_avail if "flash" in m.lower() and "medium" in m.lower()] + [m for m in sorted_avail if "flash" in m.lower()]
-    if low_alias == "flash-low":
-        return [m for m in sorted_avail if "flash" in m.lower() and "low" in m.lower()] + [m for m in sorted_avail if "flash" in m.lower()]
-    if low_alias == "pro":
-        return [m for m in sorted_avail if "pro" in m.lower()] + sorted_avail
-    return [alias]
+def _find_matching_model(name, available):
+    """Finds a matching model name in available models via exact, case-insensitive, or slug match."""
+    if not name or not isinstance(name, str):
+        return None
+    raw = name.strip()
+    if not raw:
+        return None
+    for m in available:
+        if m == raw:
+            return m
+    raw_low, raw_slug = raw.lower(), re.sub(r"[^a-z0-9]", "", raw.lower())
+    for m in available:
+        if m.lower() == raw_low or (raw_slug and re.sub(r"[^a-z0-9]", "", m.lower()) == raw_slug):
+            return m
+    return None
 
 
 def _retier_model(name, effort):
-    """Swap the effort suffix of a concrete model name to the requested tier.
-
-    agy bakes reasoning effort into the model name ("... (High)"); a concrete
-    spec like "Gemini 3.7 Flash (High)" therefore ignores any requested effort.
-    Retier it so a routine call asking for medium resolves "(Medium)" first.
-    Unknown/absent effort leaves the name untouched.
-    """
+    """Swap the effort suffix of a concrete model name to the requested tier."""
     if not effort:
         return name
     low = str(effort).strip().lower()
     if low not in ("low", "medium", "high"):
         return name
     return re.sub(r"\((?:high|medium|low)\)\s*$", f"({low.capitalize()})", str(name).strip(), flags=re.I)
+
+
+def _expand_alias(alias, available, effort=None):
+    """Expands a single alias token into an ordered list of candidate models."""
+    if not alias or not isinstance(alias, str):
+        return []
+    low = alias.strip().lower().replace("_", "-")
+    sorted_avail = sorted(available or DEFAULT_MODEL_FALLBACKS, key=model_sort_key, reverse=True)
+    target_eff = {"med": "medium", "hi": "high", "lo": "low"}.get(effort, effort or "high").lower()
+    tier = "pro" if ("pro" in low and "flash" not in low) else "flash"
+    for eff in ("high", "medium", "low"):
+        if eff in low or (eff == "medium" and "med" in low) or (eff == "high" and "hi" in low) or (eff == "low" and "lo" in low):
+            target_eff = eff
+            break
+
+    if low in KNOWN_ALIASES or tier in low:
+        exact = [m for m in sorted_avail if tier in m.lower() and target_eff in m.lower()]
+        other_tier = [m for m in sorted_avail if tier in m.lower() and m not in exact]
+        other_all = [m for m in sorted_avail if m not in exact and m not in other_tier]
+        return (exact + other_tier + other_all) or list(DEFAULT_MODEL_FALLBACKS)
+
+    matched = _find_matching_model(alias, sorted_avail)
+    if matched:
+        return [_retier_model(matched, effort)]
+    if parse_model_version(alias) != ((0, 0), 0, 0) or "(" in alias:
+        return [_retier_model(alias, effort)]
+    exact = [m for m in sorted_avail if target_eff in m.lower()]
+    return (exact + [m for m in sorted_avail if m not in exact]) or list(DEFAULT_MODEL_FALLBACKS)
 
 
 def resolve_model_candidates(spec=None, effort=None, max_candidates=4):
@@ -167,13 +191,21 @@ def resolve_model_candidates(spec=None, effort=None, max_candidates=4):
     tokens = [t.strip() for t in str(spec).split(",") if t.strip()] or ["auto"]
     available = get_available_models()
     expanded = []
-    aliases = {"auto", "latest", "default", "flash-high", "flash-medium", "flash-low", "pro"}
-    is_auto = len(tokens) == 1 and tokens[0].lower() in ("auto", "latest", "default")
+    is_auto = len(tokens) == 1 and tokens[0].lower().replace("_", "-") in ("auto", "latest", "default")
     for tok in tokens:
-        if tok.lower() in aliases:
+        clean_tok = tok.lower().replace("_", "-")
+        if clean_tok in KNOWN_ALIASES:
             expanded.extend(_expand_alias(tok, available, effort))
         else:
-            expanded.append(_retier_model(tok, effort))
+            matched = _find_matching_model(tok, available)
+            if matched:
+                expanded.append(_retier_model(matched, effort))
+            else:
+                ver = parse_model_version(tok)
+                if ver != ((0, 0), 0, 0) or "(" in tok:
+                    expanded.append(_retier_model(tok, effort))
+                else:
+                    expanded.extend(_expand_alias(tok, available, effort))
     if is_auto or not expanded:
         expanded.extend(DEFAULT_MODEL_FALLBACKS)
     else:
@@ -184,9 +216,18 @@ def resolve_model_candidates(spec=None, effort=None, max_candidates=4):
         candidates.append(cached)
         seen.add(cached)
     for m in expanded:
-        if m and m not in seen:
-            seen.add(m)
-            candidates.append(m)
-            if max_candidates and len(candidates) >= max_candidates:
-                break
+        if not m or m in seen or m.strip().lower().replace("_", "-") in KNOWN_ALIASES:
+            continue
+        seen.add(m)
+        candidates.append(m)
+        if max_candidates and len(candidates) >= max_candidates:
+            break
+    if not candidates:
+        for m in DEFAULT_MODEL_FALLBACKS:
+            ret = _retier_model(m, effort)
+            if ret not in seen:
+                seen.add(ret)
+                candidates.append(ret)
+                if max_candidates and len(candidates) >= max_candidates:
+                    break
     return candidates
