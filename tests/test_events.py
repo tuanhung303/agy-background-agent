@@ -5,6 +5,10 @@ tests.test_events - Unit tests for event-based advisor summon context formatting
 import unittest
 from sage.events import (
     EVENT_CONFUSED_GOAL,
+    EVENT_DELEGATE,
+    EVENT_DELEGATE_VIOLATION,
+    EVENT_FACILITATION,
+    EVENT_FACILITATION_REPEAT,
     EVENT_FANOUT,
     EVENT_FATIGUE,
     EVENT_FINAL_STOP,
@@ -102,6 +106,18 @@ class TestAdvisorEvents(unittest.TestCase):
         self.assertIn("[EVT·parallel_opportunity s1]", msg)
         self.assertIn("disjoint test suites", msg)
         self.assertNotIn("ASK ", msg)
+
+    def test_format_delegate_violation_event(self):
+        msg = format_summon_message(EVENT_DELEGATE_VIOLATION)
+        self.assertIn("[CMD·delegate·violation s2]", msg)
+        self.assertIn("ASK inline execution detected while delegation ordered. delegate via invoke_subagent or continue inline with stated justification.", msg)
+        self.assertTrue(assert_polarity_intact(msg))
+
+    def test_format_facilitation_repeat_event(self):
+        msg = format_summon_message(EVENT_FACILITATION_REPEAT)
+        self.assertIn("[CMD·facilitation·repeat s2]", msg)
+        self.assertIn("ASK prior delegation order ignored. delegate via invoke_subagent.", msg)
+        self.assertTrue(assert_polarity_intact(msg))
 
     def test_format_fallback_event(self):
         msg = format_summon_message("unknown_event", fallback_signal="Custom signal")
