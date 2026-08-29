@@ -309,7 +309,7 @@ class TestAdversarialHookExitSignals(unittest.TestCase):
             record_steer.assert_called_once_with(state_file, state, "task-999", 100)
             mock_emit.assert_called_once()
 
-        # 2. Grace action (stop event, watch count < 3)
+        # 2. Grace action (stop event -> fail_safe_exit without force_continue)
         grace_bgp = {"action": "grace"}
         with patch("sage.guards.is_post_invocation", return_value=False), \
              patch("sage.guards.emit_continue_response") as mock_emit, \
@@ -317,16 +317,18 @@ class TestAdversarialHookExitSignals(unittest.TestCase):
             handle_background_watch_action(
                 grace_bgp, state, state_file, 100, record_steer, record_grace
             )
-            record_grace.assert_called_once_with(state_file, state, 1, 100)
-            mock_emit.assert_called_once_with("Background tasks in progress; waiting for completion", is_post=False)
+            mock_emit.assert_not_called()
+            mock_fail_safe.assert_called_once_with("Background task in 300s grace period; waiting")
 
         # 3. Grace action (post-invocation event -> fail_safe_exit)
         with patch("sage.guards.is_post_invocation", return_value=True), \
+             patch("sage.guards.emit_continue_response") as mock_emit, \
              patch("sage.guards.fail_safe_exit") as mock_exit:
             handle_background_watch_action(
                 grace_bgp, state, state_file, 100, record_steer, record_grace
             )
-            mock_exit.assert_called_once()
+            mock_emit.assert_not_called()
+            mock_exit.assert_called_once_with("Background task in 300s grace period; waiting")
 
 
 class TestAdversarialPolicySignals(unittest.TestCase):

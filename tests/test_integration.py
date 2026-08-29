@@ -736,7 +736,7 @@ class TestIntegration(unittest.TestCase):
         data = json.loads(written.strip())
         self.assertEqual(data.get("decision"), "stop")
 
-    def test_stop_event_blocks_termination_when_background_tasks_active(self):
+    def test_stop_event_allows_termination_when_healthy_background_tasks_active(self):
         conv_id = f"test_stop_bg_task_{int(time.time() * 1000)}"
         with open(self.transcript_path, "w") as f:
             f.write(json.dumps({"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Run background job"}) + "\n")
@@ -746,7 +746,7 @@ class TestIntegration(unittest.TestCase):
             }) + "\n")
             f.write(json.dumps({
                 "type": "GENERIC",
-                "content": 'Tool is running as a background task with task id: task-999\nTask Description: sleep 10',
+                "content": f'Tool is running as a background task with task id: {conv_id}/task-999\nTask Description: sleep 10',
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }) + "\n")
 
@@ -759,8 +759,40 @@ class TestIntegration(unittest.TestCase):
 
         written = "".join([c.args[0] for c in mock_stdout.write.mock_calls if c.args])
         data = json.loads(written.strip())
-        self.assertEqual(data.get("decision"), "continue")
-        self.assertIn("Background tasks in progress", data.get("reason", ""))
+        self.assertEqual(data.get("decision"), "stop")
+        self.assertNotIn("injectSteps", data)
+
+    def test_stop_event_steers_stale_background_tasks(self):
+        conv_id = f"test_stop_stale_bg_{int(time.time() * 1000)}"
+        old_time = (datetime.now(timezone.utc) - timedelta(seconds=400)).isoformat()
+        with open(self.transcript_path, "w") as f:
+            f.write(json.dumps({"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Long task"}) + "\n")
+            f.write(json.dumps({
+                "type": "PLANNER_RESPONSE", "content": "Running",
+                "tool_calls": [{"name": "run_command", "args": {"CommandLine": "watch"}}],
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "GENERIC",
+                "content": f'Tool is running as a background task with task id: {conv_id}/task-999\nTask Description: watch',
+                "created_at": old_time,
+            }) + "\n")
+
+        state_file = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
+        payload = {"conversationId": conv_id, "transcriptPath": self.transcript_path, "workspacePaths": [self.test_dir]}
+        try:
+            with patch("sys.argv", ["session-sage.py"]), \
+                 patch("sys.stdin.read", return_value=json.dumps(payload)), \
+                 patch("sys.stdout") as mock_stdout, \
+                 self.assertRaises(SystemExit):
+                main()
+
+            written = "".join([c.args[0] for c in mock_stdout.write.mock_calls if c.args])
+            data = json.loads(written.strip())
+            self.assertEqual(data.get("decision"), "continue")
+            self.assertIn("Check status and keep watching it", data.get("reason", ""))
+        finally:
+            if os.path.exists(state_file):
+                os.remove(state_file)
 
     def test_stop_event_background_task_livelock_escape_hatch_when_steered(self):
         conv_id = f"test_stop_escape_{int(time.time() * 1000)}"

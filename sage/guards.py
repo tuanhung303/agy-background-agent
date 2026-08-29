@@ -219,7 +219,7 @@ def evaluate_turn_triggers(total_tool_calls, user_ts, sensitive_matches=None):
     return turn_duration
 
 
-def handle_background_watch_action(bgp, state, state_file, initial_lines, record_steer_fn, record_grace_fn):
+def handle_background_watch_action(bgp, state, state_file, initial_lines, record_steer_fn, record_grace_fn=None):
     act = bgp["action"]
     if act == "steer":
         tid, desc, age = bgp["task_id"], bgp["description"], bgp["age_seconds"]
@@ -228,11 +228,6 @@ def handle_background_watch_action(bgp, state, state_file, initial_lines, record
         log_audit(f"Active background task: {tid} ({desc}, age={age:.1f}s) -> Steering agent to watch")
         emit_continue_response(msg)
     elif act == "grace":
-        bg_watch_count = state.get("bg_watch_count", 0)
-        if not is_post_invocation() and bg_watch_count < 3:
-            record_grace_fn(state_file, state, bg_watch_count + 1, initial_lines)
-            log_audit(f"Active background tasks in grace period (watch #{bg_watch_count + 1}) -> Blocking stop")
-            emit_continue_response("Background tasks in progress; waiting for completion", is_post=False)
         fail_safe_exit("Background task in 300s grace period; waiting")
     elif act == "already_steered":
         if not is_post_invocation():

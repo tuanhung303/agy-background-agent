@@ -458,12 +458,12 @@ class TestGuardsAdversarial(unittest.TestCase):
             handle_background_watch_action(bgp_steer, {}, "/tmp/state.json", 10, record_steer, record_grace)
         record_steer.assert_called_once()
 
-        # Grace action during stop event (< 3 count)
+        # Grace action during stop event -> cleanly exits via fail_safe_exit
         bgp_grace = {"action": "grace"}
-        with patch("sage.guards.is_post_invocation", return_value=False):
-            with self.assertRaises(SystemExit):
-                handle_background_watch_action(bgp_grace, {"bg_watch_count": 1}, "/tmp/state.json", 10, record_steer, record_grace)
-            record_grace.assert_called_once()
+        with patch("sage.guards.is_post_invocation", return_value=False), \
+             patch("sage.guards.fail_safe_exit") as mock_fail_safe:
+            handle_background_watch_action(bgp_grace, {"bg_watch_count": 1}, "/tmp/state.json", 10, record_steer, record_grace)
+            mock_fail_safe.assert_called_once_with("Background task in 300s grace period; waiting")
 
 
 class TestPoliciesAdversarial(unittest.TestCase):
