@@ -67,8 +67,17 @@ Instruction: Read the task specification in $BENCH/instruction.md and implement 
 Finish with a final line '計画通り: done'.
 BRIEFEOF
 
-$S spawn --topic "dswe-$LABEL" --task-file "$BRIEF" --worktree "path:$WORK" --split $SAGE_FLAG \
-  --model "$MODEL_TIER" 2>&1 | tail -2
+SPAWN_OUT=$($S spawn --topic "dswe-$LABEL" --task-file "$BRIEF" --worktree "path:$WORK" $SAGE_FLAG \
+  --model "$MODEL_TIER" 2>&1)
+echo "$SPAWN_OUT" | tail -2
+# Fail fast if the pane landed in the wrong worktree (--split splits the ACTIVE
+# pane and ignores --worktree; observed 2026-08-29 spawning in seeda).
+SPAWN_WT=$(echo "$SPAWN_OUT" | grep '^SPAWNED' | sed -E 's/.*worktree=([^ ]+).*/\1/')
+if [ "$SPAWN_WT" != "$WORK" ]; then
+  echo "[ab] FATAL: spawned in wrong worktree: $SPAWN_WT (expected $WORK)" >&2
+  $S close --topic "dswe-$LABEL" >/dev/null 2>&1 || true
+  exit 8
+fi
 
 START_EPOCH=$(date +%s)
 echo "[ab] dispatched at $START_EPOCH; waiting for completion..."

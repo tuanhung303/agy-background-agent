@@ -233,6 +233,34 @@ class TestExtractWorkerFacts(unittest.TestCase):
         finally:
             os.unlink(path)
 
+    def test_subagent_transcript_inspection_and_binding(self):
+        from sage.workers import inspect_subagent_transcript
+        sub_conv = "test_subagent_conv_123"
+        sub_steps = [
+            {"type": "USER_INPUT", "content": "Run tests", "tool_calls": []},
+            {"type": "GENERIC", "content": "", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "uv run pytest tests/test_api.py"}}]},
+            {"type": "PLANNER_RESPONSE", "content": "All tests passed with 100% coverage.", "tool_calls": []},
+        ]
+        sub_path = _write_transcript(sub_steps)
+        try:
+            with patch("sage.transcript.get_transcript_path", return_value=sub_path):
+                res = inspect_subagent_transcript(sub_conv)
+                self.assertIn("tools=1 (run_command)", res)
+                self.assertIn("uv run pytest tests/test_api.py", res)
+                self.assertIn("All tests passed", res)
+
+                parent_steps = [
+                    {"type": "GENERIC", "content": "", "tool_calls": [{"name": "invoke_subagent", "args": {"Subagents": [{"Role": "QA Reviewer"}]}}]},
+                    {"type": "GENERIC", "content": '{"conversationId": "test_subagent_conv_123"}'},
+                    {"type": "GENERIC", "content": 'sender=test_subagent_conv_123 QA finished'},
+                ]
+                facts = extract_worker_facts(parent_steps)
+                self.assertIn("subagent:QA Reviewer", facts)
+                self.assertIn("uv run pytest tests/test_api.py", facts)
+                self.assertIn("SETTLED", facts)
+        finally:
+            os.unlink(sub_path)
+
 
 class TestPromptInjection(unittest.TestCase):
     def test_prompt_carries_raw_evidence_block(self):
