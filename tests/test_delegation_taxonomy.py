@@ -60,6 +60,13 @@ class TestDelegationTaxonomyTemplates(unittest.TestCase):
         self.assertIn("legs=3", msg_fac)
         self.assertNotIn("ASK", msg_fac)
 
+    def test_delegate_review_payload_contract_contains_spec_conformance(self):
+        from sage.events import DELEGATE_REVIEW_PAYLOAD
+        self.assertIn("[CMD·delegate:review]", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("Brief: DoD + base..HEAD diff ONLY", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("ORIGINAL user request", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("negative case", DELEGATE_REVIEW_PAYLOAD)
+
 
 class TestTaskStructureSharedFiles(unittest.TestCase):
     """Tests shared-file detection and relative/absolute path normalization."""
@@ -244,6 +251,8 @@ class TestPoliciesReviewLegGate(unittest.TestCase):
             self.assertEqual(act.get("decision"), "watchout")
             self.assertEqual(act.get("category"), "missing_proof")
             self.assertIn("[CMD·delegate:review]", act.get("text", ""))
+            self.assertIn("ORIGINAL user request", act.get("text", ""))
+            self.assertIn("negative case", act.get("text", ""))
             self.assertTrue(state.get("review_gate_fired"))
 
             # Fires ONCE: second run with state['review_gate_fired']=True does not block on this gate

@@ -8,7 +8,10 @@ from sage.config import (
     SAGE_ESCALATE_MIN_CONFIDENCE, SAGE_MAX_ERROR_STREAK, SAGE_STEER_MIN_CONFIDENCE,
     SAGE_TOOL_SCORE_THRESHOLD,
 )
-from sage.events import EVENT_FINAL_STOP, EVENT_PARALLEL_OPP, EVENT_TOOL_THRESHOLD, format_summon_message, playbook_reminder
+from sage.events import (
+    DELEGATE_REVIEW_PAYLOAD, EVENT_FINAL_STOP, EVENT_PARALLEL_OPP,
+    EVENT_TOOL_THRESHOLD, format_summon_message, playbook_reminder,
+)
 from sage.sage import evaluate_mid_turn_progress
 from sage.sanitizer import detect_transcript_deferral, detect_user_approval
 from sage.task_structure import _classify_subagents, get_parallelizable_signals
@@ -121,7 +124,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count,
             if has_build and not has_review and not (state or {}).get("review_gate_fired"):
                 if state is not None:
                     state["review_gate_fired"], state["last_steer_category"] = True, "missing_proof"
-                return {"action": "emit", "decision": "watchout", "category": "missing_proof", "text": "Issue [CMD·delegate:review] now: blind read-only leg with DoD + assembled diff (no transcripts). Max 2 review cycles."}
+                return {"action": "emit", "decision": "watchout", "category": "missing_proof", "text": DELEGATE_REVIEW_PAYLOAD}
         is_plan_turn = bool(re.search(r"(?i)\b/plan\b", str(user_prompt or "")) or re.search(r"(?i)\bplan\b", str(clean_prompt or "")))
         active_signal = format_summon_message(
             EVENT_FINAL_STOP, total_tools=total_tool_calls, diff=diff_cnt or None,

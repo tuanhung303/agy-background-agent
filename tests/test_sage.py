@@ -311,6 +311,18 @@ class TestSage(unittest.TestCase):
         self.assertNotIn("Have you reviewed", examples)
         self.assertIn("Directive Actionability", prompt)
         self.assertIn("[CMD·delegate:leaf]", examples)
+        self.assertIn("Spec Conformance Sweep", prompt)
+        self.assertIn("negative test or type-level check", prompt)
+
+    def test_sage_prompt_contains_spec_conformance_sweep(self):
+        prompt = build_sage_prompt(
+            conv_id="conv_xyz",
+            user_prompt="Build feature X",
+            agent_steps_summary="Step 1: ran test",
+            is_update=False,
+        )
+        self.assertIn("Spec Conformance Sweep", prompt)
+        self.assertIn("negative test or type-level check", prompt)
 
     @patch("subprocess.run")
     @patch("sage.sage.clean_resume_history")
