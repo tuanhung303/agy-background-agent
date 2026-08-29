@@ -38,6 +38,11 @@ class TestDelegationTaxonomyTemplates(unittest.TestCase):
         self.assertIn("delegate:research", content)
         self.assertIn("delegate:race", content)
         self.assertIn("delegate:review", content)
+        self.assertIn("Hostile Execution Audit", content)
+        self.assertIn(
+            "A 'review passed' claim is rejected unless the transcript shows raw execution output (stdout/stderr/error traces) for the negative cases.",
+            content,
+        )
         self.assertIn("Scope: NEW files only", content)
         self.assertIn("Write .sage-scope.<leg>.", content)
         self.assertIn("Max 2 review cycles.", content)
@@ -63,10 +68,13 @@ class TestDelegationTaxonomyTemplates(unittest.TestCase):
     def test_delegate_review_payload_contract_contains_spec_conformance(self):
         from sage.events import DELEGATE_REVIEW_PAYLOAD
         self.assertIn("[CMD·delegate:review]", DELEGATE_REVIEW_PAYLOAD)
-        self.assertIn("Brief: DoD + base..HEAD diff ONLY", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("Hostile Execution Audit", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("raw execution output", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("pass without pasted execution output is invalid", DELEGATE_REVIEW_PAYLOAD)
         self.assertIn("ORIGINAL user request", DELEGATE_REVIEW_PAYLOAD)
-        self.assertIn("RUN a negative case", DELEGATE_REVIEW_PAYLOAD)
-        self.assertIn("inspected is not verified", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("brief = DoD + base..HEAD diff ONLY", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("Max 1 re-review", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("second fail: stop and report to user", DELEGATE_REVIEW_PAYLOAD)
 
 
 class TestTaskStructureSharedFiles(unittest.TestCase):
