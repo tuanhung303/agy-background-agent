@@ -65,7 +65,8 @@ class TestDelegationTaxonomyTemplates(unittest.TestCase):
         self.assertIn("[CMD·delegate:review]", DELEGATE_REVIEW_PAYLOAD)
         self.assertIn("Brief: DoD + base..HEAD diff ONLY", DELEGATE_REVIEW_PAYLOAD)
         self.assertIn("ORIGINAL user request", DELEGATE_REVIEW_PAYLOAD)
-        self.assertIn("negative case", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("RUN a negative case", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("inspected is not verified", DELEGATE_REVIEW_PAYLOAD)
 
 
 class TestTaskStructureSharedFiles(unittest.TestCase):

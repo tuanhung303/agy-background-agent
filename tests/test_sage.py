@@ -313,6 +313,9 @@ class TestSage(unittest.TestCase):
         self.assertIn("[CMD·delegate:leaf]", examples)
         self.assertIn("Spec Conformance Sweep", prompt)
         self.assertIn("negative test or type-level check", prompt)
+        self.assertIn("Negative cases must be EXECUTED", prompt)
+        self.assertIn("run the failing-shape test", prompt)
+        self.assertIn("inspected code is not evidence", prompt)
 
     def test_sage_prompt_contains_spec_conformance_sweep(self):
         prompt = build_sage_prompt(
@@ -323,6 +326,9 @@ class TestSage(unittest.TestCase):
         )
         self.assertIn("Spec Conformance Sweep", prompt)
         self.assertIn("negative test or type-level check", prompt)
+        self.assertIn("Negative cases must be EXECUTED", prompt)
+        self.assertIn("run the failing-shape test", prompt)
+        self.assertIn("inspected code is not evidence", prompt)
 
     @patch("subprocess.run")
     @patch("sage.sage.clean_resume_history")
