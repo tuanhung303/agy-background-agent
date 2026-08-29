@@ -295,6 +295,23 @@ class TestSage(unittest.TestCase):
         )
         self.assertIn("SAGE UPDATE", prompt_update)
 
+    def test_prompt_uses_directive_tone_not_weak_questions(self):
+        prompt = build_sage_prompt(
+            conv_id="conv_xyz",
+            user_prompt="Build feature X",
+            agent_steps_summary="Step 1: ran test",
+            is_update=False,
+        )
+        # Directive Actionability doctrine: every calibration example must teach
+        # command form; weak fake-question phrasings are banned from examples.
+        examples = prompt[prompt.index("## Calibration Examples"):]
+        self.assertNotIn("Should we", examples)
+        self.assertNotIn("Consider running", examples)
+        self.assertNotIn("Have you verified", examples)
+        self.assertNotIn("Have you reviewed", examples)
+        self.assertIn("Directive Actionability", prompt)
+        self.assertIn("Fanout now", examples)
+
     @patch("subprocess.run")
     @patch("sage.sage.clean_resume_history")
     def test_run_sage_model_success(self, mock_clean, mock_run):

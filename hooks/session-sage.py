@@ -10,6 +10,29 @@ import json
 import os
 import sys
 
+# Resolve real script location even when invoked via symlinks
+_HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
+_REPO_DIR = os.path.abspath(os.path.join(_HOOK_DIR, ".."))
+
+if _REPO_DIR not in sys.path:
+    sys.path.insert(0, _REPO_DIR)
+
+from sage.mcp_bridge_helpers import drain_inbox
+from sage.runner import main
+
+
+def _safe_drain_inbox_from_stdin():
+    try:
+        raw = sys.stdin.read()
+        if raw.strip():
+            payload = json.loads(raw)
+            cid = payload.get("conversationId") or payload.get("conversation_id") or "default"
+            return drain_inbox(cid)
+    except Exception:
+        pass
+    return []
+
+
 # Hot unplug: when AGY_SAGE_DISABLED is set in the agy process environment
 # (per-spawn, not global), the sage hook no-ops immediately — emitting a
 # neutral pass-through payload instead of running the audit. This lets a
@@ -20,17 +43,19 @@ if os.environ.get("AGY_SAGE_DISABLED") == "1":
         a.lower() in ("post_invocation", "postinvocation", "post-invocation", "post")
         for a in sys.argv[1:]
     )
-    print(json.dumps({"injectSteps": []} if _is_post else {"decision": "stop"}))
+    _drained = _safe_drain_inbox_from_stdin()
+    _steps = [{"userMessage": m.get("message", "")} for m in _drained if m.get("message")]
+    if _is_post:
+        _resp = {"injectSteps": _steps}
+        if _steps:
+            _resp["terminationBehavior"] = "force_continue"
+    else:
+        if _steps:
+            _resp = {"decision": "continue", "reason": "Drained sage messages", "injectSteps": _steps}
+        else:
+            _resp = {"decision": "stop"}
+    print(json.dumps(_resp))
     sys.exit(0)
-
-# Resolve real script location even when invoked via symlinks
-_HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
-_REPO_DIR = os.path.abspath(os.path.join(_HOOK_DIR, ".."))
-
-if _REPO_DIR not in sys.path:
-    sys.path.insert(0, _REPO_DIR)
-
-from sage.runner import main
 
 if __name__ == "__main__":
     try:

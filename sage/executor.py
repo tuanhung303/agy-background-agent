@@ -1,7 +1,7 @@
 """
 sage.executor - Subprocess AGY execution with isolated home and session persistence.
 """
-import json, os, re, shutil, sqlite3, subprocess, time
+import json, os, re, shutil, sqlite3, subprocess, sys, time
 from sage.config import SAGE_EXEC_TIMEOUT, SAGE_TIMEOUT_BUDGET
 from sage.locking import acquire_spawn_lock, log_audit, release_spawn_lock, safe_id
 from sage.models import cache_working_model, resolve_model_candidates
@@ -25,6 +25,40 @@ def _link_file(src, dst):
             pass
 
 
+def register_sage_mcp_config(iso_cli, iso_cfg):
+    repo_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    mcp_env = {"PYTHONPATH": repo_dir}
+    for k in ("SAGE_MCP_EXEC", "SAGE_INBOX_DIR", "BRAIN_DIR"):
+        if os.environ.get(k):
+            mcp_env[k] = os.environ[k]
+    server_def = {"command": sys.executable or "python3", "args": ["-m", "sage.mcp_bridge"], "env": mcp_env}
+    try:
+        with open(os.path.join(iso_cfg, "mcp_config.json"), "w", encoding="utf-8") as f:
+            json.dump({"mcpServers": {"sage-mcp-bridge": server_def}}, f, indent=2)
+    except OSError:
+        pass
+    real_path = os.path.expanduser("~/.gemini/antigravity-cli/settings.json")
+    settings = {}
+    if os.path.isfile(real_path) and not os.path.realpath(real_path).startswith(os.path.realpath(SAGE_ISOLATED_HOME)):
+        try:
+            with open(real_path, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+        except Exception:
+            settings = {}
+    iso_settings = os.path.join(iso_cli, "settings.json")
+    if os.path.islink(iso_settings) or os.path.lexists(iso_settings):
+        try:
+            os.unlink(iso_settings)
+        except OSError:
+            pass
+    settings.setdefault("mcpServers", {})["sage-mcp-bridge"] = server_def
+    try:
+        with open(iso_settings, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2)
+    except OSError:
+        pass
+
+
 def ensure_isolated_home():
     if os.path.realpath(os.environ.get("HOME", "")).startswith(os.path.realpath(SAGE_ISOLATED_HOME)):
         return SAGE_ISOLATED_HOME
@@ -33,7 +67,7 @@ def ensure_isolated_home():
     os.makedirs(iso_cfg, mode=0o700, exist_ok=True)
     real_cli = os.path.expanduser("~/.gemini/antigravity-cli")
     for f in os.listdir(real_cli) if os.path.isdir(real_cli) else []:
-        if "token" in f or "auth" in f or "credential" in f or f in ("settings.json", "installation_id"):
+        if "token" in f or "auth" in f or "credential" in f or f == "installation_id":
             _link_file(os.path.join(real_cli, f), os.path.join(iso_cli, f))
     real_kc = os.path.expanduser("~/Library/Keychains")
     if os.path.isdir(real_kc):
@@ -48,6 +82,7 @@ def ensure_isolated_home():
             f.write("{}")
     except OSError:
         pass
+    register_sage_mcp_config(iso_cli, iso_cfg)
     return SAGE_ISOLATED_HOME
 
 
@@ -145,8 +180,6 @@ def run_model_cascade(
     cwd=None,
 ):
     primary_prefix = prefixes[0] if isinstance(prefixes, (list, tuple)) else prefixes
-    # Run inside the workspace so the sage's read tools resolve project-relative
-    # paths; HOME stays rebound to the isolated home for session/auth isolation.
     run_cwd = cwd if cwd and os.path.isdir(cwd) else None
     existing_session, start_t = load_session_id(parent_conv_id, prefixes), time.time()
     agy_bin, candidates = (shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")), (resolve_candidates_fn() or [])[:4]

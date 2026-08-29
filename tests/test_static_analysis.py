@@ -55,17 +55,20 @@ class TestStaticAnalysis(unittest.TestCase):
     def test_all_sage_modules_are_strictly_under_300_lines(self):
         pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
         self.assertGreater(len(pkg_files), 0, "No python files found in sage/")
-        self.assertEqual(len(pkg_files), 30, "Expected exactly 30 modules in sage/")
+        self.assertEqual(len(pkg_files), 33, "Expected exactly 33 modules in sage/")
+        bridge_modules = {"mcp_bridge.py", "mcp_bridge_helpers.py", "mcp_bridge_wait.py"}
         for filepath in sorted(pkg_files):
             rel_path = os.path.relpath(filepath, self.repo_root)
+            fname = os.path.basename(filepath)
             with self.subTest(filepath=rel_path):
                 with open(filepath, "r", encoding="utf-8") as f:
                     lines = f.readlines()
                 line_count = len(lines)
+                limit = 199 if fname in bridge_modules else 300
                 self.assertLessEqual(
                     line_count,
-                    300,
-                    f"File {rel_path} has {line_count} lines (must be <= 300 lines)",
+                    limit,
+                    f"File {rel_path} has {line_count} lines (must be <= {limit} lines)",
                 )
 
     def test_all_modules_have_docstrings(self):
