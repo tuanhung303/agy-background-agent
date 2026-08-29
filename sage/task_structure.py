@@ -3,7 +3,6 @@ sage.task_structure - Heuristics for analyzing task structure and parallelizable
 """
 
 import os
-
 from sage.guards import is_steering_message
 
 FILE_TOOLS = {
@@ -19,7 +18,7 @@ TEST_RUNNERS = ("pytest", "unittest", "cargo test", "npm test", "go test", "vite
 def _read_steps(steps_or_path):
     if isinstance(steps_or_path, list):
         return steps_or_path
-    from sage.transcript import _read_transcript_steps  # late import: tránh circular
+    from sage.transcript import _read_transcript_steps
     return _read_transcript_steps(steps_or_path)
 
 
@@ -54,19 +53,26 @@ def _extract_test_target(args):
     return None
 
 
-def get_parallelizable_signals(steps_or_path):
-    """Analyzes transcript tool calls and prompt context for parallelizable workstreams.
+def _classify_subagents(tsteps):
+    """Classifies subagent invocations in transcript steps into (has_build, has_review)."""
+    has_build, has_review, rkw = False, False, ("review", "read-only", "audit")
+    from sage.transcript import _safe_tool_calls
+    for s in tsteps:
+        for t in _safe_tool_calls(s):
+            if str(t.get("name") or "") == "invoke_subagent":
+                args = t.get("args") or t.get("arguments") or {}
+                subs = args.get("Subagents") if isinstance(args, dict) else None
+                for item in (subs if isinstance(subs, list) and subs else [args]):
+                    txt = str(item).lower() if not isinstance(item, dict) else f"{item.get('Role', '')} {item.get('Prompt', '')} {item.get('TypeName', '')}".lower()
+                    if any(kw in txt for kw in rkw):
+                        has_review = True
+                    else:
+                        has_build = True
+    return has_build, has_review
 
-    Returns:
-      {
-        "parallelizable": bool,
-        "categories": List[str],
-        "details": List[str],
-        "suggested_roles": List[str],
-        "signal_text": str,
-        "reason": str (optional)
-      }
-    """
+
+def get_parallelizable_signals(steps_or_path):
+    """Analyzes transcript tool calls and prompt context for parallelizable workstreams."""
     steps = _read_steps(steps_or_path)
     turn_idxs = [
         i for i, s in enumerate(steps)
@@ -75,41 +81,41 @@ def get_parallelizable_signals(steps_or_path):
         and not is_steering_message(str(s.get("content") or ""))
     ]
     t_steps = steps[turn_idxs[-1] + 1:] if turn_idxs else steps
-    from sage.transcript import _safe_tool_calls  # late import: tránh circular
+    from sage.transcript import _safe_tool_calls
     t_calls = [t for s in t_steps for t in _safe_tool_calls(s) if t.get("name")]
 
-    # If subagents were already dispatched in this turn, suppress parallelizable signal
     if any(str(t.get("name") or "") == "invoke_subagent" for t in t_calls):
-        return {"parallelizable": False, "categories": [], "details": [], "suggested_roles": [], "signal_text": ""}
+        return {"parallelizable": False, "categories": [], "details": [], "suggested_roles": [], "signal_text": "", "shared_files": []}
 
-    categories = []
-    details = []
-    suggested_roles = []
-
-    files_by_dir = {}
-    research_queries = set()
-    test_commands = set()
+    categories, details, suggested_roles = [], [], []
+    files_by_dir, file_write_counts = {}, {}
+    research_queries, test_commands = set(), set()
 
     for t in t_calls:
         name = str(t.get("name") or "")
         args = t.get("args") or t.get("arguments") or {}
-
         if name in FILE_TOOLS:
             fpath = _extract_file_path(args)
             if fpath:
                 norm = os.path.normpath(fpath)
-                dname = os.path.dirname(norm)
-                files_by_dir.setdefault(dname, set()).add(norm)
-
+                file_write_counts[norm] = file_write_counts.get(norm, 0) + 1
+                files_by_dir.setdefault(os.path.dirname(norm), set()).add(norm)
         if name in RESEARCH_TOOLS:
             rtarget = _extract_research_target(name, args)
             if rtarget:
                 research_queries.add(rtarget)
-
         if name in EXEC_TOOLS:
             ttarget = _extract_test_target(args)
             if ttarget:
                 test_commands.add(ttarget)
+
+    candidates = [
+        f for f, count in file_write_counts.items()
+        if count >= 3 or os.path.basename(f).lower() == "index.ts"
+        or any(k in os.path.basename(f).lower() for k in ("transformer", "visitor", "compiler"))
+    ]
+    candidates.sort(key=lambda f: (-file_write_counts[f], f))
+    shared_files = candidates[:4]
 
     distinct_dirs = [d for d, fs in files_by_dir.items() if d]
     total_files = sum(len(fs) for fs in files_by_dir.values())
@@ -150,4 +156,5 @@ def get_parallelizable_signals(steps_or_path):
         "details": details,
         "suggested_roles": list(dict.fromkeys(suggested_roles)),
         "signal_text": signal_text,
+        "shared_files": shared_files,
     }

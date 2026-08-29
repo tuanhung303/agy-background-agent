@@ -43,11 +43,15 @@ def _is_safe_inline_tool(t):
     return False
 
 
-def immediate_delegate_message(state=None, pinned_goal=None):
+def immediate_delegate_message(state=None, pinned_goal=None, shared=None):
     """Full delegation command dispatched at pin-time."""
     kwargs = {"signal_text": "Delegate execution to subagents via invoke_subagent. Split this into parallel tasks."}
     if pinned_goal:
         kwargs["goal"] = pinned_goal
+    if shared is None and state:
+        shared = state.get("shared_files")
+    if shared:
+        kwargs["shared"] = shared
     return format_summon_message(EVENT_DELEGATE, **kwargs)
 
 

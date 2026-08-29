@@ -310,7 +310,7 @@ class TestSage(unittest.TestCase):
         self.assertNotIn("Have you verified", examples)
         self.assertNotIn("Have you reviewed", examples)
         self.assertIn("Directive Actionability", prompt)
-        self.assertIn("Fanout now", examples)
+        self.assertIn("[CMD·delegate:leaf]", examples)
 
     @patch("subprocess.run")
     @patch("sage.sage.clean_resume_history")

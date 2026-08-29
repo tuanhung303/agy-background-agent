@@ -5,86 +5,41 @@ sage.events - Dynamic context-aware event summon formatting for the strategic sa
 import math
 import re
 
-EVENT_FINAL_STOP = "final_stop"
-EVENT_HEARTBEAT = "heartbeat"
-EVENT_TOOL_THRESHOLD = "tool_threshold"
-EVENT_ERROR_LOOP = "error_loop"
-EVENT_SENSITIVE_TOOL = "sensitive_tool"
-EVENT_STALE_TASK = "stale_task"
-EVENT_PARALLEL_OPP = "parallel_opportunity"
-EVENT_FACILITATION = "facilitation"
-EVENT_FACILITATION_REPEAT = "facilitation_repeat"
-EVENT_DELEGATE = "delegate"
-EVENT_DELEGATE_VIOLATION = "delegate_violation"
-EVENT_NEW_PROMPT = "new_prompt"
-EVENT_FATIGUE = "fatigue"
-EVENT_CONFUSED_GOAL = "confused_goal"
-EVENT_GOAL_CHANGE = "goal_change"
-EVENT_FANOUT = "fanout"
+EVENT_FINAL_STOP, EVENT_HEARTBEAT, EVENT_TOOL_THRESHOLD = "final_stop", "heartbeat", "tool_threshold"
+EVENT_ERROR_LOOP, EVENT_SENSITIVE_TOOL, EVENT_STALE_TASK = "error_loop", "sensitive_tool", "stale_task"
+EVENT_PARALLEL_OPP, EVENT_FACILITATION, EVENT_FACILITATION_REPEAT = "parallel_opportunity", "facilitation", "facilitation_repeat"
+EVENT_DELEGATE, EVENT_DELEGATE_VIOLATION, EVENT_NEW_PROMPT = "delegate", "delegate_violation", "new_prompt"
+EVENT_FATIGUE, EVENT_CONFUSED_GOAL, EVENT_GOAL_CHANGE, EVENT_FANOUT = "fatigue", "confused_goal", "goal_change", "fanout"
 
 PLAYBOOK_SECTIONS = {
-    EVENT_NEW_PROMPT: "Momentum Doctrine",
-    EVENT_FATIGUE: "Momentum Doctrine",
-    EVENT_FINAL_STOP: "Final Stop Gate",
-    EVENT_CONFUSED_GOAL: "Momentum Doctrine",
-    EVENT_GOAL_CHANGE: "Revised Goal",
-    EVENT_FANOUT: "Delegation & Fanout (parallelize_subagent)",
-    EVENT_DELEGATE: "Facilitation Mode",
-    EVENT_DELEGATE_VIOLATION: "Facilitation Mode",
+    EVENT_NEW_PROMPT: "Momentum Doctrine", EVENT_FATIGUE: "Momentum Doctrine",
+    EVENT_FINAL_STOP: "Final Stop Gate", EVENT_CONFUSED_GOAL: "Momentum Doctrine",
+    EVENT_GOAL_CHANGE: "Revised Goal", EVENT_FANOUT: "Delegation & Fanout (parallelize_subagent)",
+    EVENT_DELEGATE: "Facilitation Mode", EVENT_DELEGATE_VIOLATION: "Facilitation Mode",
     EVENT_FACILITATION: "Facilitation Mode",
 }
-
-STYLE_FULL = "full"
-STYLE_BALANCED = "balanced"
-STYLE_VERBOSE = "verbose"
-
+STYLE_FULL, STYLE_BALANCED, STYLE_VERBOSE = "full", "balanced", "verbose"
 SEVERITY = {
     EVENT_TOOL_THRESHOLD: 1, EVENT_PARALLEL_OPP: 1, EVENT_FANOUT: 1, EVENT_FATIGUE: 1,
-    EVENT_NEW_PROMPT: 1, EVENT_GOAL_CHANGE: 1,
-    EVENT_FACILITATION: 2, EVENT_FACILITATION_REPEAT: 2, EVENT_DELEGATE: 2,
-    EVENT_DELEGATE_VIOLATION: 2, EVENT_HEARTBEAT: 2, EVENT_STALE_TASK: 2,
-    EVENT_CONFUSED_GOAL: 2,
+    EVENT_NEW_PROMPT: 1, EVENT_GOAL_CHANGE: 1, EVENT_FACILITATION: 2,
+    EVENT_FACILITATION_REPEAT: 2, EVENT_DELEGATE: 2, EVENT_DELEGATE_VIOLATION: 2,
+    EVENT_HEARTBEAT: 2, EVENT_STALE_TASK: 2, EVENT_CONFUSED_GOAL: 2,
     EVENT_ERROR_LOOP: 3, EVENT_SENSITIVE_TOOL: 3, EVENT_FINAL_STOP: 3,
 }
-
-FACT_RANK = (
-    "why", "sig", "cmd", "kw", "tool", "fails", "loop", "err", "bg", "age", "task",
-    "sub", "plan", "deferral", "deferral_cat", "delegated_cmd", "tail_todo", "exec_after_edit",
-    "test_cmd", "tools", "mix", "diff", "steers", "rep", "dur",
-)
-
-FILLER_RE = re.compile(
-    r"\b(?:the|a|an|is|are|was|were|be|been|being|that|which|there|"
-    r"please|kindly|simply|just|really|very|currently|also)\b",
-    re.IGNORECASE,
-)
+FACT_RANK = ("why", "sig", "cmd", "kw", "tool", "fails", "loop", "err", "bg", "age", "task", "sub", "plan", "deferral", "deferral_cat", "delegated_cmd", "tail_todo", "exec_after_edit", "test_cmd", "tools", "mix", "diff", "steers", "rep", "dur")
+FILLER_RE = re.compile(r"\b(?:the|a|an|is|are|was|were|be|been|being|that|which|there|please|kindly|simply|just|really|very|currently|also)\b", re.I)
 POLARITY_TOKENS = ("NOT", "NO", "ONLY", "UNLESS", "BEFORE", "MUST")
 _WS_RE = re.compile(r"\s{2,}")
 _SECRET_RE = re.compile(r"(?i)\b(?:token|secret|password|api[_-]?key|bearer)\b\s*[:=]?\s*\S+")
 
-FINAL_STOP_DIRECTIVE = (
-    "Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate, Prove-It-Works principle, and live empirical evidence: "
-    "verify outputs directly against real artifacts (run feature, read actual values, inspect diff), "
-    "reject proxies, self-reports, or 'it compiles' assumptions. Reject passive question-dumping ('Shall I...', 'có muốn... không') "
-    "or banned deferral phrases ('out of scope', 'left for user judgment', 'future change', 'good enough for now', 'non-blocking'). "
-    "Ask BEFORE permitting completion: 'Did the agent actually run and prove the real output, and can the user ship this to production right now without defects?' "
-    "If unrun checks or fake proxy verification is detected, do NOT recap; steer agent to execute and verify directly."
-)
-
-PLAN_FINAL_STOP_DIRECTIVE = (
-    "Final stop in /plan mode: perform adversarial grill-me audit on the proposed implementation plan. "
-    "Reject premature stop if the plan contains unvalidated blind spots, unconfirmed design trade-offs, "
-    "or critical choices the agent cannot unilaterally decide. "
-    "Do NOT recap with 'on_track'. Emit 'watchout' with category='grill_me' and list the exact decision-critical "
-    "questions with recommended options for the executing agent to ask the user via `ask_question`."
-)
+FINAL_STOP_DIRECTIVE = ("Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate, Prove-It-Works principle, and live empirical evidence: verify outputs directly against real artifacts (run feature, read actual values, inspect diff), reject proxies, self-reports, or 'it compiles' assumptions. Reject passive question-dumping ('Shall I...', 'có muốn... không') or banned deferral phrases ('out of scope', 'left for user judgment', 'future change', 'good enough for now', 'non-blocking'). Ask BEFORE permitting completion: 'Did the agent actually run and prove the real output, and can the user ship this to production right now without defects?' If unrun checks or fake proxy verification is detected, do NOT recap; steer agent to execute and verify directly.")
+PLAN_FINAL_STOP_DIRECTIVE = ("Final stop in /plan mode: perform adversarial grill-me audit on the proposed implementation plan. Reject premature stop if the plan contains unvalidated blind spots, unconfirmed design trade-offs, or critical choices the agent cannot unilaterally decide. Do NOT recap with 'on_track'. Emit 'watchout' with category='grill_me' and list the exact decision-critical questions with recommended options for the executing agent to ask the user via `ask_question`.")
 
 ASK = {
-    EVENT_TOOL_THRESHOLD: "",
-    EVENT_PARALLEL_OPP: "",
-    EVENT_DELEGATE: "goal pinned. delegate execution+tests to subagents via invoke_subagent.",
+    EVENT_TOOL_THRESHOLD: "", EVENT_PARALLEL_OPP: "",
+    EVENT_DELEGATE: "",
     EVENT_DELEGATE_VIOLATION: "inline execution detected while delegation ordered. delegate via invoke_subagent or continue inline with stated justification.",
-    EVENT_FACILITATION: "goal settled. delegate execution+tests to subagents via invoke_subagent.",
+    EVENT_FACILITATION: "",
     EVENT_FACILITATION_REPEAT: "prior delegation order ignored. delegate via invoke_subagent.",
     EVENT_HEARTBEAT: "waiting on bg task, hung, or progressing? unblock cmd if hung.",
     EVENT_STALE_TASK: "producing output or hung? keep watch or kill.",
@@ -92,7 +47,6 @@ ASK = {
     EVENT_SENSITIVE_TOOL: "target env + preconditions + rollback verified BEFORE mutation.",
     EVENT_FINAL_STOP: FINAL_STOP_DIRECTIVE,
 }
-
 ESCALATED_ASK = {
     EVENT_ERROR_LOOP: "prior steer ignored. change approach, NOT retry count.",
     EVENT_HEARTBEAT: "prior steer ignored. kill or escalate, NOT wait longer.",
@@ -120,8 +74,7 @@ def bucket_seconds(value):
         secs = float(value)
     except (TypeError, ValueError):
         return "?"
-    for edge, label in ((60, "<1m"), (120, "~1m"), (300, "~2m"), (600, "~5m"),
-                        (900, "~10m"), (1800, "~15m"), (3600, "~30m")):
+    for edge, label in ((60, "<1m"), (120, "~1m"), (300, "~2m"), (600, "~5m"), (900, "~10m"), (1800, "~15m"), (3600, "~30m")):
         if secs < edge:
             return label
     return ">1h"
@@ -137,8 +90,7 @@ def bucket_lines(value):
         num = int(val)
     except (TypeError, ValueError, OverflowError):
         return "?"
-    for edge, label in ((1, "0L"), (11, "~10L"), (51, "~50L"),
-                        (151, "~100L"), (501, "~500L"), (1001, "~1kL")):
+    for edge, label in ((1, "0L"), (11, "~10L"), (51, "~50L"), (151, "~100L"), (501, "~500L"), (1001, "~1kL")):
         if num < edge:
             return label
     return ">1kL"
@@ -158,12 +110,7 @@ def render_facts(facts, style=STYLE_BALANCED, max_facts=9):
     ranked = [k for k in FACT_RANK if facts.get(k) not in (None, "", [], ())]
     extra = sorted(k for k in facts if k not in FACT_RANK and facts.get(k) not in (None, "", [], ()))
     kept = (ranked + extra)[:max_facts]
-    chunks = []
-    for key in kept:
-        val = _fmt_value(facts[key])
-        if not val:
-            continue
-        chunks.append(val if key == "why" else f"{key}={val}")
+    chunks = [facts[k] if k == "why" else f"{k}={_fmt_value(facts[k])}" for k in kept if _fmt_value(facts[k])]
     joined = " · ".join(chunks)
     return caveman(joined, style) if style == STYLE_FULL else joined
 
@@ -171,11 +118,9 @@ def render_facts(facts, style=STYLE_BALANCED, max_facts=9):
 def _normalize_kwargs(kwargs):
     norm = dict(kwargs.get("facts") or {})
     mapping = {
-        "total_tools": "tools",
-        "error_streak": "fails", "tool_name": "tool", "error_sig": "sig",
-        "command_snippet": "cmd", "keyword": "kw", "task_id": "task",
-        "task_desc": "bg", "age_seconds": "age", "duration": "dur",
-        "signal_text": "why", "is_plan": "plan",
+        "total_tools": "tools", "error_streak": "fails", "tool_name": "tool", "error_sig": "sig",
+        "command_snippet": "cmd", "keyword": "kw", "task_id": "task", "task_desc": "bg",
+        "age_seconds": "age", "duration": "dur", "signal_text": "why", "is_plan": "plan",
     }
     for old_k, new_k in mapping.items():
         if old_k in kwargs and new_k not in norm:
@@ -200,18 +145,29 @@ def format_summon_message(event_type, style=STYLE_BALANCED, **kwargs):
         return caveman(kwargs.get("fallback_signal") or "eval agent trajectory vs goal.", style)
     sev = SEVERITY[event_type]
     merged = _normalize_kwargs(kwargs)
-    rep = merged.get("rep")
     try:
-        rep_val = int(rep) if rep is not None else 0
+        rep_val = int(merged.get("rep")) if merged.get("rep") is not None else 0
     except (TypeError, ValueError):
         rep_val = 0
-    ask = ""
     if event_type == EVENT_FINAL_STOP and (merged.get("is_plan") or merged.get("plan")):
         ask = PLAN_FINAL_STOP_DIRECTIVE
     elif sev >= 2:
-        escalated = ESCALATED_ASK.get(event_type) if rep_val > 1 else ""
-        ask = escalated or ASK.get(event_type, "")
+        ask = (ESCALATED_ASK.get(event_type) if rep_val > 1 else "") or ASK.get(event_type, "")
+    else:
+        ask = ""
     facts_str = render_facts(merged, style)
+    if "{shared}" in ask:
+        shared = kwargs.get("shared") or merged.get("shared") or kwargs.get("shared_files") or merged.get("shared_files")
+        if isinstance(shared, (list, tuple, set)) and shared:
+            shared_str = f" shared={','.join(str(s) for s in shared)}"
+        elif isinstance(shared, str) and shared.strip():
+            s = shared.strip()
+            shared_str = s if s.startswith(" shared=") else (f" {s}" if s.startswith("shared=") else f" shared={s}")
+        else:
+            shared_str = ""
+        ask = ask.replace("{shared}", shared_str)
+    if "legs=N" in ask and (kwargs.get("legs") or merged.get("legs")):
+        ask = ask.replace("legs=N", f"legs={kwargs.get('legs') or merged.get('legs')}")
     pfx = "CMD" if (event_type.startswith("facilitation") or event_type.startswith("delegate")) else "EVT"
     tag = "facilitation·repeat" if event_type == EVENT_FACILITATION_REPEAT else ("delegate·violation" if event_type == EVENT_DELEGATE_VIOLATION else event_type)
     head = f"[{pfx}·{tag} s{sev}] {facts_str}".rstrip() if facts_str else f"[{pfx}·{tag} s{sev}]"

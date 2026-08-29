@@ -42,7 +42,8 @@ class TestFacilitationCommand(unittest.TestCase):
     def test_immediate_delegate_message_at_pin(self):
         msg = immediate_delegate_message(pinned_goal="Implement feature X")
         self.assertIn("[CMD·delegate", msg)
-        self.assertIn("delegate execution+tests to subagents via invoke_subagent", msg)
+        self.assertIn("Delegate execution to subagents via invoke_subagent", msg)
+        self.assertNotIn("ASK ", msg)
 
     def test_settle_recap_payload_deduplicated_when_pin_command_emitted(self):
         msg = immediate_settle_message({"delegate_cmd_turn": 1})
@@ -283,7 +284,8 @@ class TestFacilitationCommand(unittest.TestCase):
                 msg = data.get("reason") or (data.get("injectSteps", [{}])[0].get("userMessage", ""))
                 self.assertIn("[Pinned Goal] Refactor optimizer", msg)
                 self.assertIn("[CMD·delegate", msg)
-                self.assertIn("delegate execution+tests to subagents", msg)
+                self.assertIn("Delegate execution to subagents via invoke_subagent", msg)
+                self.assertNotIn("ASK ", msg)
 
                 with open(state_file, "r") as sf:
                     saved = json.load(sf)

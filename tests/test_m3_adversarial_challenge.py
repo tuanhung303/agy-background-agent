@@ -64,15 +64,15 @@ class TestTaskStructureHeuristicsStress(unittest.TestCase):
     def test_empty_and_corrupt_inputs(self):
         self.assertEqual(
             get_parallelizable_signals([]),
-            {"parallelizable": False, "categories": [], "details": [], "suggested_roles": [], "signal_text": ""},
+            {"parallelizable": False, "categories": [], "details": [], "suggested_roles": [], "signal_text": "", "shared_files": []},
         )
         self.assertEqual(
             get_parallelizable_signals(None),
-            {"parallelizable": False, "categories": [], "details": [], "suggested_roles": [], "signal_text": ""},
+            {"parallelizable": False, "categories": [], "details": [], "suggested_roles": [], "signal_text": "", "shared_files": []},
         )
         self.assertEqual(
             get_parallelizable_signals("non_existent_file_path_12345.json"),
-            {"parallelizable": False, "categories": [], "details": [], "suggested_roles": [], "signal_text": ""},
+            {"parallelizable": False, "categories": [], "details": [], "suggested_roles": [], "signal_text": "", "shared_files": []},
         )
 
 

@@ -152,7 +152,7 @@ def run_session_stop_audit(raw_payload=None):
                 turn_idx = state.get("recap_count", 0) + 1
                 gu["delegate_cmd_turn"] = turn_idx
                 gu["facilitation_cmd_turn"] = turn_idx
-                del_msg = immediate_delegate_message(state, pinned_goal=act.get("pinned_goal"))
+                del_msg = immediate_delegate_message(state, pinned_goal=act.get("pinned_goal"), shared=act.get("shared_files") or state.get("shared_files"))
                 if del_msg:
                     ftext = f"{ftext}\n\n{del_msg}"
                 journal.write("delegate_cmd", conv_id=conv_id, detail=(act.get("pinned_goal") or "")[:120])
