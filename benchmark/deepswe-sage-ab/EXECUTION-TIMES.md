@@ -13,3 +13,5 @@
 
 ON wall trend: 38 -> 20.4 -> 22 -> ~22 min; ON fail layer moved string -> type -> runtime each fix (converging).
 Generated 2026-08-29; update each round.
+| r7a OFF | 0.0 (250/254, GS cluster) | 184 | ~12 | first OFF failure — cluster is task-inherent |
+| r7b ON | 0.0 (250/254, GS cluster) | 96+3 legs | ~25 | HEA caught+fixed a real defect post-review; cluster persists |

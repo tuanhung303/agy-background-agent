@@ -114,3 +114,26 @@ contract (verify the ORIGINAL request clause-by-clause, negative case per accept
    changed every round (string -> type -> runtime), i.e. each general fix moved the frontier —
    convergence-in-progress, not noise. Next general lever: review contract must EXECUTE negative
    cases (run them), not verify their existence.
+
+---
+
+# R7 addendum — Hostile Execution Audit round; the correlation breaks (2026-08-29)
+
+| arm | sage | f2p | reward | partial | turns |
+|---|---|---|---|---|---|
+| r7a | OFF | 250/254 | 0.0 | 0.992 | 184 |
+| r7b | ON (HEA) | 250/254 | 0.0 | 0.992 | 96 main + 3 legs |
+
+1. **r7a is the first OFF-arm binary failure** — missing the exact 4-dialect GROUPING SETS
+   cluster every failing ON run missed. The cluster is a task-inherent exact-string coin flip,
+   not a sage artifact. The OFF 4/4 vs ON 0/4 correlation dissolves into task stochasticity.
+2. **HEA worked as designed**: r7b's hostile audit caught a real defect (array-wrapped sets in
+   groupByGroupingSets) AFTER the legs merged, and the executor committed a targeted fix
+   (6cad5687). The audit's catch was real; the residual 4 assertions are the same coin-flip.
+3. ON partial-credit trajectory: 0.5 (r5b) -> 0.929 (r6b) -> 0.992 (r7b). Both arms now sit at
+   the same frontier: one stochastic assertion cluster.
+4. Honest verdict: after 5 optimize rounds, sage-ON reaches parity with sage-OFF on partial
+   credit and adds real self-correction (r7b's post-review fix). Binary reward on THIS task is
+   dominated by a coin flip neither arm controls. Measuring sage's value on this task is no
+   longer informative — the frontier moved to: harder/multiple tasks (baseline-fail selection),
+   per EXECUTION-TIMES.md ledger.

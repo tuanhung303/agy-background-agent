@@ -1,0 +1,13 @@
+{
+ "arm": "r7b-medium-on",
+ "task": "kysely-window-grouping-helpers",
+ "model": "Gemini 3.7 Flash (Medium)",
+ "sage": "ON (typed taxonomy + Hostile Execution Audit)",
+ "f2p": "250/254",
+ "p2p": "22/22",
+ "reward": 0.0,
+ "partial": 0.992,
+ "turns_main": 96,
+ "subagents": 3,
+ "note": "fanned out to 3 legs; the hostile audit caught a real grouping-sets defect post-review and the executor committed a targeted fix (6cad5687 'support array-wrapped sets in groupByGroupingSets') — yet the 4-dialect exact-string cluster persists, same as r7a OFF. ON now 0/5 binary but partial credit has been >=0.929 for 3 straight rounds."
+}
