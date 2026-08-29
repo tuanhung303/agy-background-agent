@@ -1,0 +1,16 @@
+{
+ "arm": "r3d-medium-on",
+ "task": "kysely-window-grouping-helpers",
+ "model": "Gemini 3.7 Flash (Medium)",
+ "sage": "ON",
+ "f2p": "250/254",
+ "p2p": "22/22",
+ "f2p_frac": 0.984,
+ "p2p_frac": 1.0,
+ "partial": 0.992,
+ "reward": 0.0,
+ "turns": 173,
+ "wall_min": 38,
+ "note": "headless agy -p (print mode), sage steering active mid-run; graded via local replication of official verifier; 4 f2p failures = ONE root cause ('should compile GROUP BY GROUPING SETS' assertion, 4 dialects); first sage-on attempt was lost to wrapper print-timeout 10m (rerun with 60m)",
+ "failure_cluster": "grouping sets SQL compilation mismatch across mssql/mysql/postgres/sqlite"
+}
