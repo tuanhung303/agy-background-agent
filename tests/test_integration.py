@@ -226,7 +226,7 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(data.get("terminationBehavior"), "terminate")
         msg = data["injectSteps"][0]["userMessage"]
         self.assertTrue(msg.startswith("※ sage: [RECAP·on_track] Everything is verified."))
-        self.assertIn("[CMD·facilitation", msg)
+        self.assertNotIn("[CMD·facilitation", msg)
 
     def test_post_invocation_failed_with_plain_steering(self):
         conv_id = f"test_post_steer_{int(time.time() * 1000)}"
@@ -469,7 +469,7 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(data.get("terminationBehavior"), "terminate")
         msg = data["injectSteps"][0]["userMessage"]
         self.assertTrue(msg.startswith("※ sage: [RECAP·on_track] Task completed successfully."))
-        self.assertIn("[CMD·facilitation", msg)
+        self.assertNotIn("[CMD·facilitation", msg)
 
         with patch("sage.runner.final_sage_gate", return_value=gate_result), \
              patch("sys.argv", ["session-sage.py", "post_invocation"]), \
@@ -536,7 +536,7 @@ class TestIntegration(unittest.TestCase):
                 )
                 msg = json.loads(written.strip())["injectSteps"][0]["userMessage"]
                 self.assertTrue(msg.startswith("※ sage: [RECAP·on_track] Verified."))
-                self.assertIn("[CMD·facilitation", msg)
+                self.assertNotIn("[CMD·facilitation", msg)
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)
@@ -663,7 +663,7 @@ class TestIntegration(unittest.TestCase):
             self.assertEqual(data.get("terminationBehavior"), "terminate")
             msg = data["injectSteps"][0]["userMessage"]
             self.assertTrue(msg.startswith("※ sage: [RECAP·on_track] Everything is verified."))
-            self.assertIn("[CMD·facilitation", msg)
+            self.assertNotIn("[CMD·facilitation", msg)
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)

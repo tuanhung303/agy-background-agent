@@ -15,7 +15,6 @@ from sage.events import (
     EVENT_GOAL_CHANGE,
     EVENT_HEARTBEAT,
     EVENT_NEW_PROMPT,
-    EVENT_PARALLEL_OPP,
     EVENT_TOOL_THRESHOLD,
     EVENT_ERROR_LOOP,
     EVENT_SENSITIVE_TOOL,
@@ -101,9 +100,9 @@ class TestAdvisorEvents(unittest.TestCase):
         self.assertIn("age=~5m", msg)
         self.assertIn("ASK producing output or hung? keep watch or kill.", msg)
 
-    def test_format_parallel_opp_event(self):
-        msg = format_summon_message(EVENT_PARALLEL_OPP, signal_text="disjoint test suites")
-        self.assertIn("[EVT·parallel_opportunity s1]", msg)
+    def test_format_fanout_event(self):
+        msg = format_summon_message(EVENT_FANOUT, signal_text="disjoint test suites")
+        self.assertIn("[EVT·fanout s1]", msg)
         self.assertIn("disjoint test suites", msg)
         self.assertNotIn("ASK ", msg)
 

@@ -185,3 +185,12 @@ def get_parallelizable_signals(steps_or_path, workspace_root=None):
         "signal_text": signal_text,
         "shared_files": shared_files,
     }
+
+
+def is_assist_signal(par_sig):
+    """True when a parallelizable signal routed the turn to Assist Mode."""
+    sig = par_sig or {}
+    return bool(
+        str(sig.get("signal_text") or "").startswith("ASSIST_MODE")
+        or "assist_mode" in (sig.get("categories") or [])
+    )

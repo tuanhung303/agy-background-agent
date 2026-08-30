@@ -259,12 +259,13 @@ class TestTriageHardening(unittest.TestCase):
         # Note: for is_steer with count=1 < max_emissions=2, it emits
         self.assertEqual(res_no_esc["decision"], "steer")
 
-        # When count reaches max_emissions (2), "ignored_advice" or "escalated" bypasses if count < max
-        seen_full = {compute_advice_key("architectural_trap", "refactor coupling", "circular dependency between modules"): 2}
+        # When count reaches max_emissions (2), escalation buys a doubled budget, not a free pass
+        key = compute_advice_key("architectural_trap", "refactor coupling", "circular dependency between modules")
         raw_ignored = dict(raw, escalation="ignored_advice")
-        # count >= effective_max (2) blocks even with escalation unless effective_max is higher
-        res_blocked = classify_advice(raw_ignored, seen_advice=seen_full, max_emissions=2)
-        self.assertEqual(res_blocked["decision"], "hold_dedup")
+        self.assertEqual(classify_advice(raw_ignored, seen_advice={key: 2}, max_emissions=2)["decision"], "steer")
+        self.assertEqual(classify_advice(raw_ignored, seen_advice={key: 4}, max_emissions=2)["decision"], "hold_dedup")
+        # Without the escalation flag the plain ceiling still silences it
+        self.assertEqual(classify_advice(raw, seen_advice={key: 2}, max_emissions=2)["decision"], "hold_dedup")
 
     def test_message_formatting_when_action_equals_guidance(self):
         raw_same = {

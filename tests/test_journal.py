@@ -88,18 +88,41 @@ class TestJournalWiring(unittest.TestCase):
         self.env_patch.stop()
         self.td.cleanup()
 
-    def test_facilitation_repeat_writes_cmd_repeat(self):
-        state = {"conversation_id": "c_repeat_1"}
-        immediate_settle_message(state=state, repeat=1)
-        entries = journal.read(conv_id="c_repeat_1")
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]["event"], "cmd_repeat")
+    def _write_transcript(self, name, steps):
+        tr = os.path.join(self.td.name, name)
+        with open(tr, "w") as f:
+            for s in steps:
+                f.write(json.dumps(s) + "\n")
+        return tr
 
-    def test_facilitation_first_settle_does_not_write_cmd_repeat(self):
-        state = {"conversation_id": "c_repeat_0"}
-        immediate_settle_message(state=state, repeat=0)
-        entries = journal.read(conv_id="c_repeat_0")
-        self.assertEqual(len(entries), 0)
+    def test_settle_missed_delegation_writes_journal(self):
+        tr = self._write_transcript("tr_missed.jsonl", [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "go",
+             "tool_calls": [], "created_at": "2026-08-28T10:00:00Z"},
+            {"type": "PLANNER_RESPONSE", "content": "working",
+             "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}],
+             "created_at": "2026-08-28T10:00:05Z"},
+        ])
+        state = {"conversation_id": "c_settle_missed", "delegate_cmd_turn": 1}
+        msg = immediate_settle_message(state=state, transcript_path=tr)
+        self.assertEqual(msg, "")
+        entries = journal.read(conv_id="c_settle_missed")
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["event"], "settle_delegate_missed")
+
+    def test_settle_confirmed_delegation_writes_no_journal(self):
+        tr = self._write_transcript("tr_confirmed.jsonl", [
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "go",
+             "tool_calls": [], "created_at": "2026-08-28T10:00:00Z"},
+            {"type": "PLANNER_RESPONSE", "content": "delegating",
+             "tool_calls": [{"name": "invoke_subagent", "args": {"Subagents": [{"Role": "Implementer"}]}}],
+             "created_at": "2026-08-28T10:00:05Z"},
+        ])
+        state = {"conversation_id": "c_settle_ok", "delegate_cmd_turn": 1}
+        msg = immediate_settle_message(state=state, transcript_path=tr)
+        self.assertIn("[WATCH·delegate·confirm]", msg)
+        entries = journal.read(conv_id="c_settle_ok")
+        self.assertEqual(entries, [])
 
     def test_runner_midturn_pin_emits_delegate_cmd_and_steer(self):
         conv_id = f"test_pin_{int(time.time() * 1000)}"

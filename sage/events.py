@@ -7,7 +7,7 @@ import re
 
 EVENT_FINAL_STOP, EVENT_HEARTBEAT, EVENT_TOOL_THRESHOLD = "final_stop", "heartbeat", "tool_threshold"
 EVENT_ERROR_LOOP, EVENT_SENSITIVE_TOOL, EVENT_STALE_TASK = "error_loop", "sensitive_tool", "stale_task"
-EVENT_PARALLEL_OPP, EVENT_FACILITATION, EVENT_FACILITATION_REPEAT = "parallel_opportunity", "facilitation", "facilitation_repeat"
+EVENT_FACILITATION, EVENT_FACILITATION_REPEAT = "facilitation", "facilitation_repeat"
 EVENT_DELEGATE, EVENT_DELEGATE_VIOLATION, EVENT_NEW_PROMPT = "delegate", "delegate_violation", "new_prompt"
 EVENT_FATIGUE, EVENT_CONFUSED_GOAL, EVENT_GOAL_CHANGE, EVENT_FANOUT = "fatigue", "confused_goal", "goal_change", "fanout"
 
@@ -20,13 +20,13 @@ PLAYBOOK_SECTIONS = {
 }
 STYLE_FULL, STYLE_BALANCED, STYLE_VERBOSE = "full", "balanced", "verbose"
 SEVERITY = {
-    EVENT_TOOL_THRESHOLD: 1, EVENT_PARALLEL_OPP: 1, EVENT_FANOUT: 1, EVENT_FATIGUE: 1,
+    EVENT_TOOL_THRESHOLD: 1, EVENT_FANOUT: 1, EVENT_FATIGUE: 1,
     EVENT_NEW_PROMPT: 1, EVENT_GOAL_CHANGE: 1, EVENT_FACILITATION: 2,
     EVENT_FACILITATION_REPEAT: 2, EVENT_DELEGATE: 2, EVENT_DELEGATE_VIOLATION: 2,
     EVENT_HEARTBEAT: 2, EVENT_STALE_TASK: 2, EVENT_CONFUSED_GOAL: 2,
     EVENT_ERROR_LOOP: 3, EVENT_SENSITIVE_TOOL: 3, EVENT_FINAL_STOP: 3,
 }
-FACT_RANK = ("why", "shared", "legs", "sig", "cmd", "kw", "tool", "fails", "loop", "err", "bg", "age", "task", "sub", "plan", "deferral", "deferral_cat", "delegated_cmd", "tail_todo", "exec_after_edit", "test_cmd", "tools", "mix", "diff", "steers", "rep", "dur")
+FACT_RANK = ("why", "shared", "legs", "roles", "sig", "cmd", "kw", "tool", "fails", "loop", "err", "bg", "age", "task", "sub", "plan", "deferral", "deferral_cat", "delegated_cmd", "tail_todo", "exec_after_edit", "test_cmd", "tools", "mix", "diff", "steers", "rep", "dur")
 FILLER_RE = re.compile(r"\b(?:the|a|an|is|are|was|were|be|been|being|that|which|there|please|kindly|simply|just|really|very|currently|also)\b", re.I)
 POLARITY_TOKENS = ("NOT", "NO", "ONLY", "UNLESS", "BEFORE", "MUST")
 _WS_RE = re.compile(r"\s{2,}")
@@ -37,7 +37,7 @@ PLAN_FINAL_STOP_DIRECTIVE = ("Final stop in /plan mode: perform adversarial gril
 DELEGATE_REVIEW_PAYLOAD = ("Issue [CMD·delegate:review] now: Conduct a Hostile Execution Audit: ignore the implementer's logic entirely; actively attempt to violate constraints at runtime; embed the raw execution output (stdout/stderr/error traces) proving each negative case ran — a pass without pasted execution output is invalid. Verify clause-by-clause against the ORIGINAL user request. Blind, read-only, brief = DoD + base..HEAD diff ONLY. Max 1 re-review; second fail: stop and report to user.")
 
 ASK = {
-    EVENT_TOOL_THRESHOLD: "", EVENT_PARALLEL_OPP: "",
+    EVENT_TOOL_THRESHOLD: "",
     EVENT_DELEGATE: "",
     EVENT_DELEGATE_VIOLATION: "inline execution detected while delegation ordered. delegate via invoke_subagent or continue inline with stated justification.",
     EVENT_FACILITATION: "",

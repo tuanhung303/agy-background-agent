@@ -304,3 +304,40 @@ class TestWorkspaceRoot(unittest.TestCase):
             self.assertIn("Untracked files: 1", diff)
         finally:
             shutil.rmtree(d, ignore_errors=True)
+
+
+class TestHeadSha(unittest.TestCase):
+    """get_head_sha pins the review diff base: real sha, or silence."""
+
+    def test_returns_head_sha_of_committed_repo(self):
+        from sage.git import get_head_sha
+        d = tempfile.mkdtemp()
+        try:
+            subprocess.run(["git", "init"], cwd=d, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=d, capture_output=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=d, capture_output=True)
+            with open(os.path.join(d, "a.txt"), "w") as f:
+                f.write("x\n")
+            subprocess.run(["git", "add", "a.txt"], cwd=d, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "initial commit"], cwd=d, capture_output=True)
+            sha = get_head_sha(d)
+            self.assertRegex(sha, r"^[0-9a-f]{40}$")
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_empty_string_without_commit_or_repo_or_path(self):
+        from sage.git import get_head_sha
+        d = tempfile.mkdtemp()
+        try:
+            repo = os.path.join(d, "repo")
+            os.makedirs(repo)
+            subprocess.run(["git", "init"], cwd=repo, capture_output=True)
+            self.assertEqual(get_head_sha(repo), "")
+            plain = os.path.join(d, "plain")
+            os.makedirs(plain)
+            self.assertEqual(get_head_sha(plain), "")
+            self.assertEqual(get_head_sha("/no/such/dir"), "")
+            self.assertEqual(get_head_sha(""), "")
+            self.assertEqual(get_head_sha(None), "")
+        finally:
+            shutil.rmtree(d, ignore_errors=True)

@@ -56,7 +56,6 @@ from sage.events import (
     EVENT_ERROR_LOOP,
     EVENT_SENSITIVE_TOOL,
     EVENT_STALE_TASK,
-    EVENT_PARALLEL_OPP,
     format_summon_message,
 )
 from sage.transcript import (
@@ -151,6 +150,5 @@ __all__ = [
     "EVENT_ERROR_LOOP",
     "EVENT_SENSITIVE_TOOL",
     "EVENT_STALE_TASK",
-    "EVENT_PARALLEL_OPP",
     "main",
 ]

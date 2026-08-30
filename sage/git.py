@@ -3,6 +3,7 @@ sage.git - Workspace change shape. Pointers only; Sage reads the files itself.
 """
 
 import os
+import re
 import subprocess
 
 from sage.config import FILE_EDITING_TOOLS
@@ -35,6 +36,27 @@ def resolve_workspace_root(workspace_paths):
         if ws and os.path.isdir(ws):
             return os.path.abspath(ws)
     return ""
+
+
+def get_head_sha(workspace_root):
+    """Current HEAD sha, or "" when the workspace is not a readable repo.
+
+    Captured at delegation pin time so the terminal review gate can name the
+    diff base instead of referring to "base..HEAD" in the abstract.
+    """
+    if not workspace_root or not os.path.isdir(workspace_root):
+        return ""
+    try:
+        res = subprocess.run(
+            ["git", "-C", workspace_root, "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=2,
+        )
+    except Exception:
+        return ""
+    sha = (res.stdout or "").strip()
+    if res.returncode != 0 or not re.fullmatch(r"[0-9a-f]{7,40}", sha):
+        return ""
+    return sha
 
 
 def get_git_diff(workspace_paths, turn_tool_names=None):

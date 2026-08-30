@@ -7,8 +7,9 @@ import json
 from sage import journal
 from sage.events import EVENT_ERROR_LOOP, format_summon_message
 from sage.facilitation import immediate_delegate_message, immediate_settle_message
-from sage.git import get_git_diff, resolve_workspace_root
+from sage.git import get_git_diff, get_head_sha, resolve_workspace_root
 from sage.goals import sync_goal_state
+from sage.task_structure import get_parallelizable_signals, is_assist_signal
 from sage.guards import (
     check_payload_and_lifecycle, emit_continue_response, emit_recap_response,
     fail_safe_exit, format_hook_message,
@@ -148,10 +149,14 @@ def run_session_stop_audit(raw_payload=None):
             gu["last_steer_tools"] = total_tool_calls
             gu["steer_suppress_count"] = 0  # budget: ≤2 suppressions per emitted steer
             comp = str(act.get("task_complexity") or state.get("task_complexity") or "").strip().lower()
-            if act.get("pinned_emitted") and not state.get("delegate_cmd_turn") and comp not in ("simple_qa", "qa"):
+            # Assist Mode routing forbids delegation orders: no CMD·delegate,
+            # no inline-execution lock when the turn was routed to Assist.
+            if (act.get("pinned_emitted") and not state.get("delegate_cmd_turn")
+                    and comp not in ("simple_qa", "qa") and not act.get("assist_active")):
                 turn_idx = state.get("recap_count", 0) + 1
                 gu["delegate_cmd_turn"] = turn_idx
                 gu["facilitation_cmd_turn"] = turn_idx
+                gu["review_base_sha"] = get_head_sha(workspace_root)
                 del_msg = immediate_delegate_message(state, pinned_goal=act.get("pinned_goal"), shared=act.get("shared_files") or state.get("shared_files"))
                 if del_msg:
                     ftext = f"{ftext}\n\n{del_msg}"
@@ -198,7 +203,9 @@ def run_session_stop_audit(raw_payload=None):
         record_sage_recap(state_file, state, total_tool_calls, initial_line_count, recap_text=sage_recap, goal_settled=True, **gu)
         log_audit(f"Sage passed cleanly. Sage recap recorded: {sage_recap}")
         _clear_sage_session(conv_id)
-        fac_msg = immediate_settle_message(state)
+        settle_par = get_parallelizable_signals(transcript_path, workspace_root)
+        fac_msg = immediate_settle_message(
+            state, transcript_path=transcript_path, assist_active=is_assist_signal(settle_par))
         if fac_msg:
             sage_recap = f"{sage_recap}\n\n{fac_msg}"
         journal.write("recap_pass", conv_id=conv_id)

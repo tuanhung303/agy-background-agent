@@ -197,6 +197,21 @@ class TestTriage(unittest.TestCase):
         res = classify_advice(ver_res, seen_advice=seen)
         self.assertEqual(res["decision"], "steer")
 
+    def test_ignored_advice_fires_past_ceiling_up_to_double_budget(self):
+        ver_res = {"status": "off_track", "category": "architectural_trap", "action": "fix bug", "guidance": "still broken", "escalation": "ignored_advice"}
+        key = compute_advice_key("architectural_trap", "fix bug", "still broken")
+        # max_emissions ceiling is 2: an ignored reminder keeps firing to 2x, bounded
+        res = classify_advice(ver_res, seen_advice={key: 2})
+        self.assertEqual(res["decision"], "steer")
+        self.assertEqual(res["seen"][key], 3)
+        self.assertEqual(classify_advice(ver_res, seen_advice={key: 3})["decision"], "steer")
+        self.assertEqual(classify_advice(ver_res, seen_advice={key: 4})["decision"], "hold_dedup")
+
+    def test_non_escalating_advice_still_caps_at_max_emissions(self):
+        ver_res = {"status": "off_track", "category": "architectural_trap", "action": "fix bug", "guidance": "still broken"}
+        key = compute_advice_key("architectural_trap", "fix bug", "still broken")
+        self.assertEqual(classify_advice(ver_res, seen_advice={key: 2})["decision"], "hold_dedup")
+
     def test_parallelize_category_emits_once_then_dedups(self):
         ver_res = {"status": "watchout", "category": "parallelize", "action": "Dispatch invoke_subagent per suite", "guidance": "independent legs", "confidence": 0.8}
         r1 = classify_advice(ver_res, {})
