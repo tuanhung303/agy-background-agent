@@ -470,9 +470,11 @@ class TestAssistModeRouting(unittest.TestCase):
         self.assertIn("Assist (`complex_code` / coupled `multi_file`)", content)
         self.assertIn(
             "[Mode: Assist] High coupling — shared state or monolithic integration files. "
-            "Act as a staff-level reviewer; budget 3-5 steers. DISCOVER (Phase 1): read the raw request with verification tools; "
+            "Act as a staff-level reviewer; budget 3-5 steers, where one steer is one emitted verdict no matter how many items it carries. "
+            "DISCOVER (Phase 1): read the raw request with verification tools; "
             "generate an acceptance checklist; hand it to the executor at goal pin. HINT: point to repo conventions or adjacent patterns (max 2 times). "
-            "WATCH: track the checklist; remind once per untouched item. EXHAUSTION FALLBACK: if the budget is hit before completion, issue one final directive to finalize, "
+            "WATCH: track the checklist; batch every untouched item into a single steer rather than one reminder each. "
+            "EXHAUSTION FALLBACK: if the budget is hit before completion, issue one final directive to finalize, "
             "then yield completely. VALIDATE (Phase 3): run the expectation-gap check and hostile audit yourself via verification tools; "
             "report findings in a single steer. Do NOT delegate review.",
             content,
@@ -513,7 +515,10 @@ class TestAssistModeRouting(unittest.TestCase):
             tr_path = os.path.join(td, "transcript.jsonl")
             steps = [
                 {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Update coupled integration"},
+                # core/a.py is the shared integration file: 3+ writes is what marks a file
+                # as a seam, so most of this turn's writes land in one file two legs would share.
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/a.py"}}]},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/a.py"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/a.py"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/b.py"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/c.py"}}]},
