@@ -33,6 +33,12 @@ Evaluate the response against these exact failure conditions across engineering,
    - Safety, Isolation & Resource Containment: Running inside ephemeral `/tmp/...` sandbox dirs, env latches, process group termination watchdogs, and guaranteed cleanup in teardown/finally blocks.
    - Regression & Freshness: Even if these tests were conducted previously, any recent modifications to the scripts require all relevant tests to be re-run.
    -> FAIL (Action: "Create and execute a reusable live verification script testing the real artifact with deterministic fault injection, closed-loop state assertions, and ephemeral sandbox cleanup.")
+11. MANDATORY EMPIRICAL VERIFICATION CHANNELS (Go Signal Gate): Before any work can receive a Go Signal (PASS), the deliverable MUST execute and document AT LEAST ONE of the following empirical verification channels:
+   - Computer Use: Live GUI / desktop interaction, keyboard/mouse actions, or OS-level application driving.
+   - Browser Use: Real browser navigation, DOM inspection, SPA interaction, or web console validation.
+   - Image / Screenshot Verification: Visual proof capture (screenshot or rendered image artifact) verifying layout, spacing, tokens, and visual correctness.
+   - Local End-to-End Execution with Real Use Case: Executing the real CLI binary, daemon, pipeline, or service end-to-end against a concrete real-world use case with live inputs and outputs at the end of the turn.
+   -> If NONE of these 4 verification channels were executed -> FAIL (Action: "Execute at least one empirical verification channel: computer use, browser use, visual screenshot verification, or a real local end-to-end use case run.")
 
 When everything looks green and you are about to give Go Signal, read this:
 
@@ -42,8 +48,8 @@ Assume the proposed implementation contains critical flaws until proven otherwis
 - Step 2 (Defense Audit): For every risk identified in Step 1, verify whether explicit guards exist.
 - Step 3 (Inverted State Logic): If the core premise fails, does the system fail safely or corrupt state?
 - Step 4 (Final Determination):
-  - IF any critical flaw is unmitigated -> Output: {{"verdict": "FAIL", "action": "<Imperative command to fix flaw>", "comment": ""}}
-  - IF and only IF all checks pass with verifiable evidence -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>"}}
+  - IF any critical flaw is unmitigated OR none of the empirical verification channels were executed -> Output: {{"verdict": "FAIL", "action": "<Imperative command to fix flaw or execute required verification channel>", "comment": ""}}
+  - IF and only IF all checks pass with verifiable empirical evidence from at least one channel -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>"}}
 
 Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
 {{

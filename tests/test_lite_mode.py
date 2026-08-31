@@ -95,7 +95,11 @@ class TestLitePrompt(unittest.TestCase):
         self.assertIn("Live Runtime Harness", prompt)
         self.assertIn("Deterministic State / Fault Injection", prompt)
         self.assertIn("Closed-Loop Verification", prompt)
-        self.assertIn("Safety, Isolation & Resource Containment", prompt)
+        self.assertIn("MANDATORY EMPIRICAL VERIFICATION CHANNELS", prompt)
+        self.assertIn("Computer Use", prompt)
+        self.assertIn("Browser Use", prompt)
+        self.assertIn("Image / Screenshot Verification", prompt)
+        self.assertIn("Local End-to-End Execution with Real Use Case", prompt)
         self.assertIn("PRE-FLIGHT ADVERSARIAL PROTOCOL", prompt)
         self.assertIn('"verdict": "PASS" | "FAIL"', prompt)
 
