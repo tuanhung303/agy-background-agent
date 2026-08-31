@@ -48,14 +48,17 @@ Assume the proposed implementation contains critical flaws until proven otherwis
 - Step 2 (Defense Audit): For every risk identified in Step 1, verify whether explicit guards exist.
 - Step 3 (Inverted State Logic): If the core premise fails, does the system fail safely or corrupt state?
 - Step 4 (Final Determination):
-  - IF any critical flaw is unmitigated OR none of the empirical verification channels were executed -> Output: {{"verdict": "FAIL", "action": "<Imperative command to fix flaw or execute required verification channel>", "comment": ""}}
-  - IF and only IF all checks pass with verifiable empirical evidence from at least one channel -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>"}}
+  - IF any critical flaw is unmitigated OR none of the empirical verification channels were executed -> Output: {{"verdict": "FAIL", "action": "<Imperative command to fix flaw or execute required verification channel>", "comment": "", "proof": []}}
+  - IF and only IF all checks pass with verifiable empirical evidence from at least one channel -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>", "proof": ["<recent concrete evidence 1 (e.g. computer use, browser use, screenshot, or real end-to-end execution)>"]}}
 
 Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
 {{
   "verdict": "PASS" | "FAIL",
   "action": "String. Imperative command if FAIL, empty string if PASS.",
-  "comment": "String. If PASS, a concise 1-sentence natural comment describing what was verified. Empty string if FAIL."
+  "comment": "String. If PASS, a concise 1-sentence natural comment describing what was verified. Empty string if FAIL.",
+  "proof": [
+    "Array of strings citing recent concrete evidence from the turn (computer use, browser use, screenshot, or real end-to-end execution; NOT static unit tests). Empty array if FAIL."
+  ]
 }}
 """
 

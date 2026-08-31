@@ -18,16 +18,20 @@ from statusline.statusline import get_sage_steer_badges, render_statusline
 
 class TestLiteSchemas(unittest.TestCase):
     def test_schema_from_dict(self):
-        v_pass = LiteVerdict.from_dict({"verdict": "PASS", "action": ""})
+        v_pass = LiteVerdict.from_dict({"verdict": "PASS", "action": "", "comment": "All tests pass.", "proof": ["ran CLI e2e test cleanly", "browser DOM verified"]})
         self.assertEqual(v_pass.verdict, "PASS")
         self.assertEqual(v_pass.action, "")
+        self.assertEqual(v_pass.comment, "All tests pass.")
+        self.assertEqual(v_pass.proof, ["ran CLI e2e test cleanly", "browser DOM verified"])
 
         v_fail = LiteVerdict.from_dict({"verdict": "FAIL", "action": "Run pytest now."})
         self.assertEqual(v_fail.verdict, "FAIL")
         self.assertEqual(v_fail.action, "Run pytest now.")
+        self.assertEqual(v_fail.proof, [])
 
         v_none = LiteVerdict.from_dict(None)
         self.assertEqual(v_none.verdict, "PASS")
+        self.assertEqual(v_none.proof, [])
 
 
 class TestLiteGating(unittest.TestCase):
@@ -102,6 +106,7 @@ class TestLitePrompt(unittest.TestCase):
         self.assertIn("Local End-to-End Execution with Real Use Case", prompt)
         self.assertIn("PRE-FLIGHT ADVERSARIAL PROTOCOL", prompt)
         self.assertIn('"verdict": "PASS" | "FAIL"', prompt)
+        self.assertIn('"proof": [', prompt)
 
     def test_kb_maintainer_prompt(self):
         prompt = build_kb_maintainer_prompt()

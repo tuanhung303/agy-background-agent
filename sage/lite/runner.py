@@ -126,6 +126,8 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
         )
         emit_continue_response(verdict.action)
     else:
+        if verdict.proof:
+            log_audit(f"Lite Mode verifier PASS proofs: {verdict.proof}")
         log_audit("Lite Mode verifier PASS; running knowledge base maintainer")
         # 8. Update statusline to 'updating knowledge/memory' and run KB maintainer
         save_session_state(
