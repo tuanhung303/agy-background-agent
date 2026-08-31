@@ -28,6 +28,13 @@ def run_lite_verification(
     cwd: Optional[str] = None,
 ) -> LiteVerdict:
     """Executes Gemini Low on the forked conversation and returns a LiteVerdict."""
+    mock_val = os.environ.get("AGY_LITE_MOCK_VERDICT", "").strip()
+    if mock_val:
+        if mock_val.upper().startswith("FAIL"):
+            action = mock_val.split(":", 1)[1].strip() if ":" in mock_val else "Mandatory verification required."
+            return LiteVerdict(verdict="FAIL", action=action)
+        return LiteVerdict(verdict="PASS", action="")
+
     prompt = build_lite_verifier_prompt(user_prompt, last_agent_output)
     agy_bin = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
     iso_home = ensure_isolated_home()
