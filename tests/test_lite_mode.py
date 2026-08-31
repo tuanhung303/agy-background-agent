@@ -89,6 +89,11 @@ class TestLitePrompt(unittest.TestCase):
         self.assertIn("PERMISSION SEEKING", prompt)
         self.assertIn("OUTSOURCING", prompt)
         self.assertIn("TRIVIAL QUESTIONS", prompt)
+        self.assertIn("HARD-STOP TEST RIGOR FAILURE", prompt)
+        self.assertIn("Live Runtime Harness", prompt)
+        self.assertIn("Deterministic State / Fault Injection", prompt)
+        self.assertIn("Closed-Loop Verification", prompt)
+        self.assertIn("Safety, Isolation & Resource Containment", prompt)
         self.assertIn("PRE-FLIGHT ADVERSARIAL PROTOCOL", prompt)
         self.assertIn('"verdict": "PASS" | "FAIL"', prompt)
 

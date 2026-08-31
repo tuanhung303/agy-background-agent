@@ -23,6 +23,12 @@ Evaluate the response against these exact failure conditions across engineering,
 7. IGNORED ERRORS: Ignoring command failures (exit code != 0), test failures, or runtime crashes. -> FAIL (Action: "Fix the failing command or test.")
 8. TRIVIAL QUESTIONS: When the agent asks the user a question, put yourself into the position of the user. If the answer is just "Yes", it is a wasted turn. -> FAIL (Action: "Assume 'Yes' and proceed with the work without asking.")
 9. ESCALATION FAILURE: Hiding or quietly working around critical architectural flaws, broken dependencies, or security risks instead of raising a flag. -> FAIL (Action: "Stop execution. Escalate the hard blocker immediately to the user, detailing the exact risk and the concrete paths forward.")
+10. HARD-STOP TEST RIGOR FAILURE (Code, HTML, Python, Bash, Systems): If the task modifies or creates code, scripts, HTML, Python, or shell automation, it MUST FAIL if it lacks:
+   - Live Runtime Harness: Execution of the compiled/packaged artifact out-of-process in an isolated, ephemeral sandbox with real persistence/transport instances (embedded SQLite, local broker) without shallow mocking of internal business logic.
+   - Deterministic State / Fault Injection: Explicit scenarios for (A) Success / Happy path, (B) Controlled Failure / Fallback path, and (C) Edge / Boundary condition.
+   - Closed-Loop Verification: Assertions beyond return codes — checking state mutations (database records, cache, filesystem) and downstream propagation (events, secondary triggers).
+   - Safety, Isolation & Resource Containment: Running inside ephemeral `/tmp/...` sandbox dirs, env latches, process group termination watchdogs, and guaranteed cleanup in teardown/finally blocks.
+   -> FAIL (Action: "Execute complete live tests with deterministic fault injection, closed-loop state assertions, and ephemeral sandbox cleanup.")
 
 When everything looks green and you are about to give Go Signal, read this:
 
