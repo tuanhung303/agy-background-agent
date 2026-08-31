@@ -52,10 +52,11 @@ elif [ -f "yarn.lock" ] && command -v yarn >/dev/null 2>&1; then
 fi
 
 # --- dispatch to agy (orca split pane) -----------------------------------
+RUN_NONCE=$(python3 -c "import uuid; print(uuid.uuid4().hex[:12])")
 S=~/.agents/skills/orca-swarm/scripts/orca-agy.sh
 BRIEF="$EVID/brief.md"
 cat > "$BRIEF" <<BRIEFEOF
-# DeepSWE Task: $TASK
+# DeepSWE Task: $TASK (Run nonce: $RUN_NONCE)
 
 Work dir: $WORK
 Instruction: Read the task specification in $BENCH/instruction.md and implement the complete feature in the work dir.
@@ -71,8 +72,6 @@ BRIEFEOF
 SPAWN_OUT=$($S spawn --topic "dswe-$LABEL" --task-file "$BRIEF" --worktree "path:$WORK" $SAGE_FLAG \
   --model "$MODEL_TIER" 2>&1)
 echo "$SPAWN_OUT" | tail -2
-# Fail fast if the pane landed in the wrong worktree (--split splits the ACTIVE
-# pane and ignores --worktree; observed 2026-08-29 spawning in seeda).
 SPAWN_WT=$(echo "$SPAWN_OUT" | grep '^SPAWNED' | sed -E 's/.*worktree=([^ ]+).*/\1/')
 if [ "$SPAWN_WT" != "$WORK" ]; then
   echo "[ab] FATAL: spawned in wrong worktree: $SPAWN_WT (expected $WORK)" >&2
@@ -83,40 +82,64 @@ fi
 START_EPOCH=$(date +%s)
 AGY_VERSION=$(agy --version 2>/dev/null || echo unknown)
 REPO_SHA=$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)
-python3 - "$AGY_VERSION" "$RUN_MODE" "$MODEL_TIER" "$REPO_SHA" "$TASK" "$EVID/provenance.json" <<'PY'
-import json, sys
-data = {
-    "agy_version": sys.argv[1],
-    "mode": sys.argv[2],
-    "model": sys.argv[3],
-    "repo_sha": sys.argv[4],
-    "task": sys.argv[5],
-}
-with open(sys.argv[6], "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2)
-PY
-echo "[ab] dispatched at $START_EPOCH; waiting for completion..."
+
+echo "[ab] dispatched at $START_EPOCH (nonce: $RUN_NONCE); waiting for completion..."
 $S watch --topic "dswe-$LABEL" --timeout-ms 10800000 --poll-secs 30 --stall-secs 600
 WATCH=$?
 END_EPOCH=$(date +%s)
 echo "[ab] watch exit=$WATCH elapsed=$((END_EPOCH-START_EPOCH))s"
 
 COLLECT=$($S collect --topic "dswe-$LABEL" 2>/dev/null | head -30)
-TRANSCRIPT=$($S status "dswe-$LABEL" 2>/dev/null | grep TRANSCRIPT= | cut -d= -f2)
+
+# Exact transcript matching by run nonce, work dir, and start time
+ATTR_INFO=$(python3 - "$RUN_NONCE" "$WORK" "$START_EPOCH" <<'PY'
+import json, os, sys, glob
+
+nonce, work_dir, start_t = sys.argv[1], sys.argv[2], float(sys.argv[3])
+brain_dir = os.path.expanduser("~/.gemini/antigravity-cli/brain")
+matches = []
+
+for t_path in glob.glob(os.path.join(brain_dir, "*", ".system_generated", "logs", "transcript.jsonl")):
+    try:
+        mtime = os.path.getmtime(t_path)
+        if mtime < start_t - 60:
+            continue
+        with open(t_path, "r", encoding="utf-8", errors="ignore") as f:
+            head = "".join(f.readline() for _ in range(50))
+        if nonce in head and work_dir in head:
+            cid = t_path.split(os.sep)[-4]
+            matches.append({"conv_id": cid, "transcript": t_path})
+    except Exception:
+        pass
+
+if len(matches) == 1:
+    print(json.dumps({"status": "VALID", "conv_id": matches[0]["conv_id"], "transcript": matches[0]["transcript"]}))
+elif len(matches) == 0:
+    print(json.dumps({"status": "INVALID_NO_MATCH", "conv_id": "", "transcript": ""}))
+else:
+    print(json.dumps({"status": "INVALID_MULTIPLE_MATCHES", "conv_id": "", "transcript": ""}))
+PY
+)
+
+ATTR_STATUS=$(python3 -c "import json; print(json.loads('''$ATTR_INFO''')['status'])")
+CONV_ID=$(python3 -c "import json; print(json.loads('''$ATTR_INFO''')['conv_id'])")
+TRANSCRIPT=$(python3 -c "import json; print(json.loads('''$ATTR_INFO''')['transcript'])")
+
+echo "[ab] attribution status=$ATTR_STATUS conv_id=$CONV_ID"
 
 # metrics
-TURNS=$(python3 - "$TRANSCRIPT" <<'PY'
+TURNS=0
+if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
+  TURNS=$(python3 - "$TRANSCRIPT" <<'PY'
 import json,sys
 try:
     steps=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]
     print(sum(1 for s in steps if s.get("type")=="PLANNER_RESPONSE"))
 except Exception as e:
-    print("ERR",e)
+    print(0)
 PY
 )
-echo "turns=$TURNS" >> "$EVID/metrics.txt"
-echo "wall_secs=$((END_EPOCH-START_EPOCH)) watch_exit=$WATCH" >> "$EVID/metrics.txt"
-echo "agy_version=$AGY_VERSION mode=$RUN_MODE model=$MODEL_TIER repo_sha=$REPO_SHA task=$TASK" >> "$EVID/metrics.txt"
+fi
 
 # workspace diff -> model.patch
 cd "$WORK"
@@ -124,11 +147,54 @@ git add -A >/dev/null 2>&1
 git diff --binary "$COMMIT" HEAD > /dev/null 2>&1
 git diff --cached --binary > "$EVID/model.patch" 2>/dev/null
 git stash create >/dev/null 2>&1 || true
-git write-tree >/dev/null 2>&1 || true
+PRE_GRADE_TREE=$(git write-tree 2>/dev/null || echo "unknown")
 git diff --binary "$(git rev-list HEAD -1)" > "$EVID/model-uncommitted.patch" 2>/dev/null || true
 
-# Grade run with grade.py
-python3 "$SCRIPT_DIR/grade.py" "$WORK" "$TASK" "$EVID"
+# Isolated disposable copy for grading (agent tree is never altered by held-out patch)
+GRADE_WORK="$RUNROOT/grade_work"
+rm -rf "$GRADE_WORK"
+cp -a "$WORK" "$GRADE_WORK"
+
+# Grade run in disposable copy
+python3 "$SCRIPT_DIR/grade.py" "$GRADE_WORK" "$TASK" "$EVID"
+GRADE_EXIT=$?
+rm -rf "$GRADE_WORK"
+
+# Verify agent work tree remained byte-identical after grading
+POST_GRADE_TREE=$(git -C "$WORK" write-tree 2>/dev/null || echo "unknown")
+if [ "$PRE_GRADE_TREE" != "$POST_GRADE_TREE" ]; then
+  echo "[ab] FATAL: grading mutated agent workspace ($PRE_GRADE_TREE != $POST_GRADE_TREE)" >&2
+  ATTR_STATUS="INVALID_WORKSPACE_MUTATION"
+fi
+
+# Manifest generation
+DIRTY_CORE=false
+git -C "$SCRIPT_DIR" diff --quiet HEAD || DIRTY_CORE=true
+TASK_HASH=$(python3 -c "import hashlib,os; p='$BENCH/instruction.md'; print(hashlib.sha256(open(p,'rb').read()).hexdigest() if os.path.exists(p) else 'missing')")
+TEST_PATCH_HASH=$(python3 -c "import hashlib,os; p='$BENCH/tests/test.patch'; print(hashlib.sha256(open(p,'rb').read()).hexdigest() if os.path.exists(p) else 'missing')")
+
+python3 - "$CONV_ID" "$TRANSCRIPT" "$MODEL_TIER" "$COMMIT" "$REPO_SHA" "$DIRTY_CORE" "$TASK_HASH" "$TEST_PATCH_HASH" "$PRE_GRADE_TREE" "$WATCH" "$GRADE_EXIT" "$ATTR_STATUS" "$EVID/manifest.json" <<'PY'
+import json, sys
+
+manifest = {
+    "conversation_id": sys.argv[1],
+    "transcript_path": sys.argv[2],
+    "model_tier": sys.argv[3],
+    "base_commit": sys.argv[4],
+    "sage_revision": sys.argv[5],
+    "dirty_core": sys.argv[6] == "true",
+    "task_hash": sys.argv[7],
+    "test_patch_hash": sys.argv[8],
+    "workspace_fingerprint": sys.argv[9],
+    "exit_codes": {
+        "watch": int(sys.argv[10]),
+        "grade": int(sys.argv[11]),
+    },
+    "validity_status": sys.argv[12],
+}
+with open(sys.argv[13], "w", encoding="utf-8") as f:
+    json.dump(manifest, f, indent=2)
+PY
 
 $S close --topic "dswe-$LABEL" >/dev/null 2>&1 || true
-echo "[ab] evidence and results in $EVID (agy=$AGY_VERSION mode=$RUN_MODE model=$MODEL_TIER repo_sha=$REPO_SHA)"
+echo "[ab] evidence and results in $EVID (manifest validity: $ATTR_STATUS)"

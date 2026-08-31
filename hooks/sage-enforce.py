@@ -20,16 +20,6 @@ _REPO_DIR = os.path.abspath(os.path.join(_HOOK_DIR, ".."))
 if _REPO_DIR not in sys.path:
     sys.path.insert(0, _REPO_DIR)
 
-from sage.guards import is_subagent_payload  # noqa: E402
-from sage.session_state import get_state_file_path  # noqa: E402
-from sage.task_structure import EXEC_TOOLS, FILE_TOOLS  # noqa: E402
-
-BLOCKED_TOOLS = EXEC_TOOLS | FILE_TOOLS
-VIOLATION_MSG = "[CMD·delegate·violation] exec inline blocked — delegate via invoke_subagent NOW"
-# Flood control: inject at most ONCE per conv, then a per-conv counter lets the
-# PostInvocation gate / statusline surface "ignored N×" without spamming context.
-MAX_INJECTIONS_PER_CONV = 1
-
 
 def _passthrough():
     return {"decision": "allow"}
@@ -56,39 +46,56 @@ def _record_injection(conv_id):
 
 
 def evaluate(payload):
-    """Pure decision logic: returns dict for the PreToolUse output contract."""
-    if os.environ.get("AGY_SAGE_DISABLED") == "1":
-        return _passthrough()
-    if is_subagent_payload(payload):
-        return _passthrough()
-    tool_call = payload.get("toolCall") if isinstance(payload.get("toolCall"), dict) else {}
-    tool_name = str(tool_call.get("name") or "")
-    if tool_name not in BLOCKED_TOOLS:
-        return _passthrough()
-    conv_id = payload.get("conversationId", "default")
+    """Pure decision logic: returns dict for the PreToolUse output contract. Fail-safe."""
     try:
-        with open(get_state_file_path(conv_id), "r", encoding="utf-8") as f:
-            state = json.load(f)
+        if os.environ.get("AGY_SAGE_DISABLED") == "1":
+            return _passthrough()
+        try:
+            from sage.guards import is_subagent_payload
+            from sage.session_state import get_state_file_path
+            from sage.task_structure import EXEC_TOOLS, FILE_TOOLS
+            blocked_tools = EXEC_TOOLS | FILE_TOOLS
+        except Exception:
+            blocked_tools = {
+                "run_command", "bash", "exec", "terminal", "write_to_file",
+                "replace_file_content", "multi_replace_file_content", "edit_file",
+                "create_file", "apply_diff", "patch", "modify_file", "write_file",
+            }
+            is_subagent_payload = lambda p: False
+            get_state_file_path = lambda c: f"/tmp/agy_sage_{c}.json"
+
+        if is_subagent_payload(payload):
+            return _passthrough()
+        tool_call = payload.get("toolCall") if isinstance(payload.get("toolCall"), dict) else {}
+        tool_name = str(tool_call.get("name") or "")
+        if tool_name not in blocked_tools:
+            return _passthrough()
+        conv_id = payload.get("conversationId", "default")
+        try:
+            with open(get_state_file_path(conv_id), "r", encoding="utf-8") as f:
+                state = json.load(f)
+        except Exception:
+            return _passthrough()
+        if not isinstance(state, dict):
+            return _passthrough()
+        if not (state.get("delegate_cmd_turn") or state.get("facilitation_cmd_turn") or state.get("goal_settled")):
+            return _passthrough()
+        comp = str(state.get("task_complexity") or "").strip().lower()
+        if comp in ("simple_qa", "qa"):
+            return _passthrough()
+        try:
+            from sage.journal import write as journal_write
+        except Exception:
+            journal_write = lambda *args, **kwargs: None
+        used = _injections_used(conv_id)
+        if used >= 1:
+            journal_write("violation_suppressed", conv_id=conv_id, tool=tool_name, count=used)
+            return _passthrough()
+        _record_injection(conv_id)
+        journal_write("violation_inject", conv_id=conv_id, tool=tool_name, count=used + 1)
+        return {"decision": "allow"}
     except Exception:
         return _passthrough()
-    if not isinstance(state, dict):
-        return _passthrough()
-    if not (state.get("delegate_cmd_turn") or state.get("facilitation_cmd_turn") or state.get("goal_settled")):
-        return _passthrough()
-    comp = str(state.get("task_complexity") or "").strip().lower()
-    if comp in ("simple_qa", "qa"):
-        return _passthrough()
-    try:
-        from sage.journal import write as journal_write
-    except Exception:
-        journal_write = lambda *args, **kwargs: None
-    used = _injections_used(conv_id)
-    if used >= MAX_INJECTIONS_PER_CONV:
-        journal_write("violation_suppressed", conv_id=conv_id, tool=tool_name, count=used)
-        return _passthrough()
-    _record_injection(conv_id)
-    journal_write("violation_inject", conv_id=conv_id, tool=tool_name, count=used + 1)
-    return {"decision": "allow"}
 
 
 def main() -> None:
@@ -103,7 +110,10 @@ def main() -> None:
         out = evaluate(payload)
     except Exception:
         out = _passthrough()
-    sys.stdout.write(json.dumps(out))
+    try:
+        sys.stdout.write(json.dumps(out))
+    except Exception:
+        sys.stdout.write('{"decision":"allow"}')
 
 
 if __name__ == "__main__":

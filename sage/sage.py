@@ -163,6 +163,12 @@ def _normalize_sage_dict(d, _goal_already_pinned=False):
         res["derived_tasks"] = [sanitize(t) for t in d["derived_tasks"] if str(t or "").strip()][:10]
     if "questions" in d and isinstance(d["questions"], list):
         res["questions"] = [sanitize(q) for q in d["questions"] if str(q or "").strip()][:10]
+    if "criteria" in d and isinstance(d["criteria"], list):
+        res["criteria"] = [c for c in d["criteria"] if isinstance(c, dict)]
+    if "evidence_receipts" in d and isinstance(d["evidence_receipts"], list):
+        res["evidence_receipts"] = [e for e in d["evidence_receipts"] if isinstance(e, dict)]
+    elif "evidence" in d and isinstance(d["evidence"], list):
+        res["evidence_receipts"] = [e for e in d["evidence"] if isinstance(e, dict)]
     return res
 
 

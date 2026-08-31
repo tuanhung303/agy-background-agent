@@ -5,7 +5,7 @@ import json
 import sys
 
 from sage.mcp_bridge_helpers import (
-    git_read, grep_search, run_command, sage_send, view_file,
+    git_read, grep_search, sage_send, view_file,
 )
 from sage.mcp_bridge_wait import sage_wait
 
@@ -73,17 +73,6 @@ TOOLS = [
             "required": ["conv_id", "seq"],
         },
     },
-    {
-        "name": "run_command",
-        "description": "Execute shell command (active only when SAGE_MCP_EXEC=1).",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "cmd": {"type": "string", "description": "Shell command to run"},
-            },
-            "required": ["cmd"],
-        },
-    },
 ]
 
 
@@ -101,9 +90,6 @@ def dispatch_tool_call(name, args):
     if name == "sage_wait":
         timeout = float(args.get("timeout_s", 10.0))
         res = sage_wait(args.get("conv_id", ""), int(args.get("seq", 0)), timeout_s=timeout)
-        return json.dumps(res)
-    if name == "run_command":
-        res = run_command(args.get("cmd", ""))
         return json.dumps(res)
     return json.dumps({"error": f"Unknown tool: {name}"})
 

@@ -9,6 +9,8 @@ from sage.events import (
     DELEGATE_REVIEW_PAYLOAD, EVENT_FANOUT, EVENT_FINAL_STOP, EVENT_TOOL_THRESHOLD, format_summon_message,
     playbook_reminder,
 )
+from sage.evidence_store import append_evaluation, append_evidence
+from sage.ledger import Evidence as LedgerEvidence, ValidationLedger
 from sage.sage import evaluate_mid_turn_progress
 from sage.sanitizer import detect_transcript_deferral, detect_user_approval
 from sage.task_structure import _classify_subagents, get_parallelizable_signals, is_assist_signal
@@ -22,7 +24,6 @@ BG_STALE_SECONDS = 300.0
 
 
 def compute_dynamic_tool_threshold(state, base_thresh=10.0, diff_cnt=0, read_ratio=0.0):
-    """Calculates adaptive score threshold based on on_track streak and risk signals."""
     if not ADAPTIVE_CADENCE_ENABLED:
         return base_thresh
     last_status = state.get("sage_status") or state.get("advisor_status", "hold")
@@ -34,61 +35,41 @@ def compute_dynamic_tool_threshold(state, base_thresh=10.0, diff_cnt=0, read_rat
     mult = 1.0 if consecutive == 0 else (1.3 if consecutive == 1 else 1.6)
     comp = str(state.get("task_complexity") or "").strip().lower()
     mult += 0.4 if comp == "simple_qa" else (min(mult, 1.3) - mult if comp == "complex_code" else (min(mult, 1.2) - mult if comp == "multi_file" else 0.0))
-    if read_ratio >= 0.8:
-        mult *= 1.2
-    return round(max(MIN_TOOL_SCORE_THRESHOLD, min(MAX_TOOL_SCORE_THRESHOLD, base_thresh * mult)), 2)
+    return round(max(MIN_TOOL_SCORE_THRESHOLD, min(MAX_TOOL_SCORE_THRESHOLD, base_thresh * (mult * 1.2 if read_ratio >= 0.8 else mult))), 2)
 
 
 def background_watch(active_tasks, bg_steered):
-    """Decide what to do about active background tasks."""
     if not active_tasks:
         return {"action": "none"}
     stale = sorted((t for t in active_tasks if t.get("age_seconds", 0.0) > BG_STALE_SECONDS and t.get("task_id") not in bg_steered), key=lambda t: t.get("age_seconds", 0.0), reverse=True)
     if stale:
         t = stale[0]
         return {"action": "steer", "task_id": t.get("task_id", "task"), "description": t.get("description", "background command"), "age_seconds": t.get("age_seconds", 0.0)}
-    if any(t.get("age_seconds", 0.0) <= BG_STALE_SECONDS for t in active_tasks):
-        return {"action": "grace"}
-    return {"action": "already_steered"}
+    return {"action": "grace"} if any(t.get("age_seconds", 0.0) <= BG_STALE_SECONDS for t in active_tasks) else {"action": "already_steered"}
 
 
 def _hammer_suppressed(state, category, turn_tools):
-    """Same-category steer + fresh executor tools since last steer = wait."""
     if not category or category in ("loop_detection", "irreversible_risk", "confused_goal"):
         return False
     return state.get("last_steer_category") == category and turn_tools - state.get("last_steer_tools", 0) >= 2 and state.get("steer_suppress_count", 0) < 2
 
 
 def _facilitation_signal(transcript_path, state):
-    """Advisory-only signal: delegate execution to subagents after goal settle."""
     from sage.facilitation import facilitation_signal
     return facilitation_signal(transcript_path, state)
 
 
 def _review_payload_text(state):
-    """Review brief made self-contained: the DoD and diff base are named, not implied."""
     st = state or {}
-    dod = str(st.get("pinned_goal") or st.get("anchor_goal") or "").strip()
-    base_sha = str(st.get("review_base_sha") or "").strip()
+    dod, base_sha = str(st.get("pinned_goal") or st.get("anchor_goal") or "").strip(), str(st.get("review_base_sha") or "").strip()
     parts = [f"DoD: {dod[:300]}"] if dod else []
     if base_sha:
-        # `{sha}..HEAD` is the two-commit form: it ignores the working tree. The base
-        # is captured at pin time and nothing here ever commits, so HEAD has not moved
-        # and that range renders EMPTY — the audit would read no diff at all. Bare
-        # `git diff {sha}` compares base against the working tree; untracked files are
-        # invisible to any diff form, hence the explicit intent-to-add step.
-        parts.append(
-            f"Diff scope: git diff {base_sha} (base vs working tree — do NOT append ..HEAD, "
-            f"the work is uncommitted). Include new files: git add -N . && git diff {base_sha}"
-        )
-    if not parts:
-        return DELEGATE_REVIEW_PAYLOAD
-    return f"{DELEGATE_REVIEW_PAYLOAD}\n" + "\n".join(parts)
+        parts.append(f"Diff scope: git diff {base_sha} (base vs working tree — do NOT append ..HEAD, the work is uncommitted). Include new files: git add -N . && git diff {base_sha}")
+    return f"{DELEGATE_REVIEW_PAYLOAD}\n" + "\n".join(parts) if parts else DELEGATE_REVIEW_PAYLOAD
 
 
 def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls,
               turn_tool_names, user_prompt, agent_steps, git_diff, state, forced=False, signal_note="", workspace_root=None):
-    """Unified policy flow for sage decisions (mid-turn or final)."""
     final = mode == "final"
     if not MID_TURN_SAGE_ENABLED:
         return {"action": "skip", "reason": "sage disabled"} if final else {"action": "exit", "reason": "sage disabled"}
@@ -109,8 +90,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count, 
         if signal_note and stext and stext not in signal_note:
             signal_note = f"{signal_note}\n{stext}".strip()
         if not assist_active and state is not None:
-            state["delegate_roles"] = list(par_sig.get("suggested_roles") or [])
-            state["delegate_legs"] = list(stable_details)
+            state["delegate_roles"], state["delegate_legs"] = list(par_sig.get("suggested_roles") or []), list(stable_details)
     if par_sig.get("shared_files") and state is not None:
         state["shared_files"] = par_sig["shared_files"]
     fac_sig = _facilitation_signal(transcript_path, state) if not assist_active else ""
@@ -165,25 +145,44 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count, 
             deferral=deferral.get("snippet") if deferral.get("matched") else None,
             delegated_cmd=deferral.get("delegated_cmd") if deferral.get("matched") else None,
         )
-    verdict = evaluate_mid_turn_progress(
-        conv_id, transcript_path, total_tool_calls, turn_tool_names,
-        user_prompt, agent_steps, git_diff, state, is_forced=(forced or final or deferral.get("matched", False) or loop_override),
-        signals=active_signal, workspace_root=workspace_root)
+    v_raw = state.get("validation_ledger") if state else None
+    ledger = ValidationLedger.from_dict(v_raw) if (v_raw and isinstance(v_raw, dict)) else ValidationLedger()
+    if not (v_raw and isinstance(v_raw, dict)):
+        ledger.seed_criteria_from_task(user_prompt or clean_prompt, str(state.get("task_complexity") or "").strip().lower() if state else "complex_code", pinned_goal=state.get("pinned_goal") if state else None, workspace_root=workspace_root)
+    modified_files = []
+    if git_diff:
+        modified_files.extend(re.findall(r"^\+\+\+ b/(.+)$", git_diff, re.M) + re.findall(r"^--- a/(.+)$", git_diff, re.M))
+    if modified_files:
+        ledger.invalidate_scoped_paths(modified_files)
+
+    verdict = evaluate_mid_turn_progress(conv_id, transcript_path, total_tool_calls, turn_tool_names, user_prompt, agent_steps, git_diff, state, is_forced=(forced or final or deferral.get("matched", False) or loop_override), signals=active_signal, workspace_root=workspace_root)
     if has_new_user_activity(transcript_path, clean_prompt, initial_line_count):
         return {"action": "yield", "reason": ("Fresh user input detected during final sage; yielding" if final else "Fresh user input detected during sage; yielding")}
     if not verdict or verdict.get("status") == "error":
         return {"action": "error"}
+    if verdict.get("criteria"):
+        ledger.merge_model_criteria(verdict["criteria"])
+    elif verdict.get("status") == "on_track" or verdict.get("healthy") is True:
+        for cid in list(ledger.criteria.keys()):
+            if ledger.status.get(cid) == "unverified":
+                ledger.status[cid] = "verified"
+        ledger._refresh_next_validation()
+    for ev_item in (verdict.get("evidence_receipts") or (verdict.get("evidence") if isinstance(verdict.get("evidence"), list) else []) or []):
+        if isinstance(ev_item, dict):
+            ledger.record_evidence(LedgerEvidence.from_dict(ev_item))
+            append_evidence(conv_id, ev_item)
+    append_evaluation(conv_id, {"mode": mode, "total_tool_calls": total_tool_calls, "verdict_status": verdict.get("status"), "category": verdict.get("category"), "action": verdict.get("action"), "confidence": verdict.get("confidence")})
+
     seen_adv = state.get("sage_advice_counts") or state.get("advisor_advice_counts", {})
-    classified = classify_advice(
-        verdict, seen_advice=seen_adv, steer_min_conf=SAGE_STEER_MIN_CONFIDENCE,
-        escalate_min_conf=SAGE_ESCALATE_MIN_CONFIDENCE, anchor_emitted=bool(state.get("pinned_emitted", state.get("anchor_emitted", False))),
-        mode="final" if final else "midturn", deferral=deferral)
+    classified = classify_advice(verdict, seen_advice=seen_adv, steer_min_conf=SAGE_STEER_MIN_CONFIDENCE, escalate_min_conf=SAGE_ESCALATE_MIN_CONFIDENCE, anchor_emitted=bool(state.get("pinned_emitted", state.get("anchor_emitted", False))), mode="final" if final else "midturn", deferral=deferral)
     latest = extract_session_and_turn_data(transcript_path)
     progressed = (not final and is_post_invocation_completion_candidate(transcript_path, conv_id)) or latest[3] > total_tool_calls or latest[7] > initial_line_count
     if progressed and not classified.get("pinned_emitted") and classified.get("category") != "pinned_goal":
         return {"action": "progressed", "tools": latest[3], "lines": latest[7]}
     dec, text = classified.get("decision"), classified.get("text", "")
-    res = {"seen": classified.get("seen")}
+    res = {"seen": classified.get("seen"), "validation_ledger": ledger.to_dict()}
+    if state is not None:
+        state["validation_ledger"] = ledger.to_dict()
     for k in ("recap", "category", "confidence", "pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "goal_status", "task_complexity", "pinned_emitted", "anchor_emitted", "facilitation_override", "override_receipt"):
         if k in classified or k in verdict:
             res[k] = classified.get(k) if k in classified else verdict.get(k)
@@ -205,19 +204,30 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count, 
             return {**res, "action": "hold_dedup", "hammer_suppressed": True, "category": cat}
     if (dec in ("steer", "watchout") and text and text in prior_texts) or dec == "hold_dedup":
         return {**res, "action": "hold_dedup"}
-    if dec in ("steer", "watchout"):
-        return {**res, "action": "emit", "decision": dec, "text": text}
-    return {**res, "action": "healthy", "text": text}
+    return {**res, "action": "emit" if dec in ("steer", "watchout") else "healthy", "decision": dec, "text": text}
 
 
 def final_sage_gate(conv_id, transcript_path, clean_prompt, initial_line_count, total_tool_calls,
                     turn_tool_names, user_prompt, agent_steps, git_diff, state, workspace_root=None):
-    """Sage assessment at a finishing stop — the sole terminal gate."""
     act = sage_flow("final", conv_id=conv_id, transcript_path=transcript_path, clean_prompt=clean_prompt,
                     initial_line_count=initial_line_count, total_tool_calls=total_tool_calls,
                     turn_tool_names=turn_tool_names, user_prompt=user_prompt, agent_steps=agent_steps,
                     git_diff=git_diff, state=state, workspace_root=workspace_root)
+    comp = str(act.get("task_complexity") or (state.get("task_complexity") if state else "") or "").strip().lower()
+    v_raw = act.get("validation_ledger") or (state.get("validation_ledger") if state else None)
+    if v_raw and isinstance(v_raw, dict) and comp in ("complex_code", "multi_file"):
+        ledger = ValidationLedger.from_dict(v_raw)
+        can_recap, reason, gaps = ledger.check_completion(comp)
+        if not can_recap and act.get("action") == "healthy":
+            missing_text = f"[WATCH·missing_proof] {reason} | Next validation: {ledger.next_validation}"
+            prior_texts = state.get("sage_emitted_texts") or state.get("advisor_emitted_texts") or []
+            if prior_texts.count(missing_text) >= 2:
+                act["action"] = "healthy"
+                act["recap"] = f"Work completed under validation constraints. {reason}"
+            else:
+                act.update({"action": "emit", "decision": "watchout", "category": "missing_proof", "text": missing_text})
     if act.get("action") == "healthy":
         act["recap"] = act.get("recap") or act.get("text") or "Work completed and verified successfully."
         act["note"] = f"Sage final assessment: hold (healthy). {act.get('text', '')}".strip()
     return act
+

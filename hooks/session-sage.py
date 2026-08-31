@@ -17,11 +17,12 @@ _REPO_DIR = os.path.abspath(os.path.join(_HOOK_DIR, ".."))
 if _REPO_DIR not in sys.path:
     sys.path.insert(0, _REPO_DIR)
 
-from sage.mcp_bridge_helpers import drain_inbox
-from sage.runner import main
-
 
 def _safe_drain_inbox_from_stdin():
+    try:
+        from sage.mcp_bridge_helpers import drain_inbox
+    except Exception:
+        drain_inbox = lambda cid: []
     try:
         raw = sys.stdin.read()
         if raw.strip():
@@ -59,6 +60,7 @@ if os.environ.get("AGY_SAGE_DISABLED") == "1":
 
 if __name__ == "__main__":
     try:
+        from sage.runner import main
         main()
     except Exception as e:
         try:

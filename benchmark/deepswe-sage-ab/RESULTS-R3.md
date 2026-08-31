@@ -1,5 +1,8 @@
 # R3 — headless round: agy sage-off vs sage-on vs Opus 5
 
+> [!NOTE]
+> Historical pilot: runs prior to the Evidence-First Reliability Milestone are preserved for historical context but superseded by the exact-attribution, isolated-copy harness with `manifest.json`.
+
 Date: 2026-08-29. Task: `kysely-window-grouping-helpers` (same task as r2/arm3/arm4 series).
 Same brief byte-exact for all three arms. Grading: held-out `test.patch` + official verifier
 recipe replicated locally (mocha + mocha-ctrf-json-reporter, base/new modes, node-id

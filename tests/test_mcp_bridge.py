@@ -273,8 +273,9 @@ class TestMCPBridge(unittest.TestCase):
         list_resp = handle_rpc_request(list_req)
         tools = list_resp["result"]["tools"]
         tool_names = {t["name"] for t in tools}
-        expected = {"view_file", "grep_search", "git_read", "sage_send", "sage_wait", "run_command"}
+        expected = {"view_file", "grep_search", "git_read", "sage_send", "sage_wait"}
         self.assertTrue(expected.issubset(tool_names))
+        self.assertNotIn("run_command", tool_names)
 
         call_req = {
             "jsonrpc": "2.0",
