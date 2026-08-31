@@ -6,16 +6,17 @@ from sage.config import (
     SAGE_STEER_MIN_CONFIDENCE, SAGE_TOOL_SCORE_THRESHOLD,
 )
 from sage.events import (
-    DELEGATE_REVIEW_PAYLOAD, EVENT_FANOUT, EVENT_FINAL_STOP, EVENT_TOOL_THRESHOLD, format_summon_message,
-    playbook_reminder,
+    DELEGATE_REVIEW_PAYLOAD, EVENT_FANOUT, EVENT_FINAL_STOP, EVENT_TOOL_THRESHOLD, NONINTERACTIVE_NOTE,
+    format_summon_message, playbook_reminder,
 )
 from sage.sage import evaluate_mid_turn_progress
 from sage.sanitizer import detect_transcript_deferral, detect_user_approval
 from sage.task_structure import _classify_subagents, get_parallelizable_signals, is_assist_signal
 from sage.transcript import (
-    _read_transcript_steps, calculate_turn_tool_score, extract_session_and_turn_data, has_new_user_activity,
-    has_repeated_tool_calls, is_post_invocation_completion_candidate,
+    _read_transcript_steps, calculate_turn_tool_score, extract_session_and_turn_data,
+    has_new_user_activity, has_repeated_tool_calls, is_post_invocation_completion_candidate,
 )
+from sage.interactivity import can_ask_user
 from sage.triage import classify_advice
 _playbook_reminder = playbook_reminder
 BG_STALE_SECONDS = 300.0
@@ -138,6 +139,12 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count, 
     if approval.get("approved"):
         note = playbook_reminder("new_prompt", "Momentum Doctrine", f"user granted explicit approval ('{approval.get('snippet')}') in current prompt")
         signal_note = f"{signal_note}\n{note}".strip() if signal_note else note
+    # Tell the sage when there is no one to ask. Without this the grill-me and
+    # confused-goal doctrines end the turn on a question that can never be
+    # answered — measured in koota r10 as a rejected recap and 56 wasted turns.
+    askable = can_ask_user()
+    if not askable:
+        signal_note = f"{signal_note}\n{NONINTERACTIVE_NOTE}".strip() if signal_note else NONINTERACTIVE_NOTE
     if final:
         if tsteps:
             has_build, has_review = _classify_subagents(tsteps)
