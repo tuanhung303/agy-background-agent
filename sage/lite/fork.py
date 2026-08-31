@@ -69,9 +69,47 @@ def fork_conversation_session(parent_conv_id: str) -> Optional[str]:
             with sqlite3.connect(f"file:{parent_db}?mode=ro", uri=True, timeout=3.0) as src_conn:
                 with sqlite3.connect(target_db, timeout=3.0) as dst_conn:
                     src_conn.backup(dst_conn)
+            with sqlite3.connect(target_db, timeout=3.0) as dst_conn:
+                dst_conn.execute("UPDATE trajectory_meta SET cascade_id = ?", (fork_id,))
+                dst_conn.commit()
         except Exception as e:
             log_audit(f"SQLite backup failed for {parent_conv_id} -> {fork_id}: {e}")
             return None
+
+        real_sum_db = os.path.join(real_cli_dir, "conversation_summaries.db")
+        iso_sum_db = os.path.join(SAGE_CLI_DIR, "conversation_summaries.db")
+        if os.path.isfile(real_sum_db):
+            try:
+                with sqlite3.connect(f"file:{real_sum_db}?mode=ro", uri=True, timeout=3.0) as s_conn:
+                    s_cur = s_conn.cursor()
+                    s_cur.execute(
+                        "SELECT * FROM conversation_summaries WHERE conversation_id IN (?, ?)",
+                        (parent_conv_id, safe_id(parent_conv_id)),
+                    )
+                    row = s_cur.fetchone()
+                    col_names = [d[0] for d in s_cur.description] if s_cur.description else []
+                    schema_row = s_conn.execute(
+                        "SELECT sql FROM sqlite_master WHERE type='table' AND name='conversation_summaries'"
+                    ).fetchone()
+                    schema = schema_row[0] if schema_row else ""
+
+                if row and col_names and schema:
+                    row_dict = dict(zip(col_names, row))
+                    row_dict["conversation_id"] = fork_id
+                    with sqlite3.connect(iso_sum_db, timeout=3.0) as d_conn:
+                        try:
+                            d_conn.execute(schema)
+                        except Exception:
+                            pass
+                        placeholders = ", ".join(["?"] * len(row_dict))
+                        cols = ", ".join(row_dict.keys())
+                        d_conn.execute(
+                            f"INSERT OR REPLACE INTO conversation_summaries ({cols}) VALUES ({placeholders})",
+                            list(row_dict.values()),
+                        )
+                        d_conn.commit()
+            except Exception as e:
+                log_audit(f"Failed to clone conversation summary for {fork_id}: {e}")
 
     # 2. Locate parent transcript and copy to isolated home
     real_brain_dir = os.path.join(real_cli_dir, "brain")

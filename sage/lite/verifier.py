@@ -55,6 +55,7 @@ def run_lite_verification(
             "--disable-slash-commands",
         ]
 
+        run_cwd = cwd if (cwd and os.path.isdir(cwd)) else None
         try:
             res = subprocess.run(
                 cmd,
@@ -63,7 +64,7 @@ def run_lite_verification(
                 text=True,
                 timeout=cand_timeout,
                 env=env,
-                cwd=cwd,
+                cwd=run_cwd,
             )
             if res.returncode != 0 or not res.stdout.strip():
                 log_audit(f"Lite verifier candidate '{model}' returned code {res.returncode}")
@@ -123,6 +124,7 @@ def run_kb_maintenance(
             "--disable-slash-commands",
         ]
 
+        run_cwd = cwd if (cwd and os.path.isdir(cwd)) else None
         try:
             res = subprocess.run(
                 cmd,
@@ -131,7 +133,7 @@ def run_kb_maintenance(
                 text=True,
                 timeout=cand_timeout,
                 env=env,
-                cwd=cwd,
+                cwd=run_cwd,
             )
             if res.returncode == 0 and res.stdout.strip():
                 dur = round(time.time() - start_t, 2)
