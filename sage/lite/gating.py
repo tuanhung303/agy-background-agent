@@ -28,10 +28,35 @@ def is_mutating_command(cmd_str: str) -> bool:
     return not is_safe
 
 
+PLAN_OR_QA_PATTERNS = (
+    r"^/(?:plan|qa|learn|drill|bro|teach|grill-me)\b",
+    r"\b(?:make\s+a\s+plan\s+first|plan\s+first|brainstorm|create\s+a\s+plan|plan\s+the)\b",
+)
+
+
+def is_plan_or_qa_intent(prompt: str) -> bool:
+    """Checks if the user prompt is intent on planning, QA, research, or brainstorming."""
+    if not prompt or not isinstance(prompt, str):
+        return False
+    text = prompt.strip().lower()
+    return any(re.search(pat, text, re.IGNORECASE) for pat in PLAN_OR_QA_PATTERNS)
+
+
 def is_mutating_tool_call(tool_name: str, tool_args: Any) -> bool:
     """Checks if a tool invocation represents a file or state mutation."""
     name = str(tool_name or "").strip().lower()
     if name in MUTATING_TOOLS:
+        if isinstance(tool_args, dict):
+            target = str(
+                tool_args.get("TargetFile")
+                or tool_args.get("target_file")
+                or tool_args.get("FilePath")
+                or tool_args.get("path")
+                or ""
+            )
+            # Artifacts in brain directory or .gemini/ are planning/reasoning artifacts, not codebase mutations
+            if target and ("/brain/" in target or "/.gemini/" in target):
+                return False
         return True
     if name in {"run_command", "bash", "exec", "terminal"}:
         cmd_str = ""
