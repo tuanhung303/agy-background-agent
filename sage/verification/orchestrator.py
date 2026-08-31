@@ -25,7 +25,7 @@ def run_verification_loop(parent_conv_id, source_code, max_iterations=3, max_tes
 
         results = run_tests_in_parallel(parent_conv_id, source_code, tests)
         evaluation = evaluate_outcomes(results)
-        
+
         history.append({
             "iteration": iteration,
             "evaluation": evaluation
@@ -33,7 +33,7 @@ def run_verification_loop(parent_conv_id, source_code, max_iterations=3, max_tes
 
         if evaluation["is_converged"]:
             break
-            
+
         iteration += 1
 
     return history

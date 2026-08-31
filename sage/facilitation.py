@@ -21,12 +21,12 @@ from sage.transcript import (
 def _is_safe_inline_tool(t):
     name = str(t.get("name") or "")
     args = t.get("args") or t.get("arguments") or {}
-    
+
     if name in ("write_to_file", "write_file", "create_file"):
         path = str(args.get("TargetFile") or args.get("file") or args.get("AbsolutePath") or "").lower()
         if path.endswith((".md", ".txt", ".csv", ".json", ".jsonl", ".yml", ".yaml")) or "/scratch/" in path or "/brain/" in path:
             return True
-            
+
     if name in ("run_command", "bash", "exec", "terminal"):
         cmd = str(args.get("CommandLine") or args.get("command") or args.get("cmd") or "").strip().lower()
         if cmd.startswith("git ") or cmd == "git":
@@ -38,7 +38,7 @@ def _is_safe_inline_tool(t):
         if any(cmd.startswith(p) for p in safe_prefixes):
             if not any(op in cmd for op in (">", "rm ", "mv ", "cp ", "chmod ", "chown ", "wget", "curl")):
                 return True
-                
+
     return False
 
 

@@ -24,7 +24,7 @@ def _run_test_subagent(parent_conv_id, test_command, cwd=None, idx=0):
         "Otherwise, output strictly valid JSON: "
         '{"status": "failed", "output": "..."}'
     )
-    
+
     def normalize_func(d):
         if not d or not isinstance(d, dict) or "status" not in d:
             return {"status": "failed", "output": "Invalid JSON response from subagent."}
@@ -37,7 +37,7 @@ def _run_test_subagent(parent_conv_id, test_command, cwd=None, idx=0):
         schema_keys=("status", "output"),
         cwd=cwd
     )
-    
+
     if res.get("status") == "success":
         return True, res.get("output", "")
     else:
@@ -51,19 +51,19 @@ def run_tdd_verification_loop(parent_conv_id, code_context, goal, test_command, 
     """
     log_audit("Starting Sage iterative verification TDD loop with parallel agy subagents.")
     engine = ConvergenceEngine(max_attempts=max_attempts)
-    
+
     adversaries = generate_adversarial_test_cases(parent_conv_id, code_context, goal, cwd=cwd)
     num_tests = len(adversaries) if adversaries else 1
     if adversaries:
         log_audit(f"Generated {num_tests} adversarial cases.")
-    
+
     while not engine.is_converged() and not engine.is_stuck():
         log_audit(f"Running verification tests... (Attempt {engine.attempts + 1})")
-        
+
         # Parallel execution backend
         passed_all = True
         failed_outputs = []
-        
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, num_tests)) as executor:
             # We run the test command for each adversarial scenario if multiple are given
             # (or just repeat execution for concurrency isolation check)
@@ -76,12 +76,12 @@ def run_tdd_verification_loop(parent_conv_id, code_context, goal, test_command, 
                 if not success:
                     passed_all = False
                     failed_outputs.append(output)
-        
+
         if passed_all:
             engine.record_attempt(True, "Parallel subagent tests passed cleanly.")
         else:
             engine.record_attempt(False, f"Test failed in parallel subagents: {failed_outputs[0][:200]}")
-            
+
     if engine.is_converged():
         log_audit("Verification converged successfully. Emit FINAL_STOP event ready.")
         return {"status": "success", "report": engine.get_progress_report(), "adversaries": adversaries}
