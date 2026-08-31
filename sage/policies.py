@@ -72,7 +72,15 @@ def _review_payload_text(state):
     base_sha = str(st.get("review_base_sha") or "").strip()
     parts = [f"DoD: {dod[:300]}"] if dod else []
     if base_sha:
-        parts.append(f"Diff scope: git diff {base_sha}..HEAD")
+        # `{sha}..HEAD` is the two-commit form: it ignores the working tree. The base
+        # is captured at pin time and nothing here ever commits, so HEAD has not moved
+        # and that range renders EMPTY — the audit would read no diff at all. Bare
+        # `git diff {sha}` compares base against the working tree; untracked files are
+        # invisible to any diff form, hence the explicit intent-to-add step.
+        parts.append(
+            f"Diff scope: git diff {base_sha} (base vs working tree — do NOT append ..HEAD, "
+            f"the work is uncommitted). Include new files: git add -N . && git diff {base_sha}"
+        )
     if not parts:
         return DELEGATE_REVIEW_PAYLOAD
     return f"{DELEGATE_REVIEW_PAYLOAD}\n" + "\n".join(parts)
@@ -89,7 +97,7 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count, 
         return {"action": "exit", "reason": f"max mid-turn steers reached ({ms}/{MAX_MID_TURN_STEERS})"}
     if es >= SAGE_MAX_ERROR_STREAK:
         return {"action": "skip", "reason": f"sage circuit breaker open (streak={es})"} if final else {"action": "exit", "reason": f"sage circuit breaker open (streak={es})"}
-    par_sig = get_parallelizable_signals(transcript_path) if not final else {}
+    par_sig = get_parallelizable_signals(transcript_path, workspace_root) if not final else {}
     assist_active = is_assist_signal(par_sig)
     if par_sig.get("parallelizable"):
         stable_details = [d for d in par_sig.get("details", []) if not d.startswith("mid-task tool accumulation")]

@@ -15,6 +15,7 @@ PLAYBOOK_SECTIONS = {
     EVENT_NEW_PROMPT: "Momentum Doctrine", EVENT_FATIGUE: "Momentum Doctrine",
     EVENT_FINAL_STOP: "Final Stop Gate", EVENT_CONFUSED_GOAL: "Momentum Doctrine",
     EVENT_GOAL_CHANGE: "Revised Goal", EVENT_FANOUT: "Delegation & Fanout (parallelize_subagent)",
+    EVENT_TOOL_THRESHOLD: "Momentum Doctrine",
     EVENT_DELEGATE: "Facilitation Mode", EVENT_DELEGATE_VIOLATION: "Facilitation Mode",
     EVENT_FACILITATION: "Facilitation Mode",
 }
@@ -34,7 +35,7 @@ _SECRET_RE = re.compile(r"(?i)\b(?:token|secret|password|api[_-]?key|bearer)\b\s
 
 FINAL_STOP_DIRECTIVE = ("Final stop: decide recap (terminate) or steer (continue). Enforce the Final Stop Gate, Prove-It-Works principle, and live empirical evidence: verify outputs directly against real artifacts (run feature, read actual values, inspect diff), reject proxies, self-reports, or 'it compiles' assumptions. Reject passive question-dumping ('Shall I...', 'có muốn... không') or banned deferral phrases ('out of scope', 'left for user judgment', 'future change', 'good enough for now', 'non-blocking'). Ask BEFORE permitting completion: 'Did the agent actually run and prove the real output, and can the user ship this to production right now without defects?' If unrun checks or fake proxy verification is detected, do NOT recap; steer agent to execute and verify directly.")
 PLAN_FINAL_STOP_DIRECTIVE = ("Final stop in /plan mode: perform adversarial grill-me audit on the proposed implementation plan. Reject premature stop if the plan contains unvalidated blind spots, unconfirmed design trade-offs, or critical choices the agent cannot unilaterally decide. Do NOT recap with 'on_track'. Emit 'watchout' with category='grill_me' and list the exact decision-critical questions with recommended options for the executing agent to ask the user via `ask_question`.")
-DELEGATE_REVIEW_PAYLOAD = ("Issue [CMD·delegate:review] now: Conduct a Hostile Execution Audit: ignore the implementer's logic entirely; actively attempt to violate constraints at runtime; embed the raw execution output (stdout/stderr/error traces) proving each negative case ran — a pass without pasted execution output is invalid. Verify clause-by-clause against the ORIGINAL user request. Blind, read-only, brief = DoD + base..HEAD diff ONLY. Max 1 re-review; second fail: stop and report to user.")
+DELEGATE_REVIEW_PAYLOAD = ("Issue [CMD·delegate:review] now: Conduct a Hostile Execution Audit: ignore the implementer's logic entirely; actively attempt to violate constraints at runtime; embed the raw execution output (stdout/stderr/error traces) proving each negative case ran — a pass without pasted execution output is invalid. Verify clause-by-clause against the ORIGINAL user request. Blind, read-only, brief = DoD + the base-vs-working-tree diff ONLY (the work is uncommitted: diff the base against the working tree, never base..HEAD). Max 1 re-review; second fail: stop and report to user.")
 
 ASK = {
     EVENT_TOOL_THRESHOLD: "",

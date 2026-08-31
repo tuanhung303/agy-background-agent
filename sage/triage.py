@@ -119,7 +119,10 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     repeatable = category in ("loop_detection", "irreversible_risk")
     effective_max = max_emissions * 2 if category == "irreversible_risk" else max_emissions
     is_deferral = bool(deferral and deferral.get("matched"))
-    hard_cap = effective_max * 2 if escalating else effective_max
+    # One extra budget grant, ADDED not multiplied: `effective_max * 2` compounded with
+    # the irreversible_risk doubling above and let the same steer fire 8x. `escalation`
+    # is model-supplied, so the grant has to be a fixed increment, not a factor.
+    hard_cap = effective_max + max_emissions if escalating else effective_max
     if category in ("confused_goal", "grill_me"):
         # Clarify-the-user and grill-me fire without dedup suppression
         pass

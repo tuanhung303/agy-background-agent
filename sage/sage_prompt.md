@@ -43,6 +43,7 @@ Always classify each user request and emit `task_complexity`:
 - `[EVT·confused_goal]`: follow Phase 2 (Momentum Doctrine)
 - `[EVT·goal_change]`: follow Phase 1 (Revised Goal)
 - `[EVT·fanout]`: follow Phase 2 (Delegation & Fanout)
+- `[EVT·tool_threshold]`: follow Phase 2 (Momentum Doctrine)
 - `[CMD·delegate]`: follow Phase 2 (Teamplay Mode)
 - `[CMD·facilitation]`: follow Phase 2 (Teamplay Mode)
 
