@@ -63,13 +63,14 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
 
     # 4. Mutation gating check (Pure transcript inspection)
     has_mutation, reason, true_user_prompt, last_agent_output = extract_turn_mutations_and_context(steps)
-    if not has_mutation:
-        log_audit(f"Lite Mode bypass: {reason}")
-        fail_safe_exit(f"Lite Mode bypass: {reason}")
 
     # Load session state for circuit breaker & statusline
     clean_prompt, state_file, state, _ = load_and_sync_session_state(conv_id, transcript_path, true_user_prompt)
     fail_count = int(state.get("lite_fail_count", 0))
+
+    if not has_mutation and fail_count == 0:
+        log_audit(f"Lite Mode bypass: {reason}")
+        fail_safe_exit(f"Lite Mode bypass: {reason}")
 
     last_audited_lines = int(state.get("last_audited_line_count", 0))
     if last_audited_lines > 0 and last_audited_lines == len(steps):

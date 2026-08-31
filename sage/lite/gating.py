@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from sage.command_policy import is_sage_command_safe
 from sage.config import FILE_EDITING_TOOLS
+from sage.guards import is_steering_message
 from sage.sanitizer import clean_user_prompt
 
 MUTATING_TOOLS: Set[str] = {
@@ -86,7 +87,7 @@ def extract_turn_mutations_and_context(
     true_user_prompt = ""
     last_agent_output = ""
 
-    # Find the most recent USER_INPUT and subsequent agent steps
+    # Find the most recent true USER_INPUT and subsequent agent steps
     turn_steps: List[Dict[str, Any]] = []
     for s in reversed(steps):
         if not isinstance(s, dict):
@@ -95,6 +96,8 @@ def extract_turn_mutations_and_context(
         if s.get("type") == "USER_INPUT":
             raw_content = str(s.get("content") or "")
             cleaned = clean_user_prompt(raw_content)
+            if is_steering_message(cleaned):
+                continue
             if not true_user_prompt and cleaned:
                 true_user_prompt = cleaned
             break

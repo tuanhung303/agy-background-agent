@@ -100,6 +100,18 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         self.assertIn("ESCALATION & SAFETY FAILURE", prompt)
         self.assertIn("destructive state risks", prompt)
 
+    def test_retry_turn_after_fail_does_not_bypass_mutation_gate(self):
+        """When fail_count > 0, read-only verification turns must still be routed to verifier."""
+        from sage.lite.gating import extract_turn_mutations_and_context
+        steps = [
+            {"step_index": 0, "type": "USER_INPUT", "content": "Build website landing page"},
+            {"step_index": 1, "type": "PLANNER_RESPONSE", "content": "Modified files", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "/src/index.html"}}]},
+            {"step_index": 2, "type": "USER_INPUT", "content": "Go Signal rejected: Proof lacks empirical evidence."},
+            {"step_index": 3, "type": "PLANNER_RESPONSE", "content": "Ran verification script", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "python3 verify.py"}}]},
+        ]
+        has_mutation, reason, true_prompt, last_output = extract_turn_mutations_and_context(steps)
+        self.assertEqual(true_prompt, "Build website landing page")
+
 
 if __name__ == "__main__":
     unittest.main()
