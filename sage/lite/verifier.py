@@ -33,7 +33,8 @@ def run_lite_verification(
         if mock_val.upper().startswith("FAIL"):
             action = mock_val.split(":", 1)[1].strip() if ":" in mock_val else "Mandatory verification required."
             return LiteVerdict(verdict="FAIL", action=action)
-        return LiteVerdict(verdict="PASS", action="")
+        comment = mock_val.split(":", 1)[1].strip() if ":" in mock_val else ""
+        return LiteVerdict(verdict="PASS", action="", comment=comment)
 
     prompt = build_lite_verifier_prompt(user_prompt, last_agent_output)
     agy_bin = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
