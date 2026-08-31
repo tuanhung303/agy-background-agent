@@ -24,7 +24,16 @@ Evaluate the response against these exact failure conditions across engineering,
 8. TRIVIAL QUESTIONS: When the agent asks the user a question, put yourself into the position of the user. If the answer is just "Yes", it is a wasted turn. -> FAIL (Action: "Assume 'Yes' and proceed with the work without asking.")
 9. ESCALATION FAILURE: Hiding or quietly working around critical architectural flaws, broken dependencies, or security risks instead of raising a flag. -> FAIL (Action: "Stop execution. Escalate the hard blocker immediately to the user, detailing the exact risk and the concrete paths forward.")
 
-If all requirements are fully satisfied with empirical proof and no rules are violated, output PASS.
+When everything looks green and you are about to give Go Signal, read this:
+
+[PRE-FLIGHT ADVERSARIAL PROTOCOL]
+Assume the proposed implementation contains critical flaws until proven otherwise. Execute the evaluation steps sequentially:
+- Step 1 (Falsification Attempt): Actively search for race conditions, unhandled exceptions, or invalid assumptions. List all identified risks.
+- Step 2 (Defense Audit): For every risk identified in Step 1, verify whether explicit guards exist.
+- Step 3 (Inverted State Logic): If the core premise fails, does the system fail safely or corrupt state?
+- Step 4 (Final Determination):
+  - IF any critical flaw is unmitigated -> Output: {{"verdict": "FAIL", "action": "<Imperative command to fix flaw>"}}
+  - IF and only IF all checks pass with verifiable evidence -> Output: {{"verdict": "PASS", "action": ""}}
 
 Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
 {{

@@ -89,6 +89,7 @@ class TestLitePrompt(unittest.TestCase):
         self.assertIn("PERMISSION SEEKING", prompt)
         self.assertIn("OUTSOURCING", prompt)
         self.assertIn("TRIVIAL QUESTIONS", prompt)
+        self.assertIn("PRE-FLIGHT ADVERSARIAL PROTOCOL", prompt)
         self.assertIn('"verdict": "PASS" | "FAIL"', prompt)
 
     def test_kb_maintainer_prompt(self):
@@ -127,6 +128,22 @@ class TestLiteFork(unittest.TestCase):
 
 
 class TestLiteRunner(unittest.TestCase):
+    def setUp(self):
+        import glob
+        for f in glob.glob("/tmp/agy_sage_test_conv_*.json") + glob.glob("/tmp/agy_sage_test_conv_*.lock"):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+
+    def tearDown(self):
+        import glob
+        for f in glob.glob("/tmp/agy_sage_test_conv_*.json") + glob.glob("/tmp/agy_sage_test_conv_*.lock"):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+
     @patch("sage.lite.runner.fail_safe_exit")
     def test_runner_bypasses_read_only(self, mock_exit):
         mock_exit.side_effect = SystemExit(0)
