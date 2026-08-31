@@ -49,7 +49,7 @@ def fail_safe_exit(reason=""):
         if inbox_steps:
             payload["terminationBehavior"] = "force_continue"
     else:
-        payload = {"decision": "continue", "reason": "Drained sage messages", "injectSteps": inbox_steps} if inbox_steps else {"decision": "stop"}
+        payload = {"decision": "continue", "reason": "Drained sage messages"} if inbox_steps else {"decision": "stop"}
     print(json.dumps(payload))
     sys.exit(0)
 
@@ -58,12 +58,16 @@ def emit_continue_response(message, is_post=None):
     post = is_post if is_post is not None else is_post_invocation()
     release_lock()
     steps = [{"userMessage": message}] + get_pending_inbox_steps()
-    payload = {
-        "decision": "continue",
-        "reason": message,
-        "injectSteps": steps,
-        "terminationBehavior": "force_continue",
-    }
+    if post:
+        payload = {
+            "injectSteps": steps,
+            "terminationBehavior": "force_continue",
+        }
+    else:
+        payload = {
+            "decision": "continue",
+            "reason": message,
+        }
     print(json.dumps(payload))
     sys.exit(0)
 
@@ -73,12 +77,16 @@ def emit_recap_response(recap, is_post=None, kind="recap"):
     release_lock()
     msg = format_hook_message(kind, recap)
     steps = [{"userMessage": msg}] + get_pending_inbox_steps()
-    payload = {
-        "decision": "stop",
-        "reason": msg,
-        "injectSteps": steps,
-        "terminationBehavior": "terminate",
-    }
+    if post:
+        payload = {
+            "injectSteps": steps,
+            "terminationBehavior": "terminate",
+        }
+    else:
+        payload = {
+            "decision": "stop",
+            "reason": msg,
+        }
     print(json.dumps(payload))
     sys.exit(0)
 
