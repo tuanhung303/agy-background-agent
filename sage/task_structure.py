@@ -22,15 +22,29 @@ def _read_steps(steps_or_path):
     return _read_transcript_steps(steps_or_path)
 
 
+def _unwrap_quoted(val):
+    """Strips the JSON re-encoding agy applies to tool-arg values.
+
+    The transcript get_transcript_path resolves stores args re-encoded, so a path
+    arrives as '"/repo/src/index.ts"' — quotes included. Left in place, basename()
+    returns 'index.ts"' and every exact-name seam rule below silently never fires.
+    """
+    s = str(val).strip()
+    for q in ('"', "'"):
+        if len(s) >= 2 and s.startswith(q) and s.endswith(q):
+            return s[1:-1].strip()
+    return s
+
+
 def _extract_file_path(args):
     if not isinstance(args, dict):
         return None
     for k in ("TargetFile", "AbsolutePath", "TargetFiles", "path", "file", "target_file"):
         val = args.get(k)
         if isinstance(val, str) and val.strip():
-            return val.strip()
+            return _unwrap_quoted(val) or None
         if isinstance(val, list) and val and isinstance(val[0], str):
-            return val[0].strip()
+            return _unwrap_quoted(val[0]) or None
     return None
 
 
@@ -44,6 +58,21 @@ def _normalize_repo_path(fpath, root=None):
         return abs_p if rel.startswith("..") else rel
     except ValueError:
         return abs_p
+
+
+INTEGRATION_NAMES = ("index.ts",)
+INTEGRATION_SUBSTRINGS = ("transformer", "visitor", "compiler")
+
+
+def _is_integration_name(fpath):
+    """True for files whose NAME marks them as an integration seam, whatever the churn.
+
+    Deliberately NOT widened to per-package barrels like __init__.py or mod.rs: those
+    are one-per-directory, so N disjoint legs each editing their own would every one
+    match and fabricate a seam out of a textbook fan-out.
+    """
+    base = os.path.basename(fpath).lower()
+    return base in INTEGRATION_NAMES or any(k in base for k in INTEGRATION_SUBSTRINGS)
 
 
 def _extract_research_target(tool_name, args):
@@ -104,6 +133,7 @@ def get_parallelizable_signals(steps_or_path, workspace_root=None):
 
     categories, details, suggested_roles = [], [], []
     files_by_dir, file_write_counts = {}, {}
+    write_seq = []
     research_queries, test_commands = set(), set()
 
     for t in t_calls:
@@ -115,6 +145,7 @@ def get_parallelizable_signals(steps_or_path, workspace_root=None):
                 norm = _normalize_repo_path(fpath, workspace_root)
                 file_write_counts[norm] = file_write_counts.get(norm, 0) + 1
                 files_by_dir.setdefault(os.path.dirname(norm), set()).add(norm)
+                write_seq.append(norm)
         if name in RESEARCH_TOOLS:
             rtarget = _extract_research_target(name, args)
             if rtarget:
@@ -124,12 +155,29 @@ def get_parallelizable_signals(steps_or_path, workspace_root=None):
             if ttarget:
                 test_commands.add(ttarget)
 
+    # Repetition is not sharing. A file written three times in one contiguous burst
+    # is one leg iterating on its own file; a seam is a file work RETURNS to after
+    # touching something else. Without leg attribution, revisiting is the only
+    # observable that separates the two, and counting bursts as coupling routed
+    # perfectly disjoint fan-outs (4..7 legs) into Assist Mode.
+    runs = [f for i, f in enumerate(write_seq) if i == 0 or write_seq[i - 1] != f]
+    run_counts = {}
+    for f in runs:
+        run_counts[f] = run_counts.get(f, 0) + 1
+    revisited = {f for f, c in run_counts.items() if c >= 2}
+    integration = {f for f in file_write_counts if _is_integration_name(f)}
+    # A file written ONCE cannot be written by two legs, so it is never a seam whatever
+    # its name — the doctrine's own definition. Fixing the quote bug above made the
+    # name rules fire for the first time in production, and without this floor N legs
+    # each touching their own barrel file would all qualify.
     candidates = [
         f for f, count in file_write_counts.items()
-        if count >= 3 or os.path.basename(f).lower() == "index.ts"
-        or any(k in os.path.basename(f).lower() for k in ("transformer", "visitor", "compiler"))
+        if (count >= 2 and f in integration) or (count >= 3 and f in revisited)
     ]
-    candidates.sort(key=lambda f: (-file_write_counts[f], f))
+    # Integration files first: a churn-ranked sort evicted the real seam (an index.ts
+    # written once) in favour of high-churn leaf files, then reported those leaves to
+    # the executor as `shared=`.
+    candidates.sort(key=lambda f: (f not in integration, -file_write_counts[f], f))
     shared_files = candidates[:4]
 
     distinct_dirs = [d for d, fs in files_by_dir.items() if d]

@@ -194,7 +194,7 @@ def get_sage_steer_badges(data):
     elif err_streak > 0:
         return [f"\033[31msage/err[{err_streak}]\033[0m"]
 
-    return [f"\033[90msage:idle\033[0m"]
+    return ["\033[90msage:idle\033[0m"]
 
 
 get_advisor_steer_badges = get_sage_steer_badges

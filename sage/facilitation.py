@@ -21,12 +21,12 @@ from sage.transcript import (
 def _is_safe_inline_tool(t):
     name = str(t.get("name") or "")
     args = t.get("args") or t.get("arguments") or {}
-    
+
     if name in ("write_to_file", "write_file", "create_file"):
         path = str(args.get("TargetFile") or args.get("file") or args.get("AbsolutePath") or "").lower()
         if path.endswith((".md", ".txt", ".csv", ".json", ".jsonl", ".yml", ".yaml")) or "/scratch/" in path or "/brain/" in path:
             return True
-            
+
     if name in ("run_command", "bash", "exec", "terminal"):
         cmd = str(args.get("CommandLine") or args.get("command") or args.get("cmd") or "").strip().lower()
         if cmd.startswith("git ") or cmd == "git":
@@ -38,7 +38,7 @@ def _is_safe_inline_tool(t):
         if any(cmd.startswith(p) for p in safe_prefixes):
             if not any(op in cmd for op in (">", "rm ", "mv ", "cp ", "chmod ", "chown ", "wget", "curl")):
                 return True
-                
+
     return False
 
 
@@ -61,29 +61,37 @@ def immediate_delegate_message(state=None, pinned_goal=None, shared=None):
     return format_summon_message(EVENT_DELEGATE, **kwargs)
 
 
-def immediate_settle_message(state=None, transcript_path=None, assist_active=False):
+def immediate_settle_message(state=None, transcript_path=None, assist_active=False, conv_id=""):
     """Recap postscript for delegation compliance: honest or silent.
 
     Never emits a fresh delegation order at settle: the recap already approved the
     work, and ordering delegation after completion (or into Assist Mode) breaks the
     routing doctrine. Confirms only when the transcript shows subagents actually ran;
     a commanded-but-ignored delegation is journaled, not praised.
+
+    Routing is read from state, never recomputed. `delegate_cmd_turn` is set only when
+    the pin routed to Teamplay, so its presence IS the pin-time verdict; recomputing
+    Assist at settle let accumulated writes retract a decision already acted on,
+    silencing both the confirmation and the journal.
     """
     if assist_active:
         return ""
     st = state or {}
     if not (st.get("delegate_cmd_turn") or st.get("facilitation_cmd_turn")):
         return ""
-    has_subagent = (
-        bool(check_facilitation_compliance(transcript_path, st).get("has_subagent"))
-        if transcript_path else False
-    )
-    if has_subagent:
+    if not transcript_path:
+        # Never looked: silence is honest, a journaled "missed" would not be.
+        return ""
+    comp = check_facilitation_compliance(transcript_path, st)
+    if comp.get("has_subagent"):
         return "[WATCH·delegate·confirm] Facilitation compliance confirmed — subagents executed."
+    if not comp.get("required"):
+        # simple_qa or no pin: delegation was never owed, so nothing was missed.
+        return ""
     try:
         from sage.journal import write as journal_write
-        conv_id = st.get("conv_id") or st.get("conversation_id") or ""
-        journal_write("settle_delegate_missed", conv_id=conv_id)
+        cid = conv_id or st.get("conv_id") or st.get("conversation_id") or ""
+        journal_write("settle_delegate_missed", conv_id=cid, count=comp.get("exec_calls"))
     except Exception:
         pass
     return ""

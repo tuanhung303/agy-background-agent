@@ -9,7 +9,6 @@ from sage.events import EVENT_ERROR_LOOP, format_summon_message
 from sage.facilitation import immediate_delegate_message, immediate_settle_message
 from sage.git import get_git_diff, get_head_sha, resolve_workspace_root
 from sage.goals import sync_goal_state
-from sage.task_structure import get_parallelizable_signals, is_assist_signal
 from sage.guards import (
     check_payload_and_lifecycle, emit_continue_response, emit_recap_response,
     fail_safe_exit, format_hook_message,
@@ -203,9 +202,11 @@ def run_session_stop_audit(raw_payload=None):
         record_sage_recap(state_file, state, total_tool_calls, initial_line_count, recap_text=sage_recap, goal_settled=True, **gu)
         log_audit(f"Sage passed cleanly. Sage recap recorded: {sage_recap}")
         _clear_sage_session(conv_id)
-        settle_par = get_parallelizable_signals(transcript_path, workspace_root)
-        fac_msg = immediate_settle_message(
-            state, transcript_path=transcript_path, assist_active=is_assist_signal(settle_par))
+        # Routing is NOT recomputed here. delegate_cmd_turn is set at the pin only when
+        # the turn routed to Teamplay, so the state immediate_settle_message already
+        # reads carries the pin-time verdict. Recomputing it re-parsed the whole
+        # transcript and let late writes retract a decision already acted on.
+        fac_msg = immediate_settle_message(state, transcript_path=transcript_path, conv_id=conv_id)
         if fac_msg:
             sage_recap = f"{sage_recap}\n\n{fac_msg}"
         journal.write("recap_pass", conv_id=conv_id)

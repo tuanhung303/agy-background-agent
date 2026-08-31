@@ -72,7 +72,10 @@ class TestDelegationTaxonomyTemplates(unittest.TestCase):
         self.assertIn("raw execution output", DELEGATE_REVIEW_PAYLOAD)
         self.assertIn("pass without pasted execution output is invalid", DELEGATE_REVIEW_PAYLOAD)
         self.assertIn("ORIGINAL user request", DELEGATE_REVIEW_PAYLOAD)
-        self.assertIn("brief = DoD + base..HEAD diff ONLY", DELEGATE_REVIEW_PAYLOAD)
+        self.assertIn("brief = DoD + the base-vs-working-tree diff ONLY", DELEGATE_REVIEW_PAYLOAD)
+        # base..HEAD is the two-commit form and renders empty against uncommitted work;
+        # it may only appear as the prohibition, never as the instruction.
+        self.assertIn("never base..HEAD", DELEGATE_REVIEW_PAYLOAD)
         self.assertIn("Max 1 re-review", DELEGATE_REVIEW_PAYLOAD)
         self.assertIn("second fail: stop and report to user", DELEGATE_REVIEW_PAYLOAD)
 
@@ -104,6 +107,12 @@ class TestTaskStructureSharedFiles(unittest.TestCase):
                     {"name": "replace_file_content", "args": {"TargetFile": "src/transformer.py"}},
                     {"name": "replace_file_content", "args": {"TargetFile": "src/visitor.py"}},
                     {"name": "edit_file", "args": {"TargetFile": "src/compiler.py"}},
+                    # Second touch each: one write cannot be shared by two legs, so a
+                    # single-write file is never a seam whatever its name.
+                    {"name": "replace_file_content", "args": {"TargetFile": "src/index.ts"}},
+                    {"name": "replace_file_content", "args": {"TargetFile": "src/transformer.py"}},
+                    {"name": "replace_file_content", "args": {"TargetFile": "src/visitor.py"}},
+                    {"name": "edit_file", "args": {"TargetFile": "src/compiler.py"}},
                     {"name": "write_to_file", "args": {"TargetFile": "src/utils.py"}},
                     {"name": "replace_file_content", "args": {"TargetFile": "src/utils.py"}},
                     {"name": "replace_file_content", "args": {"TargetFile": "src/utils.py"}},
@@ -117,11 +126,13 @@ class TestTaskStructureSharedFiles(unittest.TestCase):
         self.assertIsInstance(shared, list)
         self.assertLessEqual(len(shared), 4)
 
-        # src/utils.py had 3 edits -> should be at top
-        self.assertEqual(shared[0], "src/utils.py")
-        # Other candidate files should be matched
+        # Integration files rank FIRST. Ranking by churn evicted the real seam (an
+        # index.ts written once) in favour of whichever leaf file was edited most.
         base_names = [os.path.basename(f).lower() for f in shared]
-        self.assertTrue(any("index.ts" in b for b in base_names))
+        self.assertEqual(sorted(base_names), ["compiler.py", "index.ts", "transformer.py", "visitor.py"])
+        # src/utils.py got 3 edits, but all three back to back: that is one leg
+        # iterating on its own file, not two legs sharing one. Not a seam.
+        self.assertNotIn("src/utils.py", shared)
 
     def test_relative_and_absolute_path_normalization_against_repo(self):
         with tempfile.TemporaryDirectory() as td:
@@ -299,7 +310,11 @@ class TestPoliciesReviewLegGate(unittest.TestCase):
         self.assertEqual(act.get("action"), "emit")
         self.assertIn("[CMD·delegate:review]", text)
         self.assertIn("DoD: Ship the delegated refactor with a green suite", text)
-        self.assertIn("Diff scope: git diff 1b48489a..HEAD", text)
+        # base vs WORKING TREE, not base..HEAD: the pin captured HEAD before the work
+        # existed and nothing commits, so the two-commit range renders empty.
+        self.assertIn("Diff scope: git diff 1b48489a (base vs working tree", text)
+        self.assertIn("git add -N . && git diff 1b48489a", text)
+        self.assertNotIn("git diff 1b48489a..HEAD", text)
         self.assertTrue(text.startswith(DELEGATE_REVIEW_PAYLOAD))
 
     def test_review_gate_payload_stays_verbatim_without_goal_or_base(self):
@@ -540,21 +555,19 @@ class TestAssistModeRouting(unittest.TestCase):
 
     def test_assist_mode_signal_fires_when_write_ratio_exceeds_threshold(self):
         # 5 files: core/main.py (5 writes), core/engine.py (3 writes), core/config.py (2 writes),
-        # pkg1/a.py (1 write), pkg2/b.py (1 write). Total = 12. Top 3 = 10 (ratio = 10/12 = 0.833 > 0.3)
-        steps = [
-            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Update core integration and leaf modules"},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/main.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/main.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/main.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/main.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/main.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/engine.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/engine.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/engine.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/config.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/config.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "pkg1/a.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "pkg2/b.py"}}]},
+        # pkg1/a.py (1 write), pkg2/b.py (1 write). Total = 12; seam = main+engine = 8/12 = 0.667 > 0.3.
+        # The writes INTERLEAVE: work keeps returning to main.py and engine.py after
+        # touching other files, which is what a shared integration file looks like. A
+        # contiguous burst on one file is self-iteration and deliberately does not count.
+        order = [
+            "core/main.py", "core/engine.py", "core/main.py", "core/config.py",
+            "core/main.py", "core/engine.py", "core/main.py", "pkg1/a.py",
+            "core/main.py", "core/engine.py", "core/config.py", "pkg2/b.py",
+        ]
+        steps = [{"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Update core integration and leaf modules"}]
+        steps += [
+            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": p}}]}
+            for p in order
         ]
         res = get_parallelizable_signals(steps)
         self.assertTrue(res["parallelizable"])
@@ -573,13 +586,15 @@ class TestAssistModeRouting(unittest.TestCase):
             tr_path = os.path.join(td, "transcript.jsonl")
             steps = [
                 {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Update coupled integration"},
-                # core/a.py is the shared integration file: 3+ writes is what marks a file
-                # as a seam, so most of this turn's writes land in one file two legs would share.
+                # core/a.py is the shared integration file: work RETURNS to it after each
+                # other file, so 3 of this turn's 6 writes land in one file two legs would
+                # share. Revisiting is the seam signal — three back-to-back writes to a.py
+                # would just be one leg iterating on its own file.
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/a.py"}}]},
-                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/a.py"}}]},
-                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/a.py"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/b.py"}}]},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/a.py"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/c.py"}}]},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/a.py"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "pkg/d.py"}}]},
             ]
             with open(tr_path, "w") as f:
