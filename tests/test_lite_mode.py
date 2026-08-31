@@ -304,16 +304,16 @@ class TestLiteStatusline(unittest.TestCase):
                 if os.path.exists(sf):
                     os.remove(sf)
 
-    def test_statusline_delivered_state_gray(self):
-        cid = "conv_stat_delivered_test"
+    def test_statusline_verified_state_gray(self):
+        cid = "conv_stat_verified_test"
         sf = f"/tmp/agy_sage_{cid}_test.json"
         with patch("statusline.statusline.safe_id", return_value=f"{cid}_test"):
             with open(sf, "w", encoding="utf-8") as f:
-                json.dump({"lite_status": "delivered", "sage_status": "idle"}, f)
+                json.dump({"lite_status": "verified", "sage_status": "idle"}, f)
             try:
                 data = {"conversation_id": cid, "model": "Gemini 3.7 Flash (High)"}
                 out = render_statusline(data)
-                self.assertIn("\033[90mdelivered\033[0m", out)
+                self.assertIn("\033[90mverified\033[0m", out)
             finally:
                 if os.path.exists(sf):
                     os.remove(sf)

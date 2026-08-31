@@ -151,7 +151,7 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             state_file,
             state,
             lite_fail_count=0,
-            lite_status="delivered",
+            lite_status="verified",
             sage_status="idle",
             recap_emitted=True,
             last_audited_line_count=len(steps),
