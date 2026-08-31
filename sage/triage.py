@@ -119,10 +119,11 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     repeatable = category in ("loop_detection", "irreversible_risk")
     effective_max = max_emissions * 2 if category == "irreversible_risk" else max_emissions
     is_deferral = bool(deferral and deferral.get("matched"))
+    hard_cap = effective_max * 2 if escalating else effective_max
     if category in ("confused_goal", "grill_me"):
         # Clarify-the-user and grill-me fire without dedup suppression
         pass
-    elif count >= effective_max or (count >= 1 and not escalating and not repeatable and not is_deferral and not is_steer and not is_pinned):
+    elif count >= hard_cap or (count >= 1 and not escalating and not repeatable and not is_deferral and not is_steer and not is_pinned):
         return {"decision": "hold_dedup", "status": status, "category": category, "confidence": conf, "advice_key": advice_key, "seen": seen}
 
     seen[advice_key] = count + 1

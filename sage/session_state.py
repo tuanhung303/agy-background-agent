@@ -93,7 +93,7 @@ def record_sage_recap(state_file: str, state: dict, total_tools: int, initial_li
     sage_holds = state.get("sage_holds", state.get("advisor_holds", 0)) + 1
     recap_count = state.get("recap_count", 0) + 1
     consecutive = state.get("consecutive_on_track", 0) + 1
-    fac_turn = state.get("facilitation_cmd_turn") or (recap_count if extra.get("goal_settled") else None)
+    fac_turn = state.get("facilitation_cmd_turn")
     save_session_state(
         state_file, state,
         sage_status="recap",
@@ -187,6 +187,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     recap_count, sm_steers = raw_state.get("recap_count", 0), raw_state.get("session_mid_turn_steers", 0)
     goal_settled = bool(raw_state.get("goal_settled", False)) if is_same else False
     delegate_cmd_turn = (raw_state.get("delegate_cmd_turn") or raw_state.get("facilitation_cmd_turn")) if is_same else None
+    review_base_sha = raw_state.get("review_base_sha") if is_same else None
     facilitation_cmd_turn = delegate_cmd_turn
     cmd_ignored = int(raw_state.get("cmd_ignored", 0) or raw_state.get("facilitation_cmd_ignored", 0) or 0) if is_same else 0
     facilitation_cmd_ignored = cmd_ignored
@@ -221,6 +222,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "goal_settled": goal_settled,
         "facilitation_cmd_turn": facilitation_cmd_turn,
         "delegate_cmd_turn": delegate_cmd_turn,
+        "review_base_sha": review_base_sha,
         "facilitation_cmd_ignored": facilitation_cmd_ignored,
         "cmd_ignored": cmd_ignored,
         "review_gate_fired": review_gate_fired,

@@ -158,8 +158,11 @@ def get_parallelizable_signals(steps_or_path, workspace_root=None):
             suggested_roles.append("QA")
 
     total_writes = sum(file_write_counts.values())
-    top3_writes = sum(sorted(file_write_counts.values(), reverse=True)[:3])
-    seam_ratio = (top3_writes / total_writes) if total_writes > 0 else 0.0
+    # Seam = share of writes landing in shared integration files, not raw write concentration.
+    # top-N concentration is 3/N for N uniformly-written files, so it exceeded the 0.3 threshold
+    # for any 4..10 disjoint files and routed the ideal parallel case to Assist Mode.
+    seam_writes = sum(file_write_counts[f] for f in shared_files)
+    seam_ratio = (seam_writes / total_writes) if total_writes > 0 else 0.0
 
     parallelizable = len(categories) > 0
     signal_text = ""
@@ -182,3 +185,12 @@ def get_parallelizable_signals(steps_or_path, workspace_root=None):
         "signal_text": signal_text,
         "shared_files": shared_files,
     }
+
+
+def is_assist_signal(par_sig):
+    """True when a parallelizable signal routed the turn to Assist Mode."""
+    sig = par_sig or {}
+    return bool(
+        str(sig.get("signal_text") or "").startswith("ASSIST_MODE")
+        or "assist_mode" in (sig.get("categories") or [])
+    )

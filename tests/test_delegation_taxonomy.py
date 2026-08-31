@@ -76,6 +76,16 @@ class TestDelegationTaxonomyTemplates(unittest.TestCase):
         self.assertIn("Max 1 re-review", DELEGATE_REVIEW_PAYLOAD)
         self.assertIn("second fail: stop and report to user", DELEGATE_REVIEW_PAYLOAD)
 
+    def test_fanout_emission_tag_matches_prompt_playbook_map(self):
+        """A summon tag that drifts from the playbook map has no documented routing."""
+        from sage.events import EVENT_FANOUT
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        with open(os.path.join(repo_root, "sage", "sage_prompt.md"), "r", encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn(f"`[EVT·{EVENT_FANOUT}]`", content)
+        rendered = format_summon_message(EVENT_FANOUT, signal_text="2 disjoint directories: core, tests")
+        self.assertTrue(rendered.startswith(f"[EVT·{EVENT_FANOUT} s1]"))
+
 
 class TestTaskStructureSharedFiles(unittest.TestCase):
     """Tests shared-file detection and relative/absolute path normalization."""
@@ -213,36 +223,27 @@ class TestSubagentClassification(unittest.TestCase):
         self.assertTrue(has_review_rev)
 
 
+def _write_build_only_transcript(dir_path):
+    """Transcript with a build-leg delegation and no review leg."""
+    path = os.path.join(dir_path, "transcript.jsonl")
+    with open(path, "w") as f:
+        f.write(json.dumps({"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Add feature"}) + "\n")
+        f.write(json.dumps({
+            "type": "PLANNER_RESPONSE",
+            "tool_calls": [{
+                "name": "invoke_subagent",
+                "args": {"Subagents": [{"Role": "Implementer", "Prompt": "Write feature in core.py"}]},
+            }],
+        }) + "\n")
+    return path
+
+
 class TestPoliciesReviewLegGate(unittest.TestCase):
     """Tests terminal review-leg gate enforcement in sage/policies.py."""
 
     def test_review_gate_blocks_when_build_delegation_present_and_no_review(self):
         with tempfile.TemporaryDirectory() as td:
-            tr_path = os.path.join(td, "transcript.jsonl")
-            with open(tr_path, "w") as f:
-                f.write(
-                    json.dumps({
-                        "type": "USER_INPUT",
-                        "source": "USER_EXPLICIT",
-                        "content": "Add feature",
-                    }) + "\n"
-                )
-                f.write(
-                    json.dumps({
-                        "type": "PLANNER_RESPONSE",
-                        "tool_calls": [
-                            {
-                                "name": "invoke_subagent",
-                                "args": {
-                                    "Subagents": [
-                                        {"Role": "Implementer", "Prompt": "Write feature in core.py"}
-                                    ]
-                                },
-                            }
-                        ],
-                    }) + "\n"
-                )
-
+            tr_path = _write_build_only_transcript(td)
             state = {"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0}
             act = final_sage_gate(
                 conv_id="c_test",
@@ -279,6 +280,40 @@ class TestPoliciesReviewLegGate(unittest.TestCase):
                 state=state,
             )
             self.assertNotEqual(act2.get("text"), act.get("text"))
+
+    def test_review_gate_payload_names_dod_and_diff_base_when_pinned(self):
+        from sage.events import DELEGATE_REVIEW_PAYLOAD
+        with tempfile.TemporaryDirectory() as td:
+            tr_path = _write_build_only_transcript(td)
+            state = {
+                "mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0,
+                "pinned_goal": "Ship the delegated refactor with a green suite",
+                "review_base_sha": "1b48489a",
+            }
+            act = final_sage_gate(
+                conv_id="c_test", transcript_path=tr_path, clean_prompt="Add feature",
+                initial_line_count=1, total_tool_calls=5, turn_tool_names=["invoke_subagent"],
+                user_prompt="Add feature", agent_steps=[], git_diff="", state=state,
+            )
+        text = act.get("text", "")
+        self.assertEqual(act.get("action"), "emit")
+        self.assertIn("[CMD·delegate:review]", text)
+        self.assertIn("DoD: Ship the delegated refactor with a green suite", text)
+        self.assertIn("Diff scope: git diff 1b48489a..HEAD", text)
+        self.assertTrue(text.startswith(DELEGATE_REVIEW_PAYLOAD))
+
+    def test_review_gate_payload_stays_verbatim_without_goal_or_base(self):
+        """Honest or silent: no invented DoD when the pin never recorded one."""
+        from sage.events import DELEGATE_REVIEW_PAYLOAD
+        with tempfile.TemporaryDirectory() as td:
+            tr_path = _write_build_only_transcript(td)
+            state = {"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0}
+            act = final_sage_gate(
+                conv_id="c_test", transcript_path=tr_path, clean_prompt="Add feature",
+                initial_line_count=1, total_tool_calls=5, turn_tool_names=["invoke_subagent"],
+                user_prompt="Add feature", agent_steps=[], git_diff="", state=state,
+            )
+        self.assertEqual(act.get("text"), DELEGATE_REVIEW_PAYLOAD)
 
     def test_review_gate_does_not_block_research_scout_subagents(self):
         with tempfile.TemporaryDirectory() as td:
@@ -349,6 +384,29 @@ class TestPoliciesReviewLegGate(unittest.TestCase):
                 conv_id, tr_path, "Build system"
             )
             self.assertTrue(state2.get("review_gate_fired"))
+
+            if os.path.exists(state_file):
+                os.remove(state_file)
+
+    def test_review_base_sha_survives_to_final_gate_same_turn(self):
+        """Pin and final gate are separate hook processes; the sha rides the state file."""
+        conv_id = f"c_base_sha_{os.getpid()}"
+        with tempfile.TemporaryDirectory() as td:
+            tr_path = os.path.join(td, "transcript.jsonl")
+            with open(tr_path, "w") as f:
+                f.write(json.dumps({"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Build system"}) + "\n")
+                f.write(json.dumps({"type": "PLANNER_RESPONSE", "tool_calls": []}) + "\n")
+
+            _, state_file, state, _ = load_and_sync_session_state(conv_id, tr_path, "Build system")
+            save_session_state(state_file, state, review_base_sha="1b48489a", delegate_cmd_turn=1)
+
+            _, _, reloaded, is_same = load_and_sync_session_state(conv_id, tr_path, "Build system")
+            self.assertTrue(is_same)
+            self.assertEqual(reloaded.get("review_base_sha"), "1b48489a")
+
+            # A fresh user prompt is a new turn: the previous turn's diff base is stale
+            _, _, new_turn, _ = load_and_sync_session_state(conv_id, tr_path, "Totally different next task")
+            self.assertIsNone(new_turn.get("review_base_sha"))
 
             if os.path.exists(state_file):
                 os.remove(state_file)
@@ -470,9 +528,11 @@ class TestAssistModeRouting(unittest.TestCase):
         self.assertIn("Assist (`complex_code` / coupled `multi_file`)", content)
         self.assertIn(
             "[Mode: Assist] High coupling — shared state or monolithic integration files. "
-            "Act as a staff-level reviewer; budget 3-5 steers. DISCOVER (Phase 1): read the raw request with verification tools; "
+            "Act as a staff-level reviewer; budget 3-5 steers, where one steer is one emitted verdict no matter how many items it carries. "
+            "DISCOVER (Phase 1): read the raw request with verification tools; "
             "generate an acceptance checklist; hand it to the executor at goal pin. HINT: point to repo conventions or adjacent patterns (max 2 times). "
-            "WATCH: track the checklist; remind once per untouched item. EXHAUSTION FALLBACK: if the budget is hit before completion, issue one final directive to finalize, "
+            "WATCH: track the checklist; batch every untouched item into a single steer rather than one reminder each. "
+            "EXHAUSTION FALLBACK: if the budget is hit before completion, issue one final directive to finalize, "
             "then yield completely. VALIDATE (Phase 3): run the expectation-gap check and hostile audit yourself via verification tools; "
             "report findings in a single steer. Do NOT delegate review.",
             content,
@@ -513,7 +573,10 @@ class TestAssistModeRouting(unittest.TestCase):
             tr_path = os.path.join(td, "transcript.jsonl")
             steps = [
                 {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Update coupled integration"},
+                # core/a.py is the shared integration file: 3+ writes is what marks a file
+                # as a seam, so most of this turn's writes land in one file two legs would share.
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/a.py"}}]},
+                {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/a.py"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "core/a.py"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/b.py"}}]},
                 {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "core/c.py"}}]},
@@ -554,6 +617,7 @@ class TestAssistModeRouting(unittest.TestCase):
                 )
             self.assertEqual(res.get("action"), "hold_dedup")
             self.assertTrue(res.get("assist_suppressed"))
+            self.assertTrue(res.get("assist_active"))
 
     def test_delegate_commands_still_emitted_for_disjoint_files(self):
         from unittest.mock import patch
@@ -609,6 +673,7 @@ class TestAssistModeRouting(unittest.TestCase):
             self.assertEqual(res.get("action"), "emit")
             self.assertEqual(res.get("decision"), "watchout")
             self.assertIn("[CMD·delegate:leaf]", res.get("text", ""))
+            self.assertFalse(res.get("assist_active"))
 
 
 if __name__ == "__main__":

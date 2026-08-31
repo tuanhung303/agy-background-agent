@@ -33,11 +33,17 @@ def _cmd(text):
 
 
 class TestFacilitationCommand(unittest.TestCase):
-    def test_wording_cmd_facilitation(self):
-        msg = immediate_settle_message()
-        self.assertIn("[CMD·facilitation", msg)
-        self.assertIn("Delegate execution to subagents via invoke_subagent", msg)
-        self.assertNotIn("Do NOT execute inline", msg)
+    def _write_transcript(self, td, steps):
+        tr = os.path.join(td, "transcript.jsonl")
+        with open(tr, "w") as f:
+            for s in steps:
+                f.write(json.dumps(s) + "\n")
+        return tr
+
+    def test_settle_never_emits_fresh_delegation_order(self):
+        self.assertEqual(immediate_settle_message(), "")
+        self.assertEqual(immediate_settle_message({"goal_settled": True}), "")
+        self.assertEqual(immediate_settle_message({"facilitation_cmd_turn": 2, "goal_settled": True}), "")
 
     def test_immediate_delegate_message_at_pin(self):
         msg = immediate_delegate_message(pinned_goal="Implement feature X")
@@ -45,11 +51,45 @@ class TestFacilitationCommand(unittest.TestCase):
         self.assertIn("Delegate execution to subagents via invoke_subagent", msg)
         self.assertNotIn("ASK ", msg)
 
-    def test_settle_recap_payload_deduplicated_when_pin_command_emitted(self):
-        msg = immediate_settle_message({"delegate_cmd_turn": 1})
-        self.assertNotIn("provide payload", msg)
-        self.assertNotIn("ASK", msg)
+    def test_delegate_message_carries_legs_and_roles_from_state(self):
+        state = {
+            "shared_files": ["core/a.py"],
+            "delegate_roles": ["Implementer", "QA"],
+            "delegate_legs": ["2 disjoint directories: core, tests", "2 independent test suites"],
+        }
+        msg = immediate_delegate_message(state, pinned_goal="Implement feature X")
+        self.assertIn("[CMD·delegate s2]", msg)
+        self.assertIn("shared=core/a.py", msg)
+        self.assertIn("legs=2 disjoint directories: core, tests; 2 independent test suites", msg)
+        self.assertIn("roles=Implementer/QA", msg)
+
+    def test_delegate_message_unchanged_without_legs_or_roles(self):
+        baseline = immediate_delegate_message(pinned_goal="Implement feature X")
+        for state in ({}, {"delegate_roles": [], "delegate_legs": []}):
+            self.assertEqual(immediate_delegate_message(state, pinned_goal="Implement feature X"), baseline)
+
+    def test_settle_confirms_only_when_subagents_actually_ran(self):
+        steps = [
+            _user("next task"),
+            _step("", [{"name": "invoke_subagent", "args": {"Subagents": [{"Role": "Implementer"}]}}]),
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            tr = self._write_transcript(td, steps)
+            msg = immediate_settle_message({"delegate_cmd_turn": 1}, transcript_path=tr)
         self.assertIn("[WATCH·delegate·confirm]", msg)
+
+    def test_settle_silent_when_delegation_commanded_but_ignored(self):
+        steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
+        with tempfile.TemporaryDirectory() as td:
+            tr = self._write_transcript(td, steps)
+            with patch.dict(os.environ, {"AGY_SAGE_JOURNAL": os.path.join(td, "events.jsonl")}):
+                msg = immediate_settle_message({"delegate_cmd_turn": 1}, transcript_path=tr)
+        self.assertEqual(msg, "")
+
+    def test_settle_silent_in_assist_mode(self):
+        msg = immediate_settle_message(
+            {"delegate_cmd_turn": 1}, transcript_path="/tmp/does_not_matter.jsonl", assist_active=True)
+        self.assertEqual(msg, "")
 
     def test_signal_fires_after_settle_with_inline_execution(self):
         steps = [_user("next task"), _step("", [{"name": "write_to_file", "args": {"TargetFile": "x.py"}}])]
@@ -294,7 +334,70 @@ class TestFacilitationCommand(unittest.TestCase):
             if os.path.exists(state_file):
                 os.remove(state_file)
 
-    def test_immediate_facilitation_dispatched_at_goal_settle_when_no_pin(self):
+    def test_runner_pin_skips_delegate_command_when_assist_active(self):
+        import time
+        from sage.runner import main
+        from sage.session_state import get_state_file_path
+
+        conv_id = f"test_pin_assist_{int(time.time() * 1000)}"
+        state_file = get_state_file_path(conv_id)
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                tr = os.path.join(td, "transcript.jsonl")
+                with open(tr, "w") as f:
+                    f.write(json.dumps({
+                        "type": "USER_INPUT", "source": "USER_EXPLICIT",
+                        "content": "Fix coupled engine", "tool_calls": [],
+                        "created_at": "2026-08-28T10:00:00Z"}) + "\n")
+                    f.write(json.dumps({
+                        "type": "PLANNER_RESPONSE", "content": "Running task",
+                        "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "a.py"}}],
+                        "created_at": "2026-08-28T10:00:05Z"}) + "\n")
+
+                payload = {
+                    "conversationId": conv_id,
+                    "transcriptPath": tr,
+                    "workspacePaths": [td],
+                    "hookEventName": "PostInvocation",
+                }
+
+                pin_act = {
+                    "action": "emit",
+                    "decision": "watchout",
+                    "category": "pinned_goal",
+                    "task_complexity": "multi_file",
+                    "pinned_goal": "Fix coupled engine integration",
+                    "pinned_emitted": True,
+                    "assist_active": True,
+                    "text": "[Pinned Goal] Fix coupled engine integration",
+                }
+
+                with patch("sage.runner.is_post_invocation", return_value=True), \
+                     patch("sage.runner.is_post_invocation_completion_candidate", return_value=False), \
+                     patch("sage.runner.sage_flow", return_value=pin_act), \
+                     patch("sys.stdin.read", return_value=json.dumps(payload)), \
+                     patch.dict(os.environ, {"AGY_HOOK_EVENT_NAME": "PostInvocation", "AGY_STOP_AUDIT_TEST": "1"}), \
+                     patch("sys.stdout") as mock_stdout, \
+                     self.assertRaises(SystemExit) as cm:
+                    main()
+
+                self.assertEqual(cm.exception.code, 0)
+                written = "".join([c.args[0] for c in mock_stdout.write.mock_calls if c.args])
+                data = json.loads(written.strip())
+                msg = data.get("reason") or (data.get("injectSteps", [{}])[0].get("userMessage", ""))
+                self.assertIn("[Pinned Goal] Fix coupled engine integration", msg)
+                self.assertNotIn("[CMD·delegate", msg)
+                self.assertNotIn("Delegate execution to subagents", msg)
+
+                with open(state_file, "r") as sf:
+                    saved = json.load(sf)
+                self.assertFalse(saved.get("delegate_cmd_turn"))
+                self.assertFalse(saved.get("facilitation_cmd_turn"))
+        finally:
+            if os.path.exists(state_file):
+                os.remove(state_file)
+
+    def test_no_delegation_order_at_settle_when_task_never_delegated(self):
         import time
         from sage.runner import main
 
@@ -321,8 +424,6 @@ class TestFacilitationCommand(unittest.TestCase):
 
                 with patch("sage.runner.final_sage_gate",
                            return_value={"action": "healthy", "recap": "All done"}), \
-                     patch("sage.runner.final_sage_gate",
-                           return_value={"action": "healthy", "recap": "All done"}), \
                      patch("sys.stdin.read", return_value=json.dumps(payload)), \
                      patch.dict(os.environ, {"AGY_STOP_AUDIT_TEST": "1"}), \
                      patch("sys.stdout") as mock_stdout, \
@@ -334,8 +435,9 @@ class TestFacilitationCommand(unittest.TestCase):
                 data = json.loads(written.strip())
                 msg = data.get("reason") or (data.get("injectSteps", [{}])[0].get("userMessage", ""))
                 self.assertIn("[RECAP·on_track] All done", msg)
-                self.assertIn("[CMD·facilitation", msg)
-                self.assertIn("Delegate execution to subagents", msg)
+                self.assertNotIn("[CMD·facilitation", msg)
+                self.assertNotIn("Delegate execution to subagents", msg)
+                self.assertNotIn("[WATCH·delegate·confirm]", msg)
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)

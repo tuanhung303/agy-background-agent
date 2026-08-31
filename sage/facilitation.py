@@ -8,8 +8,7 @@ explicit receipt proves inline is the sole viable path.
 """
 
 from sage.events import (
-    EVENT_DELEGATE, EVENT_FACILITATION,
-    EVENT_FACILITATION_REPEAT, format_summon_message,
+    EVENT_DELEGATE, format_summon_message,
 )
 from sage.task_structure import EXEC_TOOLS, FILE_TOOLS
 from sage.transcript import (
@@ -52,27 +51,42 @@ def immediate_delegate_message(state=None, pinned_goal=None, shared=None):
         shared = state.get("shared_files")
     if shared:
         kwargs["shared"] = shared
+    if state:
+        roles = state.get("delegate_roles")
+        if roles:
+            kwargs["roles"] = list(roles)
+        legs = state.get("delegate_legs")
+        if legs:
+            kwargs["legs"] = "; ".join(str(d) for d in legs)
     return format_summon_message(EVENT_DELEGATE, **kwargs)
 
 
-def immediate_settle_message(state=None, exec_calls=None, repeat=0):
-    """Command message dispatched at settle. Deduplicates payload if already commanded at pin."""
-    if state and not repeat:
-        repeat = state.get("cmd_ignored", state.get("facilitation_cmd_ignored", 0))
-    if not repeat and state and (state.get("delegate_cmd_turn") or (state.get("facilitation_cmd_turn") and not state.get("goal_settled"))):
+def immediate_settle_message(state=None, transcript_path=None, assist_active=False):
+    """Recap postscript for delegation compliance: honest or silent.
+
+    Never emits a fresh delegation order at settle: the recap already approved the
+    work, and ordering delegation after completion (or into Assist Mode) breaks the
+    routing doctrine. Confirms only when the transcript shows subagents actually ran;
+    a commanded-but-ignored delegation is journaled, not praised.
+    """
+    if assist_active:
+        return ""
+    st = state or {}
+    if not (st.get("delegate_cmd_turn") or st.get("facilitation_cmd_turn")):
+        return ""
+    has_subagent = (
+        bool(check_facilitation_compliance(transcript_path, st).get("has_subagent"))
+        if transcript_path else False
+    )
+    if has_subagent:
         return "[WATCH·delegate·confirm] Facilitation compliance confirmed — subagents executed."
-    ev = EVENT_FACILITATION_REPEAT if (repeat and repeat > 0) else EVENT_FACILITATION
-    if repeat and repeat > 0:
-        try:
-            from sage.journal import write as journal_write
-            conv_id = (state or {}).get("conv_id") or (state or {}).get("conversation_id") or ""
-            journal_write("cmd_repeat", conv_id=conv_id)
-        except Exception:
-            pass
-    kwargs = {"signal_text": "Delegate execution to subagents via invoke_subagent. Split this into parallel tasks."}
-    if exec_calls is not None:
-        kwargs["exec_calls"] = exec_calls
-    return format_summon_message(ev, **kwargs)
+    try:
+        from sage.journal import write as journal_write
+        conv_id = st.get("conv_id") or st.get("conversation_id") or ""
+        journal_write("settle_delegate_missed", conv_id=conv_id)
+    except Exception:
+        pass
+    return ""
 
 
 def _turn_tool_calls(steps, from_turn_idx=None):

@@ -520,7 +520,7 @@ class TestSage(unittest.TestCase):
             )
 
         signals_sent = captured.get("signals", "")
-        self.assertIn("[EVT·parallel_opportunity s1]", signals_sent)
+        self.assertIn("[EVT·fanout s1]", signals_sent)
         self.assertIn("PARALLELIZABLE:", signals_sent)
 
     def test_get_parallelizable_signals_handles_malformed_tool_calls(self):
