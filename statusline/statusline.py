@@ -178,6 +178,14 @@ def get_sage_steer_badges(data):
             except Exception:
                 state = {}
 
+    try:
+        from sage.config import LITE_MODE_ENABLED
+    except Exception:
+        LITE_MODE_ENABLED = True
+
+    if LITE_MODE_ENABLED:
+        return []
+
     sage_status = str(state.get("sage_status", state.get("advisor_status", "hold"))).lower()
     recap_emitted = bool(state.get("recap_emitted", False))
     err_streak = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)) or 0)
@@ -195,14 +203,6 @@ def get_sage_steer_badges(data):
         return [f"\033[38;2;255;127;80msage:inject\033[0m{err_seg}"]
     elif err_streak > 0:
         return [f"\033[31msage/err[{err_streak}]\033[0m"]
-
-    try:
-        from sage.config import LITE_MODE_ENABLED
-    except Exception:
-        LITE_MODE_ENABLED = True
-
-    if LITE_MODE_ENABLED:
-        return []
 
     return ["\033[90msage:idle\033[0m"]
 

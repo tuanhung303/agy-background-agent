@@ -114,7 +114,7 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             sage_status="injecting",
             last_audited_line_count=len(steps),
         )
-        emit_continue_response(verdict.action, is_post=True)
+        emit_continue_response(verdict.action)
     else:
         log_audit("Lite Mode verifier PASS; running knowledge base maintainer")
         # 8. Update statusline to 'updating knowledge/memory' and run KB maintainer

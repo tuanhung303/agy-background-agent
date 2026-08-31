@@ -185,7 +185,7 @@ class TestLiteRunner(unittest.TestCase):
                 run_lite_stop_audit(json.dumps(payload))
             except SystemExit:
                 pass
-            mock_cont.assert_called_once_with("Run pytest tests/test_app.py now.", is_post=True)
+            mock_cont.assert_called_once_with("Run pytest tests/test_app.py now.")
 
     @patch("sage.lite.runner.emit_recap_response")
     @patch("sage.lite.runner.fork_conversation_session", side_effect=["fork_ver_123", "fork_kb_456"])

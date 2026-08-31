@@ -58,7 +58,12 @@ def emit_continue_response(message, is_post=None):
     post = is_post if is_post is not None else is_post_invocation()
     release_lock()
     steps = [{"userMessage": message}] + get_pending_inbox_steps()
-    payload = {"injectSteps": steps, "terminationBehavior": "force_continue"} if post else {"decision": "continue", "reason": message, "injectSteps": steps}
+    payload = {
+        "decision": "continue",
+        "reason": message,
+        "injectSteps": steps,
+        "terminationBehavior": "force_continue",
+    }
     print(json.dumps(payload))
     sys.exit(0)
 
@@ -68,7 +73,12 @@ def emit_recap_response(recap, is_post=None, kind="recap"):
     release_lock()
     msg = format_hook_message(kind, recap)
     steps = [{"userMessage": msg}] + get_pending_inbox_steps()
-    payload = {"injectSteps": steps, "terminationBehavior": "terminate", "decision": "stop", "reason": msg} if post else {"decision": "stop", "reason": msg, "injectSteps": steps}
+    payload = {
+        "decision": "stop",
+        "reason": msg,
+        "injectSteps": steps,
+        "terminationBehavior": "terminate",
+    }
     print(json.dumps(payload))
     sys.exit(0)
 
