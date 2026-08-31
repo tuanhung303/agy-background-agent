@@ -79,7 +79,7 @@ class TestLiteCLIIntegration(unittest.TestCase):
         }
         env = dict(
             os.environ,
-            AGY_LITE_MOCK_VERDICT="PASS:all unit tests verified with SQLite sandbox.",
+            AGY_LITE_MOCK_VERDICT="PASS:verified browser screenshot at /tmp/test.png.",
             AGY_STOP_AUDIT_TEST="1",
         )
         res = subprocess.run(
@@ -95,7 +95,35 @@ class TestLiteCLIIntegration(unittest.TestCase):
         self.assertIn("terminationBehavior", data)
         self.assertEqual(data["terminationBehavior"], "terminate")
         self.assertNotIn("decision", data, "PostInvocation protojson must not contain 'decision'")
-        self.assertEqual(data["injectSteps"][0]["userMessage"], "※ all unit tests verified with SQLite sandbox.")
+        self.assertEqual(data["injectSteps"][0]["userMessage"], "※ verified browser screenshot at /tmp/test.png.")
+
+    def test_cli_post_invocation_disqualified_proof_overridden_to_fail(self):
+        """CLI out-of-process test: PostInvocation PASS with only unit tests is overridden to FAIL and forces continue."""
+        hook_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "hooks", "session-sage.py"))
+        cid = f"{self.conv_id}_disq"
+        payload = {
+            "conversationId": cid,
+            "transcript_path": self.transcript_path,
+            "hook_event_name": "PostInvocation",
+            "cwd": self.test_dir,
+        }
+        env = dict(
+            os.environ,
+            AGY_LITE_MOCK_VERDICT="PASS:all unit tests passed with 37/37 pre-push tests.",
+            AGY_STOP_AUDIT_TEST="1",
+        )
+        res = subprocess.run(
+            [sys.executable, hook_script, "post_invocation"],
+            input=json.dumps(payload),
+            text=True,
+            capture_output=True,
+            env=env,
+        )
+        self.assertEqual(res.returncode, 0, f"Hook failed with stderr: {res.stderr}")
+        data = json.loads(res.stdout.strip())
+        self.assertIn("injectSteps", data)
+        self.assertEqual(data["terminationBehavior"], "force_continue")
+        self.assertIn("Go Signal rejected", data["injectSteps"][0]["userMessage"])
 
     def test_cli_stop_hook_fail_decision(self):
         """CLI out-of-process test: Stop hook FAIL returns strict protojson continue decision & reason."""

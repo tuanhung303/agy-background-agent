@@ -33,23 +33,28 @@ Evaluate the response against these exact failure conditions across engineering,
    - Safety, Isolation & Resource Containment: Running inside ephemeral `/tmp/...` sandbox dirs, env latches, process group termination watchdogs, and guaranteed cleanup in teardown/finally blocks.
    - Regression & Freshness: Even if these tests were conducted previously, any recent modifications to the scripts require all relevant tests to be re-run.
    -> FAIL (Action: "Create and execute a reusable live verification script testing the real artifact with deterministic fault injection, closed-loop state assertions, and ephemeral sandbox cleanup.")
-11. MANDATORY EMPIRICAL VERIFICATION CHANNELS (Go Signal Gate): Before any work can receive a Go Signal (PASS), the deliverable MUST execute and document AT LEAST ONE of the following empirical verification channels:
-   - Computer Use: Live GUI / desktop interaction, keyboard/mouse actions, or OS-level application driving.
-   - Browser Use: Real browser navigation, DOM inspection, SPA interaction, or web console validation.
-   - Image / Screenshot Verification: Visual proof capture (screenshot or rendered image artifact) verifying layout, spacing, tokens, and visual correctness.
-   - Local End-to-End Execution with Real Use Case: Executing the real CLI binary, daemon, pipeline, or service end-to-end against a concrete real-world use case with live inputs and outputs at the end of the turn.
-   -> If NONE of these 4 verification channels were executed -> FAIL (Action: "Execute at least one empirical verification channel: computer use, browser use, visual screenshot verification, or a real local end-to-end use case run.")
+11. MANDATORY EMPIRICAL VERIFICATION CHANNELS & PROOF DISQUALIFICATION:
+Before any work can receive a Go Signal (PASS), the deliverable MUST execute and document AT LEAST ONE domain-specific empirical verification channel:
+- FRONTEND, UI, CHARTS, HTML, CSS, SVG: Visual screenshot capture (`.png`/`.jpg`), computer use UI driving, or browser use DOM/rendered inspection is STRICTLY MANDATORY. Build logs (`vite build`, `webpack`), TypeScript typechecks (`tsc`), and unit test counts (`37/37 passed`) are COMPLETELY BLIND to visual rendering and are STRICTLY DISQUALIFIED as proof.
+- BACKEND, API, CLI, DAEMONS: Running a live curl/HTTP request or executing the CLI binary against a real use case with actual stdout output.
+- DATA PIPELINES, SQL, INFRASTRUCTURE: Querying the live database table or inspecting actual infrastructure state and pasting the output rows.
+
+STRICT DISQUALIFICATION RULE:
+- The following are NEVER empirical proof: `git push`, `vite build`, `tsc --noEmit`, `npm run build`, `linting`, `pre-push hook`, or unit test pass counts.
+- Narrative claims like "Live structural validation" or "Verified in code" without an actual screenshot path, browser session, curl output, or DB query output MUST BE REJECTED IMMEDIATELY as FAIL.
+
+-> If the agent only ran build/unit tests and did NOT provide visual screenshot proof for UI/chart work, or live runtime execution proof for backend/data work -> FAIL (Action: "Capture a visual screenshot / browser verification of the rendered chart/UI, or execute a live end-to-end command and output the results.")
 
 When everything looks green and you are about to give Go Signal, read this:
 
 [PRE-FLIGHT ADVERSARIAL PROTOCOL]
 Assume the proposed implementation contains critical flaws until proven otherwise. Execute the evaluation steps sequentially:
-- Step 1 (Falsification Attempt): Actively search for race conditions, unhandled exceptions, or invalid assumptions. List all identified risks.
+- Step 1 (Falsification Attempt): Actively search for race conditions, unhandled exceptions, visual layout bugs, or invalid assumptions. List all identified risks.
 - Step 2 (Defense Audit): For every risk identified in Step 1, verify whether explicit guards exist.
 - Step 3 (Inverted State Logic): If the core premise fails, does the system fail safely or corrupt state?
 - Step 4 (Final Determination):
-  - IF any critical flaw is unmitigated OR none of the empirical verification channels were executed -> Output: {{"verdict": "FAIL", "action": "<Imperative command to fix flaw or execute required verification channel>", "comment": "", "proof": []}}
-  - IF and only IF all checks pass with verifiable empirical evidence from at least one channel -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>", "proof": ["<recent concrete evidence 1 (e.g. computer use, browser use, screenshot, or real end-to-end execution)>"]}}
+  - IF any critical flaw is unmitigated OR proof relies on disqualified items (unit tests, build logs, typechecks, git push) OR mandatory domain channel (e.g. screenshot for UI/charts) is missing -> Output: {{"verdict": "FAIL", "action": "<Imperative command to capture screenshot or execute live runtime proof>", "comment": "", "proof": []}}
+  - IF and only IF all checks pass with verifiable empirical evidence from an authorized channel -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>", "proof": ["<exact screenshot path / curl output / DB query result (NOT static unit tests or build logs)>"]}}
 
 Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
 {{
@@ -57,7 +62,7 @@ Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
   "action": "String. Imperative command if FAIL, empty string if PASS.",
   "comment": "String. If PASS, a concise 1-sentence natural comment describing what was verified. Empty string if FAIL.",
   "proof": [
-    "Array of strings citing recent concrete evidence from the turn (computer use, browser use, screenshot, or real end-to-end execution; NOT static unit tests). Empty array if FAIL."
+    "Array of strings citing recent concrete evidence from the turn (e.g. screenshot path, browser session, or live runtime command output; NEVER static unit tests, tsc, or vite build). Empty array if FAIL."
   ]
 }}
 """

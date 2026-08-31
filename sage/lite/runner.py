@@ -11,6 +11,7 @@ from sage.guards import (
 )
 from sage.lite.fork import cleanup_fork_session, fork_conversation_session
 from sage.lite.gating import extract_turn_mutations_and_context
+from sage.lite.proof_validator import validate_empirical_proof
 from sage.lite.schemas import LiteVerdict
 from sage.lite.verifier import run_kb_maintenance, run_lite_verification
 from sage.locking import acquire_conversation_lock, log_audit, release_lock
@@ -112,7 +113,15 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             verifier_output=verdict.action,
         )
 
-    # 7. Dispatch Verdict
+    # 7. Validate Empirical Proof if PASS
+    if verdict.verdict == "PASS":
+        is_valid_proof, reject_reason = validate_empirical_proof(verdict.proof)
+        if not is_valid_proof:
+            log_audit(f"Lite Mode verifier PASS overridden to FAIL by proof validator: {reject_reason}")
+            verdict.verdict = "FAIL"
+            verdict.action = f"Go Signal rejected: {reject_reason}. You must execute and document at least one empirical verification channel (e.g. capture a visual screenshot, perform browser verification, or execute a live command with exact output)."
+
+    # 8. Dispatch Verdict
     if verdict.verdict == "FAIL" and verdict.action:
         next_strike = fail_count + 1
         log_audit(f"Lite Mode verifier FAIL (strike {next_strike}/{LITE_MAX_RETRIES}): {verdict.action}")

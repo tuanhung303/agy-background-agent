@@ -99,11 +99,10 @@ class TestLitePrompt(unittest.TestCase):
         self.assertIn("Live Runtime Harness", prompt)
         self.assertIn("Deterministic State / Fault Injection", prompt)
         self.assertIn("Closed-Loop Verification", prompt)
-        self.assertIn("MANDATORY EMPIRICAL VERIFICATION CHANNELS", prompt)
-        self.assertIn("Computer Use", prompt)
-        self.assertIn("Browser Use", prompt)
-        self.assertIn("Image / Screenshot Verification", prompt)
-        self.assertIn("Local End-to-End Execution with Real Use Case", prompt)
+        self.assertIn("MANDATORY EMPIRICAL VERIFICATION CHANNELS & PROOF DISQUALIFICATION", prompt)
+        self.assertIn("FRONTEND, UI, CHARTS", prompt)
+        self.assertIn("Visual screenshot capture", prompt)
+        self.assertIn("STRICT DISQUALIFICATION RULE", prompt)
         self.assertIn("PRE-FLIGHT ADVERSARIAL PROTOCOL", prompt)
         self.assertIn('"verdict": "PASS" | "FAIL"', prompt)
         self.assertIn('"proof": [', prompt)
@@ -210,7 +209,7 @@ class TestLiteRunner(unittest.TestCase):
     @patch("sage.lite.runner.run_kb_maintenance")
     def test_runner_pass_runs_kb_maintenance(self, mock_kb, mock_ver, mock_clean, mock_fork, mock_recap):
         mock_recap.side_effect = SystemExit(0)
-        mock_ver.return_value = LiteVerdict(verdict="PASS", action="")
+        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", proof=["Captured screenshot at /tmp/chart.png"])
         payload = {
             "conversationId": "test_conv_pass",
             "transcript_path": "/tmp/nonexistent.jsonl",
@@ -239,7 +238,7 @@ class TestLiteRunner(unittest.TestCase):
     @patch("sage.lite.runner.run_kb_maintenance")
     def test_runner_pass_uses_custom_comment(self, mock_kb, mock_ver, mock_clean, mock_fork, mock_recap):
         mock_recap.side_effect = SystemExit(0)
-        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", comment="all unit tests passed.")
+        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", comment="all unit tests passed.", proof=["Captured screenshot at /tmp/chart.png"])
         payload = {
             "conversationId": "test_conv_custom_comment",
             "transcript_path": "/tmp/nonexistent.jsonl",
@@ -255,6 +254,34 @@ class TestLiteRunner(unittest.TestCase):
             except SystemExit:
                 pass
             mock_recap.assert_called_once_with("all unit tests passed.", kind="comment")
+
+    @patch("sage.lite.runner.emit_continue_response")
+    @patch("sage.lite.runner.fork_conversation_session", return_value="fork_ver_disq")
+    @patch("sage.lite.runner.cleanup_fork_session")
+    @patch("sage.lite.runner.run_lite_verification")
+    def test_runner_pass_overridden_when_proof_is_disqualified(self, mock_ver, mock_clean, mock_fork, mock_cont):
+        mock_cont.side_effect = SystemExit(0)
+        mock_ver.return_value = LiteVerdict(
+            verdict="PASS",
+            action="",
+            proof=["37/37 pre-push tests passed", "TypeScript typecheck", "Vite production build"],
+        )
+        payload = {
+            "conversationId": "test_conv_disq_proof",
+            "transcript_path": "/tmp/nonexistent.jsonl",
+        }
+        with patch("sage.lite.runner._read_transcript_steps", return_value=[
+            {"type": "USER_INPUT", "content": "Modify code"},
+            {"type": "PLANNER_RESPONSE", "content": "Edited", "tool_calls": [
+                {"name": "write_to_file", "args": {"TargetFile": "/src/app.py"}},
+            ]},
+        ]):
+            try:
+                run_lite_stop_audit(json.dumps(payload))
+            except SystemExit:
+                pass
+            mock_cont.assert_called_once()
+            self.assertIn("Go Signal rejected", mock_cont.call_args[0][0])
 
     @patch("sage.lite.runner.fail_safe_exit")
     def test_runner_bypasses_when_background_or_not_idle(self, mock_exit):
