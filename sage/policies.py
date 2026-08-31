@@ -160,10 +160,6 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count, 
             delegated_cmd=deferral.get("delegated_cmd") if deferral.get("matched") else None,
             tail_todo=deferral.get("tail_todo") if deferral.get("matched") else None,
         )
-        if signal_note:
-            active_signal = f"{active_signal}\n{signal_note}".strip()
-    elif signal_note:
-        active_signal = signal_note
     elif par_sig.get("parallelizable"):
         active_signal = format_summon_message(EVENT_FANOUT, signal_text=par_sig.get("signal_text", ""))
     else:
@@ -172,6 +168,13 @@ def sage_flow(mode, conv_id, transcript_path, clean_prompt, initial_line_count, 
             deferral=deferral.get("snippet") if deferral.get("matched") else None,
             delegated_cmd=deferral.get("delegated_cmd") if deferral.get("matched") else None,
         )
+    # Append, never replace. The old `elif signal_note: active_signal = signal_note`
+    # dropped the base summon whenever any note existed — and once the
+    # noninteractive note became unconditional in headless runs, that meant
+    # [EVT·tool_threshold] / [EVT·fanout] and their tools=/mix= facts never
+    # reached the sage at all. The `final` branch always appended; now all do.
+    if signal_note:
+        active_signal = f"{active_signal}\n{signal_note}".strip() if active_signal else signal_note
     verdict = evaluate_mid_turn_progress(
         conv_id, transcript_path, total_tool_calls, turn_tool_names,
         user_prompt, agent_steps, git_diff, state, is_forced=(forced or final or deferral.get("matched", False) or loop_override),

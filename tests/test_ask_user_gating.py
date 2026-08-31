@@ -52,6 +52,61 @@ class TestInteractivitySignal(unittest.TestCase):
             self.assertFalse(in_print_mode())
             sage_iv._PRINT_MODE_CACHE.clear()
 
+    def test_ps_invocation_puts_args_last_so_it_is_not_truncated(self):
+        """macOS BSD ps truncates a NON-FINAL args/command column to 16 chars.
+
+        `ps -o command= -o ppid= -p $$` really returns "/bin/zsh -c sour 45715",
+        so the flags this function reads were being cut off and print mode never
+        detected. args= must be the trailing column, with -ww.
+        """
+        import sage.interactivity as iv
+        seen = {}
+
+        class R:
+            stdout = "1 /usr/local/bin/agy --dangerously-skip-permissions -p 'do the thing'\n"
+
+        def fake_run(argv, **kw):
+            seen["argv"] = argv
+            return R()
+
+        with patch.object(iv, "subprocess") as sp:
+            sp.run.side_effect = fake_run
+            iv._PRINT_MODE_CACHE.clear()
+            detected = iv.in_print_mode()
+            iv._PRINT_MODE_CACHE.clear()
+
+        argv = seen["argv"]
+        self.assertEqual(argv[-3:-1], ["args=", "-p"], f"args= must be the last -o column: {argv}")
+        self.assertIn("-ww", argv)
+        self.assertLess(argv.index("ppid="), argv.index("args="), "ppid= must precede args=")
+        self.assertNotIn("command=", argv)
+        self.assertTrue(detected, "print mode not detected from a full-argv ps line")
+
+    def test_print_mode_detected_with_flags_before_p_and_absolute_path(self):
+        """The two shapes the truncation used to hide: long flags first, full path."""
+        import sage.interactivity as iv
+        for line in (
+            "1 /usr/local/bin/agy --dangerously-skip-permissions -p 'task'\n",
+            "1 agy --model 'Gemini 3.7 Flash (Medium)' --print-timeout 90m -p 'task'\n",
+            "1 /opt/homebrew/bin/agy --print 'task'\n",
+        ):
+            with patch.object(iv, "subprocess") as sp:
+                sp.run.return_value = type("R", (), {"stdout": line})()
+                iv._PRINT_MODE_CACHE.clear()
+                self.assertTrue(iv.in_print_mode(), f"missed print mode in: {line.strip()}")
+                iv._PRINT_MODE_CACHE.clear()
+
+    def test_interactive_agy_is_not_print_mode(self):
+        import sage.interactivity as iv
+        for line in ("1 /usr/local/bin/agy --dangerously-skip-permissions\n",
+                     "1 agy --model 'Gemini 3.7 Flash (High)'\n",
+                     "1 /bin/zsh -l\n"):
+            with patch.object(iv, "subprocess") as sp:
+                sp.run.return_value = type("R", (), {"stdout": line})()
+                iv._PRINT_MODE_CACHE.clear()
+                self.assertFalse(iv.in_print_mode(), f"false positive on: {line.strip()}")
+                iv._PRINT_MODE_CACHE.clear()
+
 
 class TestAskUserCategoriesAreBounded(unittest.TestCase):
     """grill_me / confused_goal skip the single-shot rule but must not be infinite."""
@@ -119,6 +174,46 @@ class TestNoninteractiveSignalReachesTheSage(unittest.TestCase):
 
         self.assertIn("[EVT·noninteractive]", captured.get("signals", ""))
         self.assertIn("Never emit ask_question", captured["signals"])
+        # The note must be APPENDED, not substituted. `elif signal_note:` used to
+        # replace active_signal, so once the note became unconditional in headless
+        # runs the base summon and its facts vanished entirely.
+        self.assertIn("[EVT·tool_threshold", captured["signals"],
+                      "base summon was replaced by the note instead of appended")
+        self.assertIn("tools=", captured["signals"], "tools=/mix= facts were dropped")
+
+    def test_fanout_summon_also_survives_the_noninteractive_note(self):
+        from sage import policies
+        captured = {}
+
+        def fake_eval(*a, **kw):
+            captured["signals"] = kw.get("signals") or ""
+            return {"status": "on_track"}
+
+        par = {"parallelizable": True, "categories": ["disjoint_files"],
+               "details": ["2 disjoint directories: core, tests"],
+               "suggested_roles": ["Implementer"],
+               "signal_text": "PARALLELIZABLE: Independent workstreams detected."}
+        with tempfile.TemporaryDirectory() as td:
+            tr = self._transcript(td)
+            state = {"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0}
+            with patch.object(policies, "MID_TURN_SAGE_ENABLED", 1), \
+                 patch.object(policies, "can_ask_user", return_value=False), \
+                 patch.object(policies, "get_parallelizable_signals", return_value=par), \
+                 patch.object(policies, "evaluate_mid_turn_progress", side_effect=fake_eval), \
+                 patch.object(policies, "has_new_user_activity", return_value=False), \
+                 patch.object(policies, "classify_advice",
+                              return_value={"decision": "hold", "text": "ok", "seen": {}}), \
+                 patch.object(policies, "extract_session_and_turn_data",
+                              return_value=(None,) * 3 + (5,) + (None,) * 3 + (2,)), \
+                 patch.object(policies, "is_post_invocation_completion_candidate", return_value=False):
+                policies.sage_flow(
+                    "midturn", conv_id="c1", transcript_path=tr, clean_prompt="implement",
+                    initial_line_count=2, total_tool_calls=5, turn_tool_names=["write_to_file"],
+                    user_prompt="implement", agent_steps=[], git_diff="Changed lines: 10",
+                    state=state, forced=True)
+
+        self.assertIn("[EVT·fanout", captured.get("signals", ""))
+        self.assertIn("[EVT·noninteractive]", captured["signals"])
 
     def test_no_tag_when_a_user_is_attached(self):
         from sage import policies
@@ -163,7 +258,8 @@ class TestPlanDirectiveGrillsAgentFirst(unittest.TestCase):
 
     def test_prompt_documents_grill_agent_then_user(self):
         root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        content = open(os.path.join(root, "sage", "sage_prompt.md"), encoding="utf-8").read()
+        with open(os.path.join(root, "sage", "sage_prompt.md"), encoding="utf-8") as f:
+            content = f.read()
         self.assertIn("Grill the AGENT first, not the user", content)
         self.assertIn("[EVT·noninteractive]", content)
         # The trigger is deliberately WIDE now (synonyms), because the action is

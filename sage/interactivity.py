@@ -54,15 +54,20 @@ def in_print_mode():
     try:
         cur, hops = os.getppid(), 0
         while cur and cur > 1 and hops < 6:
+            # ppid FIRST and args LAST, with -ww. On macOS BSD ps a non-final
+            # `command=`/`args=` column is truncated to 16 characters, which
+            # silently ate the flags this function exists to read:
+            #   ps -o command= -o ppid= -p $$  ->  "/bin/zsh -c sour 45715"
+            # Trailing args= is unbounded; -ww lifts the terminal-width clamp.
             res = subprocess.run(
-                ["ps", "-o", "command=", "-o", "ppid=", "-p", str(cur)],
+                ["ps", "-ww", "-o", "ppid=", "-o", "args=", "-p", str(cur)],
                 capture_output=True, text=True, timeout=2,
             )
             line = (res.stdout or "").strip()
             if not line:
                 break
-            parts = line.rsplit(None, 1)
-            cmd, nxt = (parts[0], parts[1]) if len(parts) == 2 else (line, "")
+            parts = line.split(None, 1)
+            nxt, cmd = (parts[0], parts[1]) if len(parts) == 2 else ("", line)
             if _AGY_RE.search(cmd) and _PRINT_FLAG_RE.search(cmd):
                 result = True
                 break
