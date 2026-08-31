@@ -60,8 +60,18 @@ if os.environ.get("AGY_SAGE_DISABLED") == "1":
 
 if __name__ == "__main__":
     try:
-        from sage.runner import main
-        main()
+        is_post = any(a.lower() in ("post_invocation", "postinvocation", "post-invocation", "post") for a in sys.argv[1:])
+        from sage.config import LITE_MODE_ENABLED
+        if LITE_MODE_ENABLED:
+            if not is_post:
+                from sage.lite.runner import run_lite_stop_audit
+                run_lite_stop_audit()
+            else:
+                print(json.dumps({"injectSteps": []}))
+                sys.exit(0)
+        else:
+            from sage.runner import main
+            main()
     except Exception as e:
         try:
             from sage.guards import fail_safe_exit

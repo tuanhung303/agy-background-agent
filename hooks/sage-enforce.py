@@ -51,6 +51,12 @@ def evaluate(payload):
         if os.environ.get("AGY_SAGE_DISABLED") == "1":
             return _passthrough()
         try:
+            from sage.config import LITE_MODE_ENABLED
+            if LITE_MODE_ENABLED:
+                return _passthrough()
+        except Exception:
+            pass
+        try:
             from sage.guards import is_subagent_payload
             from sage.session_state import get_state_file_path
             from sage.task_structure import EXEC_TOOLS, FILE_TOOLS

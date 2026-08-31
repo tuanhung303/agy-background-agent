@@ -110,14 +110,27 @@ class TestStatusline(unittest.TestCase):
 
     def test_render_statusline_fallback(self):
         import re
-        output = render_statusline({})
-        plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
-        self.assertIn("0/250k", plain)
-        self.assertIn("0%", plain)
-        self.assertIn("sage:idle", plain)
-        self.assertNotIn("str[", plain)
-        self.assertNotIn("rcp[", plain)
+        from unittest.mock import patch
+        with patch("sage.config.LITE_MODE_ENABLED", False):
+            output = render_statusline({})
+            plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
+            self.assertIn("0/250k", plain)
+            self.assertIn("0%", plain)
+            self.assertIn("sage:idle", plain)
+            self.assertNotIn("str[", plain)
+            self.assertNotIn("rcp[", plain)
 
+    def test_render_statusline_lite_mode_hides_sage_idle(self):
+        import re
+        from unittest.mock import patch
+        with patch("sage.config.LITE_MODE_ENABLED", True):
+            output = render_statusline({})
+            plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
+            self.assertIn("0/250k", plain)
+            self.assertIn("0%", plain)
+            self.assertNotIn("sage:idle", plain)
+
+    @patch("sage.config.LITE_MODE_ENABLED", False)
     def test_get_advisor_steer_badges_hold_and_fired(self):
         import json
         import re

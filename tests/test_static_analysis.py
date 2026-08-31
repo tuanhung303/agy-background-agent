@@ -55,7 +55,7 @@ class TestStaticAnalysis(unittest.TestCase):
     def test_all_sage_modules_are_strictly_under_300_lines(self):
         pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
         self.assertGreater(len(pkg_files), 0, "No python files found in sage/")
-        self.assertEqual(len(pkg_files), 36, "Expected exactly 36 modules in sage/")
+        self.assertEqual(len(pkg_files), 43, "Expected exactly 43 modules in sage/")
         bridge_modules = {"mcp_bridge.py", "mcp_bridge_helpers.py", "mcp_bridge_wait.py"}
         for filepath in sorted(pkg_files):
             rel_path = os.path.relpath(filepath, self.repo_root)

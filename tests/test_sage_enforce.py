@@ -17,6 +17,7 @@ def _run_hook(payload, state=None, state_file=None, disabled=False, env_extra=No
     """Runs hooks/sage-enforce.py as a subprocess with a staged state file."""
     import subprocess
     env = dict(os.environ)
+    env.setdefault("AGY_LITE_MODE", "0")
     if disabled:
         env["AGY_SAGE_DISABLED"] = "1"
     else:
@@ -49,6 +50,14 @@ class TestSageEnforceHook(unittest.TestCase):
             os.unlink(self.journal_file)
         if os.path.exists(self.journal_file + ".prev"):
             os.unlink(self.journal_file + ".prev")
+
+    def test_lite_mode_always_passthrough(self):
+        res = _run_hook(
+            {"conversationId": self.conv_id, "toolCall": {"name": "run_command", "args": {}}},
+            state={"delegate_cmd_turn": 2}, state_file=self.state_file,
+            env_extra={"AGY_LITE_MODE": "1"},
+        )
+        self.assertEqual(res["decision"], "allow")
 
     def test_inline_exec_after_delegate_cmd_injects_violation(self):
         res = _run_hook(

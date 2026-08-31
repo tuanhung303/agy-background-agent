@@ -183,7 +183,9 @@ def get_sage_steer_badges(data):
     err_streak = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)) or 0)
     cmd_ignored = int(state.get("cmd_ignored", 0) or state.get("facilitation_cmd_ignored", 0) or 0)
 
-    if cmd_ignored > 0:
+    if sage_status == "reviewing":
+        return []
+    elif cmd_ignored > 0:
         return [f"\033[31msage command ignored {cmd_ignored}×\033[0m"]
     elif sage_status in {"evaluating", "running"}:
         err_seg = f"\033[31m/err[{err_streak}]\033[0m" if err_streak > 0 else ""
@@ -193,6 +195,14 @@ def get_sage_steer_badges(data):
         return [f"\033[38;2;255;127;80msage:inject\033[0m{err_seg}"]
     elif err_streak > 0:
         return [f"\033[31msage/err[{err_streak}]\033[0m"]
+
+    try:
+        from sage.config import LITE_MODE_ENABLED
+    except Exception:
+        LITE_MODE_ENABLED = True
+
+    if LITE_MODE_ENABLED:
+        return []
 
     return ["\033[90msage:idle\033[0m"]
 
@@ -223,8 +233,33 @@ def render_statusline(data):
 
     model_display = clean_model_name(raw_model)
 
-    # 2. Active Subagents (Left)
+    # 2. Active Subagents & Lite Review Status (Left)
     left_segments = [f"\033[1;34m{model_display}\033[0m"]
+    conv_id = (
+        data.get("conversation_id")
+        or data.get("session_id")
+        or data.get("conversationId")
+        or data.get("sessionId")
+    )
+    if conv_id:
+        sf = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
+        lf = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
+        tf = sf if os.path.exists(sf) else (lf if os.path.exists(lf) else None)
+        if tf:
+            try:
+                with open(tf, "r", encoding="utf-8") as f:
+                    cstate = json.load(f)
+                s_stat = str(cstate.get("sage_status", "")).lower()
+                l_stat = str(cstate.get("lite_status", "")).lower()
+                if s_stat == "reviewing":
+                    left_segments.append("\033[3;34mreviewing agent output...\033[0m")
+                elif l_stat == "delivered":
+                    left_segments.append("\033[32mdelivered\033[0m")
+                elif l_stat.startswith("auto-continue"):
+                    left_segments.append(f"\033[38;2;255;127;80m{l_stat}\033[0m")
+            except Exception:
+                pass
+
     subagents = data.get("subagents") or data.get("agents") or []
     if isinstance(subagents, list):
         active_agents = [a for a in subagents if is_agent_active(a)]
