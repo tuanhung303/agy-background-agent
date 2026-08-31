@@ -1,0 +1,19 @@
+{
+  "round": "r10",
+  "task": "koota-deferred-mutation-buffer",
+  "model": "Gemini 3.7 Flash (Medium)",
+  "sage_sha": "447216b",
+  "harness": "deepswe_headless.sh (hermetic base: main==base_commit, remote removed)",
+  "arms": {
+    "off": {"f2p": "71/71", "p2p": "128/128", "reward": 1.0, "partial": 1.0,
+            "turns": 132, "wall_secs": 527, "conv": "16b11d44-6377-44f6-a0c9-2f0bf46bcaf9"},
+    "on":  {"f2p": "70/71", "p2p": "128/128", "reward": 0.0, "partial": 0.993,
+            "turns": 188, "wall_secs": 892, "conv": "e4482481-5562-4475-bec3-db1ceccb2c7b",
+            "missing_f2p": "tests/deferred.test.ts: Deferred Commands > Deferred Wildcard Relation Removal > should fire onRemove for each removed pair with wildcard"}
+  },
+  "supersedes": "koota-arm1-off / koota-arm2-on (non-hermetic base; p2p 122/128 in BOTH arms was branch-drift artifact, not a real regression cluster)",
+  "sage_journal_r10_on": ["11:03:47 steer_emitted grill_me", "11:09:28 recap_rejected (plan-mode grill-me)",
+                          "11:13:03 recap_pass", "11:13:29 violation_suppressed", "11:18:15 recap_pass"],
+  "sage_coverage_r10_on": {"delegate_cmd": 0, "invoke_subagent": 0, "review_leg": 0, "own_executed_audit": 0,
+                           "note": "zero audit coverage: no delegation ordered, no blind review leg, and sage cannot execute (SAGE_MCP_EXEC unset)"}
+}

@@ -25,6 +25,7 @@ from sage.session_state import (
     record_sage_emit, record_sage_hold, record_sage_recap,
     save_session_state,
 )
+from sage.interactivity import can_ask_user
 from sage.transcript import (
     extract_session_and_turn_data,
     get_active_background_tasks, get_active_external_panes,
@@ -176,8 +177,16 @@ def run_session_stop_audit(raw_payload=None):
         # Confused goal surfaced earlier this turn: ask the user ONCE and end the
         # turn — never ask mid-turn, never loop on repeated asks.
         q = (state.get("pending_clarify") or {}).get("question") or "The goal is ambiguous; please clarify the objective."
-        save_session_state(state_file, state, clarify_asked=True, pending_clarify=None)
-        emit_recap_response(f"[CLARIFY] {q}", kind="sage")
+        if can_ask_user():
+            save_session_state(state_file, state, clarify_asked=True, pending_clarify=None)
+            emit_recap_response(f"[CLARIFY] {q}", kind="sage")
+        else:
+            # Headless: emit_recap_response terminates the turn, so asking here
+            # strands the run on a question nobody can answer. Drop the ask,
+            # journal it, and let the gate below decide on the evidence.
+            save_session_state(state_file, state, clarify_asked=True, pending_clarify=None)
+            log_audit(f"Clarify suppressed (no interactive user); proceeding on evidence: {q}")
+            journal.write("clarify_suppressed_noninteractive", conv_id=conv_id, detail=q[:200])
     if gact == "yield":
         save_session_state(state_file, state, sage_status="hold")
         fail_safe_exit(gate["reason"])

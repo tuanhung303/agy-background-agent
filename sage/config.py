@@ -112,6 +112,10 @@ MAX_MID_TURN_STEERS = _safe_int_multi(("AGY_MAX_MID_TURN_STEERS", "AGY_MAX_MID_T
 SAGE_STEER_MIN_CONFIDENCE = _safe_float_multi(("AGY_SAGE_STEER_MIN_CONFIDENCE", "AGY_ADVISOR_STEER_MIN_CONFIDENCE"), 0.7)
 SAGE_ESCALATE_MIN_CONFIDENCE = _safe_float_multi(("AGY_SAGE_ESCALATE_MIN_CONFIDENCE", "AGY_ADVISOR_ESCALATE_MIN_CONFIDENCE"), 0.85)
 SAGE_MAX_ERROR_STREAK = _safe_int_multi(("AGY_SAGE_MAX_ERROR_STREAK", "AGY_ADVISOR_MAX_ERROR_STREAK"), 3)
+# Ceiling for the two question-the-user categories (grill_me, confused_goal).
+# They deliberately skip the single-shot dedup rule — an unanswered question is
+# worth one repeat — but uncapped, grill_me ate a whole benchmark run.
+ASK_USER_MAX_EMISSIONS = _safe_int_multi(("AGY_SAGE_ASK_USER_MAX_EMISSIONS",), 2)
 
 SAGE_MODELS_DISCOVERY_TIMEOUT = _safe_float_multi(("AGY_SAGE_MODELS_DISCOVERY_TIMEOUT", "AGY_ADVISOR_MODELS_DISCOVERY_TIMEOUT"), 15.0)
 
