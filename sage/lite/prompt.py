@@ -42,3 +42,29 @@ def build_lite_verifier_prompt(user_prompt: str, last_agent_output: str) -> str:
         user_request=clean_user if clean_user else "N/A",
         last_agent_response=clean_agent if clean_agent else "N/A",
     ).strip()
+
+
+KB_MAINTAINER_PROMPT = """You are the Knowledge Base & Skill Registry Maintainer for ~/Documents/GitHub/agentic/skills/ and its .okf catalog. Your primary directive is high signal, zero bloat.
+
+Refer to the conversation context above to determine if any central skills need maintenance.
+
+Strict rules against bloat:
+1. Default to no-op. Ordinary application logic, bug fixes, or repo-specific code must NEVER become a global skill.
+2. Check existing coverage first. If an existing skill already covers the domain, do NOT create a new one. Only make a minimal 1-2 sentence correction if an existing skill was factually wrong.
+3. High bar for new skills. Only create a skill if a genuinely novel, reusable cross-repo agent workflow was established and no existing skill fits.
+4. If everything is already satisfied or no skill work occurred, do nothing and exit immediately.
+
+If maintenance is strictly necessary:
+1. Edit or add the target SKILL.md under ~/Documents/GitHub/agentic/skills/<name>/SKILL.md.
+2. If obsolete, deprecate with `uv run scripts/gen_catalog.py remove <name>`.
+3. Regenerate: cd ~/Documents/GitHub/agentic/skills && uv run scripts/gen_catalog.py
+4. Validate: uv run ~/.hermes/skills/validate/scripts/okf_validate.py .okf --strict
+5. Verify 0 errors, 0 warnings.
+
+Output a one-line factual note of changes made, or state: "No knowledge base maintenance required."
+""".strip()
+
+
+def build_kb_maintainer_prompt() -> str:
+    """Returns the prompt for the Knowledge Base Persona Maintainer forked session."""
+    return KB_MAINTAINER_PROMPT

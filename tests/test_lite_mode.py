@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, patch
 
 from sage.lite.fork import FAILED_FORKS_DIR, cleanup_fork_session, fork_conversation_session, prune_failed_forks_dir
 from sage.lite.gating import extract_turn_mutations_and_context, is_mutating_tool_call
-from sage.lite.prompt import build_lite_verifier_prompt
+from sage.lite.prompt import build_kb_maintainer_prompt, build_lite_verifier_prompt
 from sage.lite.runner import run_lite_stop_audit
 from sage.lite.schemas import LiteVerdict
-from sage.lite.verifier import run_lite_verification
+from sage.lite.verifier import run_kb_maintenance, run_lite_verification
 from statusline.statusline import get_sage_steer_badges, render_statusline
 
 
@@ -91,6 +91,13 @@ class TestLitePrompt(unittest.TestCase):
         self.assertIn("TRIVIAL QUESTIONS", prompt)
         self.assertIn('"verdict": "PASS" | "FAIL"', prompt)
 
+    def test_kb_maintainer_prompt(self):
+        prompt = build_kb_maintainer_prompt()
+        self.assertIn("Knowledge Base & Skill Registry Maintainer", prompt)
+        self.assertIn("Default to no-op", prompt)
+        self.assertIn("Strict rules against bloat", prompt)
+        self.assertIn("okf_validate.py", prompt)
+
 
 class TestLiteFork(unittest.TestCase):
     def setUp(self):
@@ -163,6 +170,34 @@ class TestLiteRunner(unittest.TestCase):
                 pass
             mock_cont.assert_called_once_with("Run pytest tests/test_app.py now.", is_post=True)
 
+    @patch("sage.lite.runner.emit_recap_response")
+    @patch("sage.lite.runner.fork_conversation_session", side_effect=["fork_ver_123", "fork_kb_456"])
+    @patch("sage.lite.runner.cleanup_fork_session")
+    @patch("sage.lite.runner.run_lite_verification")
+    @patch("sage.lite.runner.run_kb_maintenance")
+    def test_runner_pass_runs_kb_maintenance(self, mock_kb, mock_ver, mock_clean, mock_fork, mock_recap):
+        mock_recap.side_effect = SystemExit(0)
+        mock_ver.return_value = LiteVerdict(verdict="PASS", action="")
+        payload = {
+            "conversationId": "test_conv_pass",
+            "transcript_path": "/tmp/nonexistent.jsonl",
+        }
+        with patch("sage.lite.runner._read_transcript_steps", return_value=[
+            {"type": "USER_INPUT", "content": "Modify code"},
+            {"type": "PLANNER_RESPONSE", "content": "Edited", "tool_calls": [
+                {"name": "write_to_file", "args": {"TargetFile": "/src/app.py"}},
+            ]},
+        ]):
+            try:
+                run_lite_stop_audit(json.dumps(payload))
+            except SystemExit:
+                pass
+            mock_kb.assert_called_once_with(
+                parent_conv_id="test_conv_pass",
+                fork_conv_id="fork_kb_456",
+                cwd=mock_kb.call_args[1]["cwd"],
+            )
+            mock_recap.assert_called_once()
 
     @patch("sage.lite.runner.fail_safe_exit")
     def test_runner_bypasses_when_background_or_not_idle(self, mock_exit):
@@ -202,6 +237,23 @@ class TestLiteStatusline(unittest.TestCase):
 
                 out = render_statusline(data)
                 self.assertIn("\033[3;34mreviewing agent output...\033[0m", out)
+            finally:
+                if os.path.exists(sf):
+                    os.remove(sf)
+
+    def test_statusline_updating_state(self):
+        cid = "conv_stat_updating_test"
+        sf = f"/tmp/agy_sage_{cid}_test.json"
+        with patch("statusline.statusline.safe_id", return_value=f"{cid}_test"):
+            with open(sf, "w", encoding="utf-8") as f:
+                json.dump({"lite_status": "updating knowledge/memory", "sage_status": "updating"}, f)
+            try:
+                data = {"conversation_id": cid, "model": "Gemini 3.7 Flash (High)"}
+                badges = get_sage_steer_badges(data)
+                self.assertEqual(badges, [])  # Right badge hidden during update
+
+                out = render_statusline(data)
+                self.assertIn("\033[3;34mupdating knowledge/memory...\033[0m", out)
             finally:
                 if os.path.exists(sf):
                     os.remove(sf)

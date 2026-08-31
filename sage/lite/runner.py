@@ -12,7 +12,7 @@ from sage.guards import (
 from sage.lite.fork import cleanup_fork_session, fork_conversation_session
 from sage.lite.gating import extract_turn_mutations_and_context
 from sage.lite.schemas import LiteVerdict
-from sage.lite.verifier import run_lite_verification
+from sage.lite.verifier import run_kb_maintenance, run_lite_verification
 from sage.locking import acquire_conversation_lock, log_audit, release_lock
 from sage.mcp_bridge_helpers import drain_inbox
 from sage.session_state import load_and_sync_session_state, save_session_state
@@ -116,7 +116,27 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
         )
         emit_continue_response(verdict.action, is_post=True)
     else:
-        log_audit("Lite Mode verifier PASS; work verified successfully")
+        log_audit("Lite Mode verifier PASS; running knowledge base maintainer")
+        # 8. Update statusline to 'updating knowledge/memory' and run KB maintainer
+        save_session_state(
+            state_file,
+            state,
+            lite_fail_count=0,
+            lite_status="updating knowledge/memory",
+            sage_status="updating",
+            last_audited_line_count=len(steps),
+        )
+        kb_fork_id = fork_conversation_session(conv_id)
+        if kb_fork_id:
+            try:
+                run_kb_maintenance(
+                    parent_conv_id=conv_id,
+                    fork_conv_id=kb_fork_id,
+                    cwd=workspace_root,
+                )
+            finally:
+                cleanup_fork_session(kb_fork_id)
+
         save_session_state(
             state_file,
             state,

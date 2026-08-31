@@ -183,7 +183,7 @@ def get_sage_steer_badges(data):
     err_streak = int(state.get("sage_error_streak", state.get("advisor_error_streak", 0)) or 0)
     cmd_ignored = int(state.get("cmd_ignored", 0) or state.get("facilitation_cmd_ignored", 0) or 0)
 
-    if sage_status == "reviewing":
+    if sage_status in {"reviewing", "updating"}:
         return []
     elif cmd_ignored > 0:
         return [f"\033[31msage command ignored {cmd_ignored}×\033[0m"]
@@ -287,6 +287,8 @@ def render_statusline(data):
                     l_stat = str(cstate.get("lite_status", "")).lower()
                     if s_stat == "reviewing":
                         left_segments.append("\033[3;34mreviewing agent output...\033[0m")
+                    elif s_stat == "updating" or l_stat == "updating knowledge/memory":
+                        left_segments.append("\033[3;34mupdating knowledge/memory...\033[0m")
                     elif l_stat == "delivered":
                         left_segments.append("\033[90mdelivered\033[0m")
                     elif l_stat.startswith("auto-continue"):
