@@ -175,6 +175,8 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     recap_emitted, bg_watch_count, last_lines = (raw_state.get("recap_emitted", False), raw_state.get("bg_watch_count", 0), raw_state.get("last_audited_line_count", 0)) if is_same else (False, 0, 0)
     last_final_lines = raw_state.get("last_final_gate_lines", 0) if is_same else 0
     sage_status = (raw_state.get("sage_status") or raw_state.get("advisor_status", "hold")) if is_same else "hold"
+    lite_status = str(raw_state.get("lite_status", "")) if is_same else ""
+    lite_fail_count = int(raw_state.get("lite_fail_count", 0)) if is_same else 0
     last_sage_text = (raw_state.get("last_sage_text") or raw_state.get("last_advisor_text", "")) if is_same else ""
     last_steer_category = raw_state.get("last_steer_category") if is_same else None
     last_steer_tools = raw_state.get("last_steer_tools", 0) if is_same else 0
@@ -208,6 +210,7 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "last_audited_line_count": last_lines, "last_final_gate_lines": last_final_lines,
         "background_steered_tasks": sorted(bg_steered),
         "bg_watch_count": bg_watch_count, "sage_status": sage_status, "advisor_status": sage_status,
+        "lite_status": lite_status, "lite_fail_count": lite_fail_count,
         "sage_holds": sage_holds, "advisor_holds": sage_holds, "recap_count": recap_count,
         "session_mid_turn_steers": sm_steers, "last_sage_text": last_sage_text, "last_advisor_text": last_sage_text,
         "sage_advice_counts": seen_advice, "advisor_advice_counts": seen_advice,

@@ -164,6 +164,30 @@ class TestLiteRunner(unittest.TestCase):
             mock_cont.assert_called_once_with("Run pytest tests/test_app.py now.", is_post=True)
 
 
+    @patch("sage.lite.runner.fail_safe_exit")
+    def test_runner_bypasses_when_background_or_not_idle(self, mock_exit):
+        mock_exit.side_effect = SystemExit(0)
+        # 1. fullyIdle is False
+        payload1 = {"conversationId": "test_conv_idle", "fullyIdle": False, "transcript_path": "/tmp/a.jsonl"}
+        with patch("sage.lite.runner._read_transcript_steps", return_value=[{"type": "USER_INPUT", "content": "hi"}]):
+            try:
+                run_lite_stop_audit(json.dumps(payload1))
+            except SystemExit:
+                pass
+            mock_exit.assert_called_with("Runtime reports active background work")
+
+        # 2. active background tasks
+        mock_exit.reset_mock()
+        payload2 = {"conversationId": "test_conv_bg", "transcript_path": "/tmp/a.jsonl"}
+        with patch("sage.lite.runner._read_transcript_steps", return_value=[{"type": "USER_INPUT", "content": "hi"}]), \
+             patch("sage.lite.runner.get_active_background_tasks", return_value=[{"task_id": "t1"}]):
+            try:
+                run_lite_stop_audit(json.dumps(payload2))
+            except SystemExit:
+                pass
+            mock_exit.assert_called_with("Active background tasks running")
+
+
 class TestLiteStatusline(unittest.TestCase):
     def test_statusline_reviewing_state(self):
         cid = "conv_stat_test"
@@ -177,12 +201,12 @@ class TestLiteStatusline(unittest.TestCase):
                 self.assertEqual(badges, [])  # Right badge hidden during review
 
                 out = render_statusline(data)
-                self.assertIn("reviewing agent output...", out)
+                self.assertIn("\033[3;34mreviewing agent output...\033[0m", out)
             finally:
                 if os.path.exists(sf):
                     os.remove(sf)
 
-    def test_statusline_delivered_state(self):
+    def test_statusline_delivered_state_gray(self):
         cid = "conv_stat_delivered_test"
         sf = f"/tmp/agy_sage_{cid}_test.json"
         with patch("statusline.statusline.safe_id", return_value=f"{cid}_test"):
@@ -191,12 +215,12 @@ class TestLiteStatusline(unittest.TestCase):
             try:
                 data = {"conversation_id": cid, "model": "Gemini 3.7 Flash (High)"}
                 out = render_statusline(data)
-                self.assertIn("delivered", out)
+                self.assertIn("\033[90mdelivered\033[0m", out)
             finally:
                 if os.path.exists(sf):
                     os.remove(sf)
 
-    def test_statusline_auto_continue_state(self):
+    def test_statusline_auto_continue_state_blue(self):
         cid = "conv_stat_auto_cont_test"
         sf = f"/tmp/agy_sage_{cid}_test.json"
         with patch("statusline.statusline.safe_id", return_value=f"{cid}_test"):
@@ -205,10 +229,31 @@ class TestLiteStatusline(unittest.TestCase):
             try:
                 data = {"conversation_id": cid, "model": "Gemini 3.7 Flash (High)"}
                 out = render_statusline(data)
-                self.assertIn("auto-continue (x1)", out)
+                self.assertIn("\033[3;34mauto-continue (x1)\033[0m", out)
             finally:
                 if os.path.exists(sf):
                     os.remove(sf)
+
+    def test_statusline_clears_status_on_new_user_prompt(self):
+        cid = "conv_stat_new_prompt_test"
+        sf = f"/tmp/agy_sage_{cid}_test.json"
+        tf = f"/tmp/transcript_{cid}_test.jsonl"
+        with patch("statusline.statusline.safe_id", return_value=f"{cid}_test"):
+            with open(sf, "w", encoding="utf-8") as f:
+                json.dump({"lite_status": "delivered", "last_audited_line_count": 1}, f)
+            # Transcript has a line 2 with new USER_INPUT
+            with open(tf, "w", encoding="utf-8") as f:
+                f.write('{"type": "PLANNER_RESPONSE", "content": "Done"}\n')
+                f.write('{"type": "USER_INPUT", "content": "Next request", "source": "USER"}\n')
+            try:
+                data = {"conversation_id": cid, "transcript_path": tf, "model": "Gemini 3.7 Flash (High)"}
+                out = render_statusline(data)
+                self.assertNotIn("delivered", out)
+            finally:
+                if os.path.exists(sf):
+                    os.remove(sf)
+                if os.path.exists(tf):
+                    os.remove(tf)
 
 
 if __name__ == "__main__":

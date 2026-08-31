@@ -16,7 +16,10 @@ from sage.lite.verifier import run_lite_verification
 from sage.locking import acquire_conversation_lock, log_audit, release_lock
 from sage.mcp_bridge_helpers import drain_inbox
 from sage.session_state import load_and_sync_session_state, save_session_state
-from sage.transcript import _read_transcript_steps, get_transcript_path
+from sage.transcript import (
+    _read_transcript_steps, get_active_background_tasks,
+    get_active_external_panes, get_transcript_path,
+)
 
 
 def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
@@ -42,7 +45,17 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     if not steps:
         fail_safe_exit("Empty transcript; skipping Lite verification")
 
-    # 2. Mutation gating check (Pure transcript inspection)
+    # 2. Skip if runtime reports active background work or external worker panes
+    if payload.get("fullyIdle") is False or payload.get("fully_idle") is False:
+        fail_safe_exit("Runtime reports active background work")
+
+    if get_active_background_tasks(transcript_path, conv_id):
+        fail_safe_exit("Active background tasks running")
+
+    if get_active_external_panes(transcript_path):
+        fail_safe_exit("Active external panes streaming")
+
+    # 3. Mutation gating check (Pure transcript inspection)
     has_mutation, reason, true_user_prompt, last_agent_output = extract_turn_mutations_and_context(steps)
     if not has_mutation:
         log_audit(f"Lite Mode bypass: {reason}")
@@ -99,6 +112,7 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             lite_fail_count=next_strike,
             lite_status=f"auto-continue (x{next_strike})",
             sage_status="injecting",
+            last_audited_line_count=len(steps),
         )
         emit_continue_response(verdict.action, is_post=True)
     else:
@@ -110,5 +124,6 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             lite_status="delivered",
             sage_status="idle",
             recap_emitted=True,
+            last_audited_line_count=len(steps),
         )
         emit_recap_response("Work verified cleanly by Lite Mode.", kind="recap")

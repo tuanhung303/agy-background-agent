@@ -253,6 +253,23 @@ def handle_pre_invocation(payload: Dict[str, Any]) -> None:
     inject_steps: List[Dict[str, Any]] = []
     try:
         conv_id = payload.get("conversationId", "default")
+        # Clear previous turn lite/sage status on new user prompt
+        if conv_id:
+            try:
+                cid_str = str(conv_id)
+                sid = f"{re.sub(r'[^a-zA-Z0-9_-]', '_', cid_str)[:32]}_{hashlib.sha256(cid_str.encode('utf-8')).hexdigest()[:8]}"
+                sf = f"/tmp/agy_sage_{sid}.json"
+                if os.path.exists(sf):
+                    with open(sf, "r", encoding="utf-8") as f:
+                        st = json.load(f)
+                    if isinstance(st, dict) and (st.get("lite_status") or st.get("sage_status") in ("reviewing", "injecting")):
+                        st["lite_status"] = ""
+                        st["sage_status"] = "idle"
+                        with open(sf, "w", encoding="utf-8") as f:
+                            json.dump(st, f)
+            except Exception:
+                pass
+
         feedback_file = get_feedback_file(conv_id)
 
         if feedback_file.exists():

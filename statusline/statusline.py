@@ -210,6 +210,39 @@ def get_sage_steer_badges(data):
 get_advisor_steer_badges = get_sage_steer_badges
 
 
+def is_new_user_prompt_active(data, cstate):
+    if not isinstance(cstate, dict):
+        return False
+    tp = data.get("transcript_path") or data.get("transcriptPath")
+    conv_id = (
+        data.get("conversation_id")
+        or data.get("session_id")
+        or data.get("conversationId")
+        or data.get("sessionId")
+    )
+    if not tp and conv_id:
+        for base in ["~/.gemini/antigravity-cli/brain", "~/.gemini/antigravity/brain"]:
+            candidate = os.path.expanduser(f"{base}/{conv_id}/.system_generated/logs/transcript.jsonl")
+            if os.path.exists(candidate):
+                tp = candidate
+                break
+    if not tp or not os.path.exists(tp):
+        return False
+
+    last_audited = int(cstate.get("last_audited_line_count", 0) or 0)
+    if last_audited <= 0:
+        return False
+    try:
+        with open(tp, "r", encoding="utf-8", errors="replace") as f:
+            for lno, line in enumerate(f, start=1):
+                if lno > last_audited and ('"type":"USER_INPUT"' in line or '"type": "USER_INPUT"' in line):
+                    if '"source":"MODEL"' not in line and '"source": "MODEL"' not in line:
+                        return True
+    except Exception:
+        pass
+    return False
+
+
 def render_statusline(data):
     # 1. Model Info (Left)
     raw_model = ""
@@ -249,14 +282,15 @@ def render_statusline(data):
             try:
                 with open(tf, "r", encoding="utf-8") as f:
                     cstate = json.load(f)
-                s_stat = str(cstate.get("sage_status", "")).lower()
-                l_stat = str(cstate.get("lite_status", "")).lower()
-                if s_stat == "reviewing":
-                    left_segments.append("\033[3;34mreviewing agent output...\033[0m")
-                elif l_stat == "delivered":
-                    left_segments.append("\033[32mdelivered\033[0m")
-                elif l_stat.startswith("auto-continue"):
-                    left_segments.append(f"\033[38;2;255;127;80m{l_stat}\033[0m")
+                if not is_new_user_prompt_active(data, cstate):
+                    s_stat = str(cstate.get("sage_status", "")).lower()
+                    l_stat = str(cstate.get("lite_status", "")).lower()
+                    if s_stat == "reviewing":
+                        left_segments.append("\033[3;34mreviewing agent output...\033[0m")
+                    elif l_stat == "delivered":
+                        left_segments.append("\033[90mdelivered\033[0m")
+                    elif l_stat.startswith("auto-continue"):
+                        left_segments.append(f"\033[3;34m{l_stat}\033[0m")
             except Exception:
                 pass
 
