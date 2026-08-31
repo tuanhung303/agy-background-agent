@@ -156,4 +156,7 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             recap_emitted=True,
             last_audited_line_count=len(steps),
         )
-        emit_recap_response("Work verified cleanly by Lite Mode.", kind="recap")
+        comment = (verdict.comment or "").strip()
+        if not comment:
+            comment = "Work verified cleanly by Lite Mode."
+        emit_recap_response(comment, kind="comment")

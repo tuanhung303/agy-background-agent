@@ -219,7 +219,31 @@ class TestLiteRunner(unittest.TestCase):
                 fork_conv_id="fork_kb_456",
                 cwd=mock_kb.call_args[1]["cwd"],
             )
-            mock_recap.assert_called_once()
+            mock_recap.assert_called_once_with("Work verified cleanly by Lite Mode.", kind="comment")
+
+    @patch("sage.lite.runner.emit_recap_response")
+    @patch("sage.lite.runner.fork_conversation_session", side_effect=["fork_ver_custom", "fork_kb_custom"])
+    @patch("sage.lite.runner.cleanup_fork_session")
+    @patch("sage.lite.runner.run_lite_verification")
+    @patch("sage.lite.runner.run_kb_maintenance")
+    def test_runner_pass_uses_custom_comment(self, mock_kb, mock_ver, mock_clean, mock_fork, mock_recap):
+        mock_recap.side_effect = SystemExit(0)
+        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", comment="all unit tests passed.")
+        payload = {
+            "conversationId": "test_conv_custom_comment",
+            "transcript_path": "/tmp/nonexistent.jsonl",
+        }
+        with patch("sage.lite.runner._read_transcript_steps", return_value=[
+            {"type": "USER_INPUT", "content": "Modify code"},
+            {"type": "PLANNER_RESPONSE", "content": "Edited", "tool_calls": [
+                {"name": "write_to_file", "args": {"TargetFile": "/src/app.py"}},
+            ]},
+        ]):
+            try:
+                run_lite_stop_audit(json.dumps(payload))
+            except SystemExit:
+                pass
+            mock_recap.assert_called_once_with("all unit tests passed.", kind="comment")
 
     @patch("sage.lite.runner.fail_safe_exit")
     def test_runner_bypasses_when_background_or_not_idle(self, mock_exit):

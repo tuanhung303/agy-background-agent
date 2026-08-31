@@ -130,9 +130,12 @@ def is_steering_message(content):
 
 def format_hook_message(kind, content):
     label = kind.strip().lower()
+    text = str(content or "").strip()
+    if label in ("comment", "raw"):
+        text = re.sub(r"^※\s*", "", text).strip()
+        return f"※ {text}"
     if label not in ("steering", "steerer", "recap", "sage", "adviser", "advisor"):
         raise ValueError(f"Unsupported hook message kind: {kind}")
-    text = str(content or "").strip()
     text = re.sub(r"^(?:※\s*)?(?:steering|steerer|recap|sage|adviser|advisor)(?::\w+)?\s*[:\-–—]?\s*", "", text, flags=re.IGNORECASE).strip()
     text = re.sub(r"^\[(?:steering|steerer|recap|sage|adviser|advisor)(?::\w+)?\]\s*", "", text, flags=re.IGNORECASE).strip()
     text = re.sub(r"^\*\*(?:steering|steerer|recap|sage|adviser|advisor)(?::\w+)?:?\*\*\s*", "", text, flags=re.IGNORECASE).strip()
