@@ -5,7 +5,6 @@ import hashlib
 import math
 import re
 
-from sage.config import ASK_USER_MAX_EMISSIONS
 from sage.guards import is_destructive_action
 from sage.ladder import next_rung_suffix
 
@@ -124,11 +123,8 @@ def classify_advice(ver_res, seen_advice=None, steer_min_conf=0.7, escalate_min_
     # the irreversible_risk doubling above and let the same steer fire 8x. `escalation`
     # is model-supplied, so the grant has to be a fixed increment, not a factor.
     hard_cap = effective_max + max_emissions if escalating else effective_max
-    if category in ("confused_goal", "grill_me") and count < ASK_USER_MAX_EMISSIONS:
-        # Clarify-the-user and grill-me skip the count>=1 single-shot rule: an
-        # unanswered question is worth repeating once. They are NOT unbounded,
-        # though — an uncapped grill_me re-fired until it had eaten a whole run
-        # (koota r10: recap rejected, 56 extra turns, one spec clause unverified).
+    if category in ("confused_goal", "grill_me"):
+        # Clarify-the-user and grill-me fire without dedup suppression
         pass
     elif count >= hard_cap or (count >= 1 and not escalating and not repeatable and not is_deferral and not is_steer and not is_pinned):
         return {"decision": "hold_dedup", "status": status, "category": category, "confidence": conf, "advice_key": advice_key, "seen": seen}

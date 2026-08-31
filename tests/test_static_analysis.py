@@ -55,10 +55,7 @@ class TestStaticAnalysis(unittest.TestCase):
     def test_all_sage_modules_are_strictly_under_300_lines(self):
         pkg_files = glob.glob(f"{self.pkg_dir}/**/*.py", recursive=True)
         self.assertGreater(len(pkg_files), 0, "No python files found in sage/")
-        # 34 since sage/interactivity.py: the can-we-ask-the-user signal. It is a
-        # separate module on purpose — dependency-free (no sage imports) so any
-        # layer may consult it, and transcript.py was already near the 300 cap.
-        self.assertEqual(len(pkg_files), 34, "Expected exactly 34 modules in sage/")
+        self.assertEqual(len(pkg_files), 33, "Expected exactly 33 modules in sage/")
         bridge_modules = {"mcp_bridge.py", "mcp_bridge_helpers.py", "mcp_bridge_wait.py"}
         for filepath in sorted(pkg_files):
             rel_path = os.path.relpath(filepath, self.repo_root)

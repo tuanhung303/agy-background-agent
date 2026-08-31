@@ -1,6 +1,0 @@
-turns=132
-wall_secs=527
-agy_rc=0
-conv=16b11d44-6377-44f6-a0c9-2f0bf46bcaf9
-mode=headless-agy-p model=Gemini 3.7 Flash (Medium) agy=1.1.22
-sage_branch=main sage_sha=447216b93763da1a6c98c2909ddd7a82794fc41a sage_dirty=1
