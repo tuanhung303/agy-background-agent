@@ -19,6 +19,7 @@ from sage.session_state import load_and_sync_session_state, save_session_state
 from sage.transcript import (
     _read_transcript_steps, get_active_background_tasks,
     get_active_external_panes, get_transcript_path,
+    is_post_invocation_completion_candidate,
 )
 
 
@@ -45,7 +46,11 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     if not steps:
         fail_safe_exit("Empty transcript; skipping Lite verification")
 
-    # 2. Skip if runtime reports active background work or external worker panes
+    # 2. If post-invocation, only audit when the response is ready (not mid-tool calls)
+    if is_post_invocation() and not is_post_invocation_completion_candidate(transcript_path, conv_id):
+        fail_safe_exit("Mid-turn in progress (active tool calls)")
+
+    # 3. Skip if runtime reports active background work or external worker panes
     if payload.get("fullyIdle") is False or payload.get("fully_idle") is False:
         fail_safe_exit("Runtime reports active background work")
 
@@ -55,7 +60,7 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     if get_active_external_panes(transcript_path):
         fail_safe_exit("Active external panes streaming")
 
-    # 3. Mutation gating check (Pure transcript inspection)
+    # 4. Mutation gating check (Pure transcript inspection)
     has_mutation, reason, true_user_prompt, last_agent_output = extract_turn_mutations_and_context(steps)
     if not has_mutation:
         log_audit(f"Lite Mode bypass: {reason}")
@@ -65,13 +70,18 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     clean_prompt, state_file, state, _ = load_and_sync_session_state(conv_id, transcript_path, true_user_prompt)
     fail_count = int(state.get("lite_fail_count", 0))
 
-    # 3. 3-Strike Circuit Breaker
+    last_audited_lines = int(state.get("last_audited_line_count", 0))
+    if last_audited_lines > 0 and last_audited_lines == len(steps):
+        log_audit(f"Lite Mode: line count {len(steps)} already audited; bypassing duplicate execution")
+        fail_safe_exit("Lite Mode: turn already audited at current line count")
+
+    # 5. 3-Strike Circuit Breaker
     if fail_count >= LITE_MAX_RETRIES:
         log_audit(f"Lite Mode circuit breaker tripped ({fail_count}/{LITE_MAX_RETRIES}); failing open")
         save_session_state(state_file, state, lite_fail_count=0, sage_status="idle")
         fail_safe_exit("Lite Mode circuit breaker tripped; allowing clean stop")
 
-    # 4. Update statusline state to 'reviewing' (renders italic blue on left)
+    # 6. Update statusline state to 'reviewing' (renders italic blue on left)
     save_session_state(state_file, state, sage_status="reviewing")
 
     ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths") or []

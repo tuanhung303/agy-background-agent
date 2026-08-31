@@ -33,11 +33,11 @@ def save_manifest(conv_id: str, manifest_data: Dict[str, Any]) -> str:
     """Writes manifest.json atomically in the conversation's evidence directory."""
     edir = get_evidence_dir(conv_id)
     mpath = os.path.join(edir, "manifest.json")
-    
+
     merged = dict(manifest_data)
     merged.setdefault("conversation_id", conv_id)
     merged.setdefault("updated_at", datetime.now(timezone.utc).isoformat())
-    
+
     tmp_path = f"{mpath}.tmp.{os.getpid()}"
     try:
         with open(tmp_path, "w", encoding="utf-8") as f:
@@ -56,11 +56,11 @@ def append_evaluation(conv_id: str, evaluation_record: Dict[str, Any]) -> None:
     """Appends an evaluation record to evaluations.jsonl."""
     edir = get_evidence_dir(conv_id)
     epath = os.path.join(edir, "evaluations.jsonl")
-    
+
     rec = dict(evaluation_record)
     rec.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
     rec.setdefault("conversation_id", conv_id)
-    
+
     line = json.dumps(rec, ensure_ascii=False) + "\n"
     try:
         with open(epath, "a", encoding="utf-8") as f:
@@ -73,17 +73,17 @@ def append_evidence(conv_id: str, evidence_record: Dict[str, Any]) -> None:
     """Appends an evidence receipt to evidence.jsonl."""
     edir = get_evidence_dir(conv_id)
     epath = os.path.join(edir, "evidence.jsonl")
-    
+
     rec = dict(evidence_record)
     rec.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
     rec.setdefault("conversation_id", conv_id)
-    
+
     # Hash large observations/excerpts if provided
     obs = str(rec.get("observation") or "")
     if len(obs) > 500:
         rec["observation_hash"] = hashlib.sha256(obs.encode("utf-8")).hexdigest()
         rec["observation"] = obs[:500] + f" ... [truncated, total {len(obs)} chars]"
-        
+
     line = json.dumps(rec, ensure_ascii=False) + "\n"
     try:
         with open(epath, "a", encoding="utf-8") as f:

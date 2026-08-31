@@ -622,11 +622,12 @@ class TestStatuslineAdversarial(unittest.TestCase):
             json.dump(temp_state, f)
             f_path = f.name
         try:
-            with patch("statusline.statusline.safe_id", return_value="test_conv"):
-                with patch("os.path.exists", return_value=True):
-                    with patch("builtins.open", unittest.mock.mock_open(read_data=json.dumps(temp_state))):
-                        badges = get_advisor_steer_badges({"conversation_id": "test_conv"})
-                        self.assertIn("/err[3]", badges[0])
+            with patch("sage.config.LITE_MODE_ENABLED", False):
+                with patch("statusline.statusline.safe_id", return_value="test_conv"):
+                    with patch("os.path.exists", return_value=True):
+                        with patch("builtins.open", unittest.mock.mock_open(read_data=json.dumps(temp_state))):
+                            badges = get_advisor_steer_badges({"conversation_id": "test_conv"})
+                            self.assertIn("/err[3]", badges[0])
         finally:
             if os.path.exists(f_path):
                 os.remove(f_path)

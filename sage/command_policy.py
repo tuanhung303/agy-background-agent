@@ -56,16 +56,16 @@ def is_sage_command_safe(cmd_str: str) -> Tuple[bool, str]:
     """
     if not cmd_str or not isinstance(cmd_str, str):
         return False, "Empty command"
-    
+
     raw = cmd_str.strip()
     if not raw:
         return False, "Empty command"
-    
+
     # Check for forbidden patterns
     for pat in FORBIDDEN_MUTATION_PATTERNS:
         if re.search(pat, raw, re.IGNORECASE):
             return False, f"Command contains forbidden mutation or network pattern matching: {pat}"
-    
+
     # Handle chained commands (&&, ||, ;, |)
     sub_cmds = re.split(r"(?:&&|\|\||;|\|)", raw)
     for sub in sub_cmds:
@@ -78,14 +78,14 @@ def is_sage_command_safe(cmd_str: str) -> Tuple[bool, str]:
             tokens = sub.split()
         if not tokens:
             continue
-        
+
         binary = os.path.basename(tokens[0]).lower()
         if binary in ("env", "nohup", "time"):
             tokens = tokens[1:]
             if not tokens:
                 return False, f"Incomplete prefix command: {binary}"
             binary = os.path.basename(tokens[0]).lower()
-            
+
         if binary == "git":
             if len(tokens) > 1:
                 # check for git -C <path> subcommand
@@ -100,14 +100,14 @@ def is_sage_command_safe(cmd_str: str) -> Tuple[bool, str]:
                     if subcmd not in ALLOWED_GIT_READ_SUBCOMMANDS:
                         return False, f"Forbidden git subcommand for Sage: git {subcmd}"
             continue
-            
+
         if binary in ("python", "python3"):
             # Check python arguments: python -m pytest ... or python -c ... (read-only)
             if len(tokens) > 1:
                 if tokens[1] in ("-m", "-mpytest", "-munittest"):
                     continue
             continue
-            
+
         if binary in ("npm", "pnpm", "yarn", "corepack"):
             if len(tokens) > 1:
                 subcmd = tokens[1].lower()
@@ -116,14 +116,14 @@ def is_sage_command_safe(cmd_str: str) -> Tuple[bool, str]:
                 if subcmd not in ALLOWED_NPM_SUBCOMMANDS and subcmd not in ("test", "vitest", "jest"):
                     return False, f"Forbidden package manager subcommand for Sage: {binary} {subcmd}"
             continue
-            
+
         if binary in ("cargo"):
             if len(tokens) > 1:
                 subcmd = tokens[1].lower()
                 if subcmd not in ALLOWED_CARGO_SUBCOMMANDS:
                     return False, f"Forbidden cargo subcommand for Sage: cargo {subcmd}"
             continue
-            
+
         if binary in ("go"):
             if len(tokens) > 1:
                 subcmd = tokens[1].lower()
@@ -133,7 +133,7 @@ def is_sage_command_safe(cmd_str: str) -> Tuple[bool, str]:
 
         if binary in ALLOWED_INSPECTION_BINARIES or binary in ALLOWED_TEST_RUNNERS or binary in ALLOWED_LINTERS:
             continue
-            
+
         return False, f"Command binary '{binary}' is not in Sage validation allowlist"
-        
+
     return True, "Safe validation command"
