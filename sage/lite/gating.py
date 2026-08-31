@@ -31,7 +31,7 @@ def is_mutating_command(cmd_str: str) -> bool:
 
 PLAN_OR_QA_PATTERNS = (
     r"^/(?:plan|qa|learn|drill|bro|teach|grill-me)\b",
-    r"\b(?:make\s+a\s+plan\s+first|plan\s+first|brainstorm|create\s+a\s+plan|plan\s+the)\b",
+    r"\b(?:make\s+a\s+plan\s+first|plan\s+first|brainstorm|create\s+a\s+plan|plan\s+the|research|search\s+for|check\s+the\s+slides|find\s+where|find\s+all|investigate|audit\s+the)\b",
 )
 
 

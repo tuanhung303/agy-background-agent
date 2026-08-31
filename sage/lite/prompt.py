@@ -14,9 +14,9 @@ First, ask yourself: Can the user bring this output to present before an investo
 
 Evaluate the response against these exact conditions across engineering, scripting, web, data, and document disciplines:
 
-0. INTENT TYPE (Plan, Brainstorm, QA, Concept Review):
-If the user request specifically asked for a plan, brainstorming, design options, question answering, or read-only research (e.g. `/plan`, `/qa`, `/learn`, 'make a plan first'), and the agent delivered a structured plan/analysis and stopped for user review -> Output PASS with proof citing the plan/artifact. Do NOT demand execution commands or UI screenshots for planning turns.
-For all implementation, coding, development, bug fixing, and office tasks -> Strict empirical verification below is MANDATORY.
+0. INTENT TYPE (Plan, Brainstorm, QA, Research, File Search, Advisory, Document Survey):
+If the user request specifically asked for research, file discovery, document analysis, codebase search, planning, brainstorming, design options, question answering, or strategic advice (e.g. searching/comparing slides, analyzing an Excel/SOW, reviewing files, /plan, /qa, /learn, /bro, 'find where', 'check the slides', 'recommend what to discuss'), and the agent delivered a thorough analysis/synthesis citing concrete file paths or structured artifacts -> Output PASS with proof citing the analyzed files/artifacts. Do NOT demand execution commands or UI screenshots for research/file-search turns.
+For all implementation, coding, development, bug fixing, and office creation tasks -> Strict empirical verification below is MANDATORY.
 
 1. AUTONOMY & NON-OUTSOURCING: Asking permission, asking trivial "Yes/No" questions, or telling the user to run commands/verify manually. -> FAIL (Action: "Assume Yes, execute the commands, and verify the output yourself.")
 2. COMPLETENESS & SCOPE INTEGRITY: Leaving TODOs, placeholders, partial implementations, unhandled crashes, broken tests, or narrowing scope across multi-file changes without regression verification. -> FAIL (Action: "Complete all unfinished scope and verify regression across all affected modules.")
@@ -26,6 +26,7 @@ For all implementation, coding, development, bug fixing, and office tasks -> Str
    - Functional / Runtime (Code, Scripts, APIs, Automations): Both static validation (syntax/lint/types/unit tests) AND live out-of-process execution in an isolated sandbox with observed stdout and state assertions are MANDATORY.
    - Data & Infrastructure (SQL, Pipelines, Cloud): Querying actual live database tables or inspecting live infrastructure state with output proof is MANDATORY.
    - Documents & Office: Auditing the complete document for narrative coherence, formatting consistency, and numeric accuracy is MANDATORY.
+   - Research & File Search (Exploration, Document Review, Advisory): Citing exact verified file paths, row/slide numbers, and analytical findings with evidence from the investigated files is MANDATORY.
 
 STRICT DISQUALIFICATION:
 Build logs, compilation status, typecheck outputs, lint runs, git push logs, and isolated unit test pass counts are NEVER accepted as final empirical proof.

@@ -19,7 +19,7 @@ DISQUALIFIED_PATTERNS = (
 )
 
 EMPIRICAL_INDICATORS = (
-    r"\.(?:png|jpg|jpeg|webp|gif|svg|md)\b",
+    r"\.(?:png|jpg|jpeg|webp|gif|svg|md|xlsx|pptx|docx|pdf|txt|csv|py|sh|ts|js|json|ya?ml)\b",
     r"\bscreenshot\b",
     r"\bimage\b",
     r"\bbrowser\b",
@@ -39,6 +39,7 @@ EMPIRICAL_INDICATORS = (
     r"\bresponse\s+code\s+200\b",
     r"\bplan\b",
     r"\bartifact\b",
+    r"\b(?:slide|sheet|row|sbc/|internal/|inspected|referenced)\b",
 )
 
 

@@ -112,6 +112,33 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         has_mutation, reason, true_prompt, last_output = extract_turn_mutations_and_context(steps)
         self.assertEqual(true_prompt, "Build website landing page")
 
+    def test_research_and_file_search_intent_detection(self):
+        """Document review, file search, and advisory requests should be recognized as research intent."""
+        self.assertTrue(is_plan_or_qa_intent("check the slides and drop the obsolete"))
+        self.assertTrue(is_plan_or_qa_intent("search for all SOW files in downloads"))
+        self.assertTrue(is_plan_or_qa_intent("investigate differences across slide decks"))
+        self.assertTrue(is_plan_or_qa_intent("audit the migration scope spreadsheet"))
+
+    def test_research_deliverable_with_file_citations_passes(self):
+        """Research deliverable citing inspected spreadsheets and slide files must be accepted as valid empirical proof."""
+        research_proofs = [
+            "Inspected sbc/ARK Initiative Scope of Work Data Engineering.xlsx rows 1-35",
+            "Referenced sbc/SBC_AWS_Agenda_Executive_1Slide.pptx slide 1",
+            "Audited document sbc/CDP_Optimization/assessment/source-inventory.md",
+        ]
+        is_valid, reason = validate_empirical_proof(research_proofs)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
+
+        verdict = LiteVerdict(
+            verdict="PASS",
+            action="",
+            comment="SOW spreadsheet and slide inventory analyzed with concrete file citations.",
+            proof=research_proofs,
+        )
+        self.assertEqual(verdict.verdict, "PASS")
+        self.assertEqual(len(verdict.proof), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
