@@ -2,6 +2,7 @@
 import glob
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -13,9 +14,20 @@ from sage.locking import safe_id
 
 class TestLiteCLIIntegration(unittest.TestCase):
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp()
+        self.test_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "tmp", f"test_{uuid.uuid4().hex[:12]}"))
+        os.makedirs(self.test_dir, exist_ok=True)
         self.transcript_path = os.path.join(self.test_dir, "transcript.jsonl")
         self.conv_id = f"cli_test_{uuid.uuid4().hex[:12]}"
+        self.conv_dir = os.path.join(self.test_dir, ".gemini", "antigravity-cli", "conversations")
+        os.makedirs(self.conv_dir, exist_ok=True)
+        self.created_dbs = []
+        for cid in (self.conv_id, f"{self.conv_id}_disq"):
+            db_path = os.path.join(self.conv_dir, f"{cid}.db")
+            with sqlite3.connect(db_path) as conn:
+                conn.execute("CREATE TABLE IF NOT EXISTS trajectory_meta (cascade_id TEXT)")
+                conn.execute("INSERT INTO trajectory_meta VALUES (?)", (cid,))
+            self.created_dbs.append(db_path)
+
         # Write a mutating turn into transcript with completion step
         with open(self.transcript_path, "w", encoding="utf-8") as f:
             f.write(json.dumps({"type": "USER_INPUT", "content": "Add unit test"}) + "\n")
@@ -49,6 +61,7 @@ class TestLiteCLIIntegration(unittest.TestCase):
         }
         env = dict(
             os.environ,
+            HOME=self.test_dir,
             AGY_LITE_MOCK_VERDICT="FAIL:Write a regression test now.",
             AGY_STOP_AUDIT_TEST="1",
         )
@@ -69,7 +82,7 @@ class TestLiteCLIIntegration(unittest.TestCase):
         self.assertEqual(data["injectSteps"][0]["userMessage"], "Write a regression test now.")
 
     def test_cli_post_invocation_pass_recap(self):
-        """CLI out-of-process test: PostInvocation PASS returns strict protojson terminate with natural comment."""
+        """CLI out-of-process test: PostInvocation PASS returns clean stop with empty injectSteps."""
         hook_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "hooks", "session-sage.py"))
         payload = {
             "conversationId": self.conv_id,
@@ -79,6 +92,7 @@ class TestLiteCLIIntegration(unittest.TestCase):
         }
         env = dict(
             os.environ,
+            HOME=self.test_dir,
             AGY_LITE_MOCK_VERDICT="PASS:verified browser screenshot at /tmp/test.png.",
             AGY_STOP_AUDIT_TEST="1",
         )
@@ -92,10 +106,8 @@ class TestLiteCLIIntegration(unittest.TestCase):
         self.assertEqual(res.returncode, 0, f"Hook failed with stderr: {res.stderr}")
         data = json.loads(res.stdout.strip())
         self.assertIn("injectSteps", data)
-        self.assertIn("terminationBehavior", data)
-        self.assertEqual(data["terminationBehavior"], "terminate")
+        self.assertEqual(data["injectSteps"], [])
         self.assertNotIn("decision", data, "PostInvocation protojson must not contain 'decision'")
-        self.assertEqual(data["injectSteps"][0]["userMessage"], "※ verified browser screenshot at /tmp/test.png.")
 
     def test_cli_post_invocation_disqualified_proof_overridden_to_fail(self):
         """CLI out-of-process test: PostInvocation PASS with only unit tests is overridden to FAIL and forces continue."""
@@ -109,6 +121,7 @@ class TestLiteCLIIntegration(unittest.TestCase):
         }
         env = dict(
             os.environ,
+            HOME=self.test_dir,
             AGY_LITE_MOCK_VERDICT="PASS:all unit tests passed with 37/37 pre-push tests.",
             AGY_STOP_AUDIT_TEST="1",
         )
@@ -138,6 +151,7 @@ class TestLiteCLIIntegration(unittest.TestCase):
         }
         env = dict(
             os.environ,
+            HOME=self.test_dir,
             AGY_LITE_MOCK_VERDICT="FAIL:Please add failure injection test.",
             AGY_STOP_AUDIT_TEST="1",
         )

@@ -160,12 +160,8 @@ def run_session_stop_audit(raw_payload=None):
         gu = {k: gate[k] for k in ("pinned_goal", "anchor_goal", "revised_goal", "derived_tasks", "task_complexity", "pinned_emitted", "anchor_emitted", "validation_ledger") if k in gate and gate[k] is not None}
         record_sage_recap(state_file, state, total_tool_calls, initial_line_count, recap_text=sage_recap, goal_settled=True, **gu)
         log_audit(f"Sage passed cleanly. Sage recap recorded: {sage_recap}")
-        _clear_sage_session(conv_id)
-        fac_msg = immediate_settle_message(state, transcript_path=transcript_path, conv_id=conv_id)
-        if fac_msg:
-            sage_recap = f"{sage_recap}\n\n{fac_msg}"
         journal.write("recap_pass", conv_id=conv_id)
-        emit_recap_response(sage_recap, kind="sage")
+        fail_safe_exit("Sage passed cleanly")
     elif gact == "error":
         err_streak = state.get("sage_error_streak", state.get("advisor_error_streak", 0)) + 1
         save_session_state(state_file, state, sage_status="error", sage_error_streak=err_streak, last_audited_line_count=initial_line_count)

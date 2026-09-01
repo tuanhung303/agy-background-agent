@@ -91,35 +91,35 @@ def _parse_ts_to_epoch(ts_str: Any) -> float:
         return 0.0
 
 
-def extract_turn_execution_provenance(
-    steps: List[Dict[str, Any]],
-) -> Dict[str, Any]:
-    """Extracts mutations, timestamps, tool calls, and provenance artifacts for the current turn."""
-    empty_result = {
-        "has_mutation": False,
-        "mutation_reason": "Empty transcript steps",
-        "true_user_prompt": "",
-        "last_agent_output": "",
-        "turn_start_time": 0.0,
-        "written_files": [],
-        "executed_commands": [],
-        "generated_images": [],
-        "tool_executions_summary": "(No tool calls executed in current turn)",
+IMAGE_FILE_EXTENSIONS: Tuple[str, ...] = (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp", ".tiff")
+IMAGE_PATH_PATTERN = re.compile(r"(/[a-zA-Z0-9_\-\.\/]+\.(?:png|jpg|jpeg|webp|svg|gif|bmp|tiff))", re.IGNORECASE)
+
+
+def _clean_tool_output_snippet(raw_content: str) -> str:
+    """Extracts a concise, non-empty summary snippet from tool result content."""
+    if not raw_content or not isinstance(raw_content, str):
+        return ""
+    meaningful = [l.strip() for l in raw_content.splitlines() if l.strip() and not l.strip().startswith(("Created At:", "Completed At:", "The following is the entire", "Log:", "Task logs are available"))]
+    snippet = " ".join(meaningful).strip()
+    return (snippet[:177] + "...") if len(snippet) > 180 else snippet
+
+
+def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Extracts mutations, timestamps, tool calls, tool outputs, and provenance artifacts for the current turn."""
+    empty_res = {
+        "has_mutation": False, "mutation_reason": "Empty transcript steps",
+        "true_user_prompt": "", "last_agent_output": "", "turn_start_time": 0.0,
+        "written_files": [], "executed_commands": [], "generated_images": [],
+        "image_files": [], "tool_executions_summary": "(No tool calls executed in current turn)",
     }
     if not steps or not isinstance(steps, list):
-        return empty_result
+        return empty_res
 
-    has_mutation = False
-    mutation_reason = "No mutating tool calls detected in turn"
-    true_user_prompt = ""
-    last_agent_output = ""
-    turn_start_time = 0.0
-    written_files: Set[str] = set()
-    executed_commands: List[str] = []
-    generated_images: Set[str] = set()
-    tool_summary_lines: List[str] = []
+    has_mutation, mutation_reason = False, "No mutating tool calls detected in turn"
+    true_user_prompt, last_agent_output, turn_start_time = "", "", 0.0
+    written_files, executed_commands = set(), []
+    generated_images, image_files, tool_summary_lines = set(), set(), []
 
-    # Find the most recent true USER_INPUT and subsequent agent steps
     turn_steps: List[Dict[str, Any]] = []
     for s in reversed(steps):
         if not isinstance(s, dict):
@@ -134,79 +134,77 @@ def extract_turn_execution_provenance(
                 true_user_prompt = cleaned
                 turn_start_time = _parse_ts_to_epoch(s.get("created_at"))
             break
-
     turn_steps.reverse()
 
-    # Collect agent responses and inspect tool calls
     agent_responses: List[str] = []
-    for s in turn_steps:
+    for idx, s in enumerate(turn_steps):
         stype = s.get("type")
         if stype == "PLANNER_RESPONSE":
             content = str(s.get("content") or "").strip()
             if content:
                 agent_responses.append(content)
-            tool_calls = s.get("tool_calls") or []
-            if isinstance(tool_calls, list):
-                for tc in tool_calls:
-                    if isinstance(tc, dict):
-                        tname = str(
-                            tc.get("name")
-                            or tc.get("tool_name")
-                            or tc.get("tool")
-                            or ""
-                        )
-                        targs = (
-                            tc.get("args")
-                            or tc.get("arguments")
-                            or tc.get("parameters")
-                            or {}
-                        )
-                        if is_mutating_tool_call(tname, targs):
-                            has_mutation = True
-                            mutation_reason = f"Mutating tool call executed: {tname}"
+            for tc in (s.get("tool_calls") or []):
+                if not isinstance(tc, dict):
+                    continue
+                tname = str(tc.get("name") or tc.get("tool_name") or tc.get("tool") or "")
+                targs = tc.get("args") or tc.get("arguments") or tc.get("parameters") or {}
+                if is_mutating_tool_call(tname, targs):
+                    has_mutation, mutation_reason = True, f"Mutating tool call executed: {tname}"
 
-                        if isinstance(targs, dict):
-                            target_fp = str(
-                                targs.get("TargetFile")
-                                or targs.get("target_file")
-                                or targs.get("FilePath")
-                                or targs.get("path")
-                                or ""
-                            ).strip()
-                            if target_fp:
-                                written_files.add(target_fp)
-                                written_files.add(os.path.basename(target_fp))
+                target_fp, cmd_str, img_name, output_snippet = "", "", "", ""
+                if isinstance(targs, dict):
+                    raw_target = str(targs.get("TargetFile") or targs.get("target_file") or targs.get("FilePath") or targs.get("AbsolutePath") or targs.get("path") or "").strip().strip("\"'")
+                    if raw_target:
+                        target_fp = raw_target
+                        written_files.add(raw_target)
+                        written_files.add(os.path.basename(raw_target))
+                        if raw_target.lower().endswith(IMAGE_FILE_EXTENSIONS):
+                            image_files.add(raw_target)
 
-                            cmd_str = str(
-                                targs.get("CommandLine")
-                                or targs.get("command")
-                                or targs.get("cmd")
-                                or ""
-                            ).strip()
-                            if cmd_str:
-                                executed_commands.append(cmd_str)
+                    raw_cmd = str(targs.get("CommandLine") or targs.get("command") or targs.get("cmd") or "").strip().strip("\"'")
+                    if raw_cmd:
+                        cmd_str = raw_cmd
+                        executed_commands.append(raw_cmd)
+                        for match in IMAGE_PATH_PATTERN.findall(raw_cmd):
+                            image_files.add(match)
 
-                            img_name = str(
-                                targs.get("ImageName")
-                                or targs.get("image_name")
-                                or ""
-                            ).strip()
-                            if img_name:
-                                generated_images.add(img_name)
+                    raw_img = str(targs.get("ImageName") or targs.get("image_name") or "").strip().strip("\"'")
+                    if raw_img:
+                        img_name = raw_img
+                        generated_images.add(raw_img)
+                        image_files.add(raw_img)
 
-                            if cmd_str:
-                                tool_summary_lines.append(f"- {tname}: `{cmd_str[:160]}`")
-                            elif target_fp:
-                                tool_summary_lines.append(f"- {tname}: `{target_fp}`")
-                            elif img_name:
-                                tool_summary_lines.append(f"- {tname}: `{img_name}`")
-                            else:
-                                tool_summary_lines.append(f"- {tname}")
+                if idx + 1 < len(turn_steps):
+                    next_step = turn_steps[idx + 1]
+                    if next_step.get("type") in ("GENERIC", "SYSTEM_MESSAGE", "EPHEMERAL_MESSAGE"):
+                        raw_out = str(next_step.get("content") or "")
+                        output_snippet = _clean_tool_output_snippet(raw_out)
+                        for match in IMAGE_PATH_PATTERN.findall(raw_out):
+                            image_files.add(match)
+
+                if cmd_str:
+                    entry = f"- {tname}: `{cmd_str[:140]}`"
+                    if output_snippet:
+                        entry += f" -> [{output_snippet[:100]}]"
+                    tool_summary_lines.append(entry)
+                elif target_fp:
+                    entry = f"- {tname}: `{target_fp}`"
+                    if output_snippet:
+                        entry += f" -> [{output_snippet[:100]}]"
+                    tool_summary_lines.append(entry)
+                elif img_name:
+                    tool_summary_lines.append(f"- {tname}: `{img_name}`")
+                else:
+                    entry = f"- {tname}"
+                    if output_snippet:
+                        entry += f" -> [{output_snippet[:100]}]"
+                    tool_summary_lines.append(entry)
 
     if agent_responses:
         last_agent_output = agent_responses[-1]
+        for match in IMAGE_PATH_PATTERN.findall(last_agent_output):
+            image_files.add(match)
 
-    # Fallback to last known prompt if true_user_prompt is still empty
     if not true_user_prompt:
         for s in steps:
             if isinstance(s, dict) and s.get("type") == "USER_INPUT":
@@ -215,23 +213,16 @@ def extract_turn_execution_provenance(
                     turn_start_time = _parse_ts_to_epoch(s.get("created_at"))
 
     tool_exec_summary = "\n".join(tool_summary_lines) if tool_summary_lines else "(No tool calls executed in current turn)"
-
     return {
-        "has_mutation": has_mutation,
-        "mutation_reason": mutation_reason,
-        "true_user_prompt": true_user_prompt,
-        "last_agent_output": last_agent_output,
-        "turn_start_time": turn_start_time,
-        "written_files": list(written_files),
-        "executed_commands": executed_commands,
-        "generated_images": list(generated_images),
-        "tool_executions_summary": tool_exec_summary,
+        "has_mutation": has_mutation, "mutation_reason": mutation_reason,
+        "true_user_prompt": true_user_prompt, "last_agent_output": last_agent_output,
+        "turn_start_time": turn_start_time, "written_files": list(written_files),
+        "executed_commands": executed_commands, "generated_images": list(generated_images),
+        "image_files": list(image_files), "tool_executions_summary": tool_exec_summary,
     }
 
 
-def extract_turn_mutations_and_context(
-    steps: List[Dict[str, Any]],
-) -> Tuple[bool, str, str, str]:
+def extract_turn_mutations_and_context(steps: List[Dict[str, Any]]) -> Tuple[bool, str, str, str]:
     """Inspects transcript steps to detect mutations and distill true prompt and output."""
     prov = extract_turn_execution_provenance(steps)
     return (
@@ -240,3 +231,4 @@ def extract_turn_mutations_and_context(
         prov["true_user_prompt"],
         prov["last_agent_output"],
     )
+

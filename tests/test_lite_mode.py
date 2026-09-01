@@ -18,20 +18,23 @@ from statusline.statusline import get_sage_steer_badges, render_statusline
 
 class TestLiteSchemas(unittest.TestCase):
     def test_schema_from_dict(self):
-        v_pass = LiteVerdict.from_dict({"verdict": "PASS", "action": "", "comment": "All tests pass.", "proof": ["ran CLI e2e test cleanly", "browser DOM verified"]})
+        v_pass = LiteVerdict.from_dict({"verdict": "PASS", "action": "", "comment": "All tests pass.", "proof": ["ran CLI e2e test cleanly", "browser DOM verified"], "update_knowledge": True})
         self.assertEqual(v_pass.verdict, "PASS")
         self.assertEqual(v_pass.action, "")
         self.assertEqual(v_pass.comment, "All tests pass.")
         self.assertEqual(v_pass.proof, ["ran CLI e2e test cleanly", "browser DOM verified"])
+        self.assertTrue(v_pass.update_knowledge)
 
         v_fail = LiteVerdict.from_dict({"verdict": "FAIL", "action": "Run pytest now."})
         self.assertEqual(v_fail.verdict, "FAIL")
         self.assertEqual(v_fail.action, "Run pytest now.")
         self.assertEqual(v_fail.proof, [])
+        self.assertFalse(v_fail.update_knowledge)
 
         v_none = LiteVerdict.from_dict(None)
         self.assertEqual(v_none.verdict, "PASS")
         self.assertEqual(v_none.proof, [])
+        self.assertFalse(v_none.update_knowledge)
 
 
 class TestLiteGating(unittest.TestCase):
@@ -197,14 +200,14 @@ class TestLiteRunner(unittest.TestCase):
                 pass
             mock_cont.assert_called_once_with("Run pytest tests/test_app.py now.")
 
-    @patch("sage.lite.runner.emit_recap_response")
+    @patch("sage.lite.runner.fail_safe_exit")
     @patch("sage.lite.runner.fork_conversation_session", side_effect=["fork_ver_123", "fork_kb_456"])
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
     @patch("sage.lite.runner.run_kb_maintenance")
-    def test_runner_pass_runs_kb_maintenance(self, mock_kb, mock_ver, mock_clean, mock_fork, mock_recap):
-        mock_recap.side_effect = SystemExit(0)
-        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", proof=["Captured screenshot at /tmp/chart.png"])
+    def test_runner_pass_runs_kb_maintenance_when_requested(self, mock_kb, mock_ver, mock_clean, mock_fork, mock_exit):
+        mock_exit.side_effect = SystemExit(0)
+        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", proof=["Captured screenshot at /tmp/chart.png"], update_knowledge=True)
         payload = {
             "conversationId": "test_conv_pass",
             "transcript_path": "/tmp/nonexistent.jsonl",
@@ -224,16 +227,16 @@ class TestLiteRunner(unittest.TestCase):
                 fork_conv_id="fork_kb_456",
                 cwd=mock_kb.call_args[1]["cwd"],
             )
-            mock_recap.assert_called_once_with("Work verified cleanly by Lite Mode.", kind="comment")
+            mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
 
-    @patch("sage.lite.runner.emit_recap_response")
-    @patch("sage.lite.runner.fork_conversation_session", side_effect=["fork_ver_custom", "fork_kb_custom"])
+    @patch("sage.lite.runner.fail_safe_exit")
+    @patch("sage.lite.runner.fork_conversation_session", return_value="fork_ver_custom")
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
     @patch("sage.lite.runner.run_kb_maintenance")
-    def test_runner_pass_uses_custom_comment(self, mock_kb, mock_ver, mock_clean, mock_fork, mock_recap):
-        mock_recap.side_effect = SystemExit(0)
-        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", comment="all unit tests passed.", proof=["Captured screenshot at /tmp/chart.png"])
+    def test_runner_pass_bypasses_kb_maintenance_by_default(self, mock_kb, mock_ver, mock_clean, mock_fork, mock_exit):
+        mock_exit.side_effect = SystemExit(0)
+        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", comment="all unit tests passed.", proof=["Captured screenshot at /tmp/chart.png"], update_knowledge=False)
         payload = {
             "conversationId": "test_conv_custom_comment",
             "transcript_path": "/tmp/nonexistent.jsonl",
@@ -248,7 +251,8 @@ class TestLiteRunner(unittest.TestCase):
                 run_lite_stop_audit(json.dumps(payload))
             except SystemExit:
                 pass
-            mock_recap.assert_called_once_with("all unit tests passed.", kind="comment")
+            mock_kb.assert_not_called()
+            mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
 
     @patch("sage.lite.runner.emit_continue_response")
     @patch("sage.lite.runner.fork_conversation_session", return_value="fork_ver_disq")

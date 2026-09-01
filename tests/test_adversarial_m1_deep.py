@@ -103,11 +103,11 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
     ):
         """Test final advisor gate outcomes: healthy recap, steer emit, dedup hold, model error, and skip."""
         outcomes = [
-            # 1. Advisor approves -> record recap -> emit_recap_response
+            # 1. Advisor approves -> record recap -> clean fail_safe_exit
             (
                 "healthy",
                 {"action": "healthy", "recap": "All objectives fulfilled successfully."},
-                "recap",
+                "fail_safe",
             ),
             # 2. Advisor emits a steer -> emit_continue_response (agent continues)
             (
@@ -141,8 +141,7 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
                 with patch("sage.runner.is_post_invocation", return_value=False), \
                      patch("sage.runner.final_sage_gate", return_value=gate_return), \
                      patch("sage.runner.fail_safe_exit", side_effect=SystemExit(0)) as mock_fail_safe, \
-                     patch("sage.runner.emit_continue_response", side_effect=SystemExit(0)) as mock_cont, \
-                     patch("sage.runner.emit_recap_response", side_effect=SystemExit(0)) as mock_recap:
+                     patch("sage.runner.emit_continue_response", side_effect=SystemExit(0)) as mock_cont:
 
                     with patch("sage.runner.load_and_sync_session_state", return_value=(
                         "Adversarial test prompt", s_file,
@@ -152,10 +151,7 @@ class TestAdversarialDeepRunnerSignals(unittest.TestCase):
                         with self.assertRaises(SystemExit):
                             run_session_stop_audit(payload)
 
-                        if expected_exit == "recap":
-                            mock_recap.assert_called_once()
-                            self.assertIn("All objectives fulfilled successfully.", mock_recap.call_args[0][0])
-                        elif expected_exit == "continue":
+                        if expected_exit == "continue":
                             mock_cont.assert_called_once()
                             self.assertIn("Add unit tests.", mock_cont.call_args[0][0])
                         elif expected_exit == "fail_safe":

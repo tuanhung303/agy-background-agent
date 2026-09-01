@@ -1,3 +1,4 @@
+"""scripts.verify.prompt.verify_live - Live empirical evaluation for prompt and context isolation."""
 import os
 import sys
 import time

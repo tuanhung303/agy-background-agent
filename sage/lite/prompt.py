@@ -1,4 +1,5 @@
 """sage.lite.prompt - Verifier prompt builder for Lite Mode Stop Hook."""
+from typing import Any, Dict, List, Optional
 
 VERIFIER_PROMPT_TEMPLATE = """<context_boundary>
 === CACHED HISTORICAL CONTEXT & REFERENCE ONLY ===
@@ -66,12 +67,22 @@ Disqualify pseudo-proofs immediately on detection:
 - Historical proofs or screenshots from prior turns are strictly invalid. Only actions and artifacts produced in the current turn are acceptable.
 - Narrative claims like "verified in code" or "XML is valid" without concrete artifacts (screenshot path, live query output, raw execution stdout) MUST BE REJECTED IMMEDIATELY as FAIL.
 
+[ADVERSARIAL EMPIRICAL PROOF & VISUAL DISCREPANCY AUDIT]
+> "Do the agent's text claims accurately match the empirical tool outputs, logs, and actual visual renders?"
+Assume the agent's response may contain fabricated assertions, hallucinations, or unverified claims.
+- Tool Outputs & Execution Logs: Cross-examine all claims against the empirical tool execution outputs in <current_turn_tool_executions>. If commands failed, exited non-zero, or logs contradict the claims, reject immediately with FAIL.
+- Visual Renders & Image Verification (UI, Screenshots, SVG, Charts, Diagrams):
+  * NEVER trust the agent's text claims about what an image or diagram shows.
+  * When image files (*.png, *.jpg, *.jpeg, *.webp, *.svg) are generated, modified, or viewed in the turn (listed in <current_turn_images_to_inspect>), you MUST inspect the image files using `view_file`.
+  * Visually check that bar lengths, scales, layouts, alignments, colors, and elements directly reflect the user request and mathematical values.
+  * If an image reveals visual defects, inverted scales (e.g. 0.83x bar rendered longer than 1.17x bar), overlapping text, clipped elements, or any discrepancy with the agent's claims -> Output FAIL immediately with a concrete explanation of the visual mismatch.
+
 [PRE-FLIGHT ADVERSARIAL PROTOCOL]
 > "Have all edge cases, race conditions, visual bugs, and unhandled exceptions been tested and eliminated?"
 Assume the implementation contains hidden flaws until proven otherwise.
 - Actively search for race conditions, visual layout bugs, unhandled exceptions, or invalid assumptions.
-- Binary Gate: If any flaw is unmitigated OR proof relies on disqualified items (unit tests, build logs, typechecks, git push) OR mandatory domain channel (e.g. screenshot for UI/SVG/charts) is missing -> Output: {{"verdict": "FAIL", "action": "<Imperative command to provide missing empirical proof>", "comment": "", "proof": []}}
-- Pass Condition: If and only if all checks pass with verifiable empirical evidence from an authorized channel -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>", "proof": ["<exact screenshot path / curl output / DB query result / live execution output>"]}}
+- Binary Gate: If any flaw is unmitigated OR proof relies on disqualified items (unit tests, build logs, typechecks, git push) OR mandatory domain channel (e.g. screenshot for UI/SVG/charts) is missing OR visual layout contradicts claims -> Output: {{"verdict": "FAIL", "action": "<Imperative command to fix defect or provide missing empirical proof>", "comment": "", "proof": []}}
+- Pass Condition: If and only if all checks pass with verifiable empirical evidence from an authorized channel and visual inspection confirms correctness -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>", "proof": ["<exact screenshot path / curl output / DB query result / live execution output>"], "update_knowledge": false}}
 
 Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
 {{
@@ -80,7 +91,8 @@ Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
   "comment": "String. If PASS, a concise 1-sentence natural comment describing what was verified. Empty string if FAIL.",
   "proof": [
     "Array of strings citing recent concrete empirical evidence from the current turn (e.g. screenshot path, browser session, or live runtime execution output; NEVER static unit tests, tsc, git push, or build logs). Empty array if FAIL."
-  ]
+  ],
+  "update_knowledge": false
 }}
 </active_turn_scope>
 """
@@ -90,9 +102,11 @@ def build_lite_verifier_prompt(
     user_prompt: str,
     last_agent_output: str,
     turn_execution_summary: Optional[str] = None,
+    image_manifest: Optional[List[str]] = None,
+    turn_provenance: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Builds the Final Verifier prompt injected into the newest turn of the forked session."""
-    from typing import Optional
+    from typing import Any, Dict, List, Optional
     clean_user = (user_prompt or "").strip()
     clean_agent = (last_agent_output or "").strip()
     base_prompt = VERIFIER_PROMPT_TEMPLATE.format(
@@ -100,12 +114,43 @@ def build_lite_verifier_prompt(
         last_agent_response=clean_agent if clean_agent else "N/A",
     ).strip()
 
-    if turn_execution_summary and turn_execution_summary.strip():
-        exec_block = (
-            f"\n\n<current_turn_tool_executions>\n{turn_execution_summary.strip()}\n</current_turn_tool_executions>\n"
-            "Note: Only empirical evidence and artifacts generated by the above current-turn tool executions are valid for proof citation. Historical screenshots and prior-turn tests are strictly invalid."
+    images: List[str] = []
+    if image_manifest and isinstance(image_manifest, list):
+        images.extend([str(img).strip() for img in image_manifest if str(img).strip()])
+    elif isinstance(turn_provenance, dict):
+        prov_imgs = turn_provenance.get("image_files") or turn_provenance.get("generated_images") or []
+        if isinstance(prov_imgs, list):
+            images.extend([str(img).strip() for img in prov_imgs if str(img).strip()])
+
+    extra_blocks = []
+
+    if images:
+        formatted_images = "\n".join(f"- {img}" for img in sorted(set(images)))
+        image_block = (
+            f"<current_turn_images_to_inspect>\n{formatted_images}\n\n"
+            "MANDATORY ACTION: You must inspect the image(s) above using `view_file` before issuing your verdict. "
+            "Never trust the agent's text claims about what an image contains. Visually verify whether the layout, "
+            "proportions, chart bar lengths, and content match the user request and agent assertions. "
+            "Reject with FAIL if there is any visual discrepancy or scaling mismatch.\n"
+            "</current_turn_images_to_inspect>"
         )
-        return base_prompt + exec_block
+        extra_blocks.append(image_block)
+
+    exec_summary = (turn_execution_summary or "").strip()
+    if not exec_summary and isinstance(turn_provenance, dict):
+        exec_summary = str(turn_provenance.get("tool_executions_summary") or "").strip()
+
+    if exec_summary:
+        exec_block = (
+            f"<current_turn_tool_executions>\n{exec_summary}\n</current_turn_tool_executions>\n"
+            "Note: Cross-examine tool outputs and logs above against the agent response. "
+            "Only empirical evidence and artifacts generated by the above current-turn tool executions are valid for proof citation. "
+            "Historical screenshots and prior-turn tests are strictly invalid."
+        )
+        extra_blocks.append(exec_block)
+
+    if extra_blocks:
+        return base_prompt + "\n\n" + "\n\n".join(extra_blocks)
 
     return base_prompt
 

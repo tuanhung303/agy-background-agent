@@ -103,6 +103,7 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     # 6. Execute Final Verifier on forked session
     verdict: LiteVerdict = LiteVerdict(verdict="PASS", action="")
     try:
+        images = turn_provenance.get("image_files") or turn_provenance.get("generated_images") or []
         verdict = run_lite_verification(
             parent_conv_id=conv_id,
             fork_conv_id=fork_conv_id,
@@ -110,6 +111,8 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             last_agent_output=last_agent_output,
             cwd=workspace_root,
             turn_execution_summary=turn_provenance.get("tool_executions_summary"),
+            image_manifest=images,
+            turn_provenance=turn_provenance,
         )
     finally:
         preserve_failed = (verdict.verdict == "FAIL")
@@ -155,26 +158,29 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     else:
         if verdict.proof:
             log_audit(f"Lite Mode verifier PASS proofs: {verdict.proof}")
-        log_audit("Lite Mode verifier PASS; running knowledge base maintainer")
-        # 8. Update statusline to 'updating knowledge/memory' and run KB maintainer
-        save_session_state(
-            state_file,
-            state,
-            lite_fail_count=0,
-            lite_status="updating knowledge/memory",
-            sage_status="updating",
-            last_audited_line_count=len(steps),
-        )
-        kb_fork_id = fork_conversation_session(conv_id)
-        if kb_fork_id:
-            try:
-                run_kb_maintenance(
-                    parent_conv_id=conv_id,
-                    fork_conv_id=kb_fork_id,
-                    cwd=workspace_root,
-                )
-            finally:
-                cleanup_fork_session(kb_fork_id)
+        if verdict.update_knowledge:
+            log_audit("Lite Mode verifier PASS (knowledge update requested); running knowledge base maintainer")
+            # 8. Update statusline to 'updating knowledge/memory' and run KB maintainer
+            save_session_state(
+                state_file,
+                state,
+                lite_fail_count=0,
+                lite_status="updating knowledge/memory",
+                sage_status="updating",
+                last_audited_line_count=len(steps),
+            )
+            kb_fork_id = fork_conversation_session(conv_id)
+            if kb_fork_id:
+                try:
+                    run_kb_maintenance(
+                        parent_conv_id=conv_id,
+                        fork_conv_id=kb_fork_id,
+                        cwd=workspace_root,
+                    )
+                finally:
+                    cleanup_fork_session(kb_fork_id)
+        else:
+            log_audit("Lite Mode verifier PASS (no knowledge update requested); bypassing knowledge base maintainer")
 
         save_session_state(
             state_file,
@@ -185,7 +191,4 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             recap_emitted=True,
             last_audited_line_count=len(steps),
         )
-        comment = (verdict.comment or "").strip()
-        if not comment:
-            comment = "Work verified cleanly by Lite Mode."
-        emit_recap_response(comment, kind="comment")
+        fail_safe_exit("Work verified cleanly by Lite Mode.")

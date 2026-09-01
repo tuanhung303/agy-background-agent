@@ -27,6 +27,8 @@ def run_lite_verification(
     timeout: float = LITE_MODE_TIMEOUT,
     cwd: Optional[str] = None,
     turn_execution_summary: Optional[str] = None,
+    image_manifest: Optional[list] = None,
+    turn_provenance: Optional[dict] = None,
 ) -> LiteVerdict:
     """Executes Gemini Medium/High on the forked conversation and returns a LiteVerdict."""
     mock_val = os.environ.get("AGY_LITE_MOCK_VERDICT", "").strip()
@@ -42,6 +44,8 @@ def run_lite_verification(
         user_prompt,
         last_agent_output,
         turn_execution_summary=turn_execution_summary,
+        image_manifest=image_manifest,
+        turn_provenance=turn_provenance,
     )
     agy_bin = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
     iso_home = ensure_isolated_home()

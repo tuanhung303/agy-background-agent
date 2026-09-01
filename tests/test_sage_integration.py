@@ -253,9 +253,8 @@ class TestAdvisorIntegration(unittest.TestCase):
 
             written = "".join([c.args[0] for c in mock_stdout2.write.mock_calls if c.args])
             data = json.loads(written.strip())
-            self.assertEqual(data.get("terminationBehavior"), "terminate")
-            self.assertIn("Feature Z fully implemented and verified.", data["injectSteps"][0]["userMessage"])
-            self.assertIn("※ sage:", data["injectSteps"][0]["userMessage"])
+            self.assertEqual(data.get("injectSteps"), [])
+            self.assertNotIn("terminationBehavior", data)
 
             with open(state_file, "r") as sf:
                 s2 = json.load(sf)
@@ -300,8 +299,8 @@ class TestAdvisorIntegration(unittest.TestCase):
 
             written = "".join([c.args[0] for c in mock_stdout.write.mock_calls if c.args])
             data = json.loads(written.strip())
-            self.assertEqual(data.get("terminationBehavior"), "terminate")
-            self.assertIn("Optimization verified and passed.", data["injectSteps"][0]["userMessage"])
+            self.assertEqual(data.get("injectSteps"), [])
+            self.assertNotIn("terminationBehavior", data)
 
             with open(state_file, "r") as sf:
                 s_after = json.load(sf)
@@ -417,9 +416,8 @@ class TestAdvisorIntegration(unittest.TestCase):
             mock_adv.assert_called_once()
             written = "".join([c.args[0] for c in mock_stdout.write.mock_calls if c.args])
             data = json.loads(written.strip())
-            self.assertEqual(data.get("terminationBehavior"), "terminate")
-            self.assertIn("Feature X complete and verified.", data["injectSteps"][0]["userMessage"])
-            self.assertIn("※ sage:", data["injectSteps"][0]["userMessage"])
+            self.assertEqual(data.get("injectSteps"), [])
+            self.assertNotIn("terminationBehavior", data)
             with open(state_file, "r") as sf:
                 st = json.load(sf)
             self.assertEqual(st.get("advisor_status"), "recap")

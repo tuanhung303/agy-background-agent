@@ -379,5 +379,65 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         self.assertEqual(reason, "")
 
 
+    def test_image_manifest_and_tool_output_extraction(self):
+        """Turn provenance should extract referenced images and tool output snippets."""
+        from sage.lite.gating import extract_turn_execution_provenance
+        steps = [
+            {"step_index": 0, "type": "USER_INPUT", "content": "Fix the chart bar scale"},
+            {
+                "step_index": 1,
+                "type": "PLANNER_RESPONSE",
+                "content": "Modified chart component",
+                "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "/src/Chart.tsx"}}],
+            },
+            {"step_index": 2, "type": "GENERIC", "content": "The following changes were made to /src/Chart.tsx"},
+            {
+                "step_index": 3,
+                "type": "PLANNER_RESPONSE",
+                "content": "Ran test script",
+                "tool_calls": [{"name": "run_command", "args": {"CommandLine": "node verify.mjs"}}],
+            },
+            {"step_index": 4, "type": "GENERIC", "content": "Created At: ... Log output: screenshot saved to /tmp/chart_verified.png"},
+            {
+                "step_index": 5,
+                "type": "PLANNER_RESPONSE",
+                "content": "Viewed screenshot",
+                "tool_calls": [{"name": "view_file", "args": {"AbsolutePath": "/tmp/chart_verified.png"}}],
+            },
+            {"step_index": 6, "type": "GENERIC", "content": "Binary file rendered"},
+            {
+                "step_index": 7,
+                "type": "PLANNER_RESPONSE",
+                "content": "Verified screenshot: /tmp/chart_verified.png",
+            },
+        ]
+        prov = extract_turn_execution_provenance(steps)
+        self.assertTrue(prov["has_mutation"])
+        self.assertIn("/tmp/chart_verified.png", prov["image_files"])
+        self.assertIn("replace_file_content", prov["tool_executions_summary"])
+        self.assertIn("run_command", prov["tool_executions_summary"])
+
+    def test_verifier_prompt_includes_image_manifest_and_adversarial_inspection(self):
+        """Verifier prompt must inject <current_turn_images_to_inspect> and adversarial audit rules."""
+        user_prompt = "0.83x ROAS is longer than 1.17x ROAS, fix scale"
+        agent_response = "Fixed scale. In /tmp/verified.png 0.83x < 1.17x."
+        image_manifest = ["/tmp/verified.png"]
+        turn_exec = "- run_command: `node test.mjs` -> [exit code 0]"
+
+        prompt = build_lite_verifier_prompt(
+            user_prompt,
+            agent_response,
+            turn_execution_summary=turn_exec,
+            image_manifest=image_manifest,
+        )
+        self.assertIn("<current_turn_images_to_inspect>", prompt)
+        self.assertIn("/tmp/verified.png", prompt)
+        self.assertIn("MANDATORY ACTION: You must inspect the image(s) above using `view_file`", prompt)
+        self.assertIn("ADVERSARIAL EMPIRICAL PROOF & VISUAL DISCREPANCY AUDIT", prompt)
+        self.assertIn("NEVER trust the agent's text claims about what an image or diagram shows", prompt)
+        self.assertIn("<current_turn_tool_executions>", prompt)
+        self.assertIn("node test.mjs", prompt)
+
+
 if __name__ == "__main__":
     unittest.main()
