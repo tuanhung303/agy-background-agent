@@ -23,7 +23,7 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         user_prompt = "Build a modern responsive landing page with responsive grid and navbar."
         agent_response = "I created index.html and style.css. Ran vite build and 15/15 unit tests pass."
         prompt = build_lite_verifier_prompt(user_prompt, agent_response)
-        self.assertIn("Visual / Perceptual (UI, Websites, Charts, SVG, Slides, Layouts)", prompt)
+        self.assertIn("Visual / Frontend (UI, Websites, Charts, SVG, Slides, Layouts)", prompt)
         self.assertIn("STRICT DISQUALIFICATION", prompt)
 
         # Proof validator overrides pseudo-proof PASS to FAIL
@@ -37,7 +37,7 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         user_prompt = "Draw a glitch-free architecture SVG diagram for microservices."
         agent_response = "Generated architecture.svg. XML syntax is valid, all tags match, and pre-push hook passed."
         prompt = build_lite_verifier_prompt(user_prompt, agent_response)
-        self.assertIn("Visual / Perceptual", prompt)
+        self.assertIn("Visual / Frontend", prompt)
 
         # Validating XML or pre-push hook alone is disqualified
         pseudo_proofs = ["pre-push hook passed", "XML syntax validated with xmllint"]
@@ -49,7 +49,7 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         user_prompt = "Write a bash database backup synchronization script."
         agent_response = "Created backup_sync.sh. Ran shellcheck with 0 warnings and unit tests pass."
         prompt = build_lite_verifier_prompt(user_prompt, agent_response)
-        self.assertIn("Functional / Runtime (Code, Scripts, APIs, Automations)", prompt)
+        self.assertIn("Backend / API / Runtime (Code, Scripts, Services, Automations)", prompt)
 
         pseudo_proofs = ["shellcheck passed", "unit tests 10/10 passed", "git push origin main"]
         is_valid, reason = validate_empirical_proof(pseudo_proofs)
@@ -60,8 +60,8 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         user_prompt = "Set up database migrations."
         agent_response = "I created migration files. Please run 'alembic upgrade head' and verify your database."
         prompt = build_lite_verifier_prompt(user_prompt, agent_response)
-        self.assertIn("AUTONOMY & NON-OUTSOURCING", prompt)
-        self.assertIn("telling the user to run commands/verify manually", prompt)
+        self.assertIn("AUTONOMY & ANTI-DEFERRAL", prompt)
+        self.assertIn("telling the user to run commands/migrations/verification manually", prompt)
 
     def test_complete_deliverable_with_empirical_proof_passes(self):
         """Complete deliverable with static checks AND empirical proof channels passes cleanly."""
@@ -89,7 +89,7 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         user_prompt = "Refactor database models and API serializers across auth, billing, and reports."
         agent_response = "Refactored models.py across all 3 modules. Ran pytest tests/test_auth.py (3 passed)."
         prompt = build_lite_verifier_prompt(user_prompt, agent_response)
-        self.assertIn("COMPLETENESS & SCOPE INTEGRITY", prompt)
+        self.assertIn("COMPLETENESS, BLAST RADIUS & REGRESSION IMMUNITY", prompt)
         self.assertIn("narrowing scope across multi-file changes without regression verification", prompt)
 
     def test_destructive_operation_without_safety_is_caught(self):
@@ -230,6 +230,86 @@ class TestStopVerifierDomainCases(unittest.TestCase):
             is_valid, reason = validate_empirical_proof(valid_evidence, user_prompt=p)
             self.assertTrue(is_valid, f"Rejected valid evidence for {p}: {reason}")
             self.assertEqual(reason, "")
+
+    def test_it_devops_terraform_deferral_vs_valid_proof(self):
+        """IT/DevOps task with deferred execution or unverified infra must be disqualified."""
+        # Deferral pseudo-proof
+        deferred_proofs = ["Wrote main.tf, user can run terraform apply in AWS account", "syntax checked"]
+        is_valid, reason = validate_empirical_proof(deferred_proofs)
+        self.assertFalse(is_valid)
+
+        # Genuine validation proof
+        valid_infra_proofs = [
+            "Executed terraform validate in sandbox: Success! The configuration is valid with 0 errors.",
+            "Executed docker build -t app:test . with exit code 0 and verified image inspection output",
+        ]
+        is_valid, reason = validate_empirical_proof(valid_infra_proofs)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
+
+    def test_office_documents_formula_and_presentation_proof(self):
+        """Office and presentation tasks require concrete formula audit and slide structure validation."""
+        # Deferral / narrative claim
+        narrative_proofs = ["Excel file created, XML is valid", "Slide looks good"]
+        is_valid, reason = validate_empirical_proof(narrative_proofs)
+        self.assertFalse(is_valid)
+
+        # Genuine office proof
+        valid_office_proofs = [
+            "Audited quarterly_report.xlsx: 12/12 formulas verified with no #REF! or #VALUE! errors and verified calculated totals",
+            "Inspected presentation deck pitch.pptx slide 1-10 layout structures with 0 text overflow defects",
+        ]
+        is_valid, reason = validate_empirical_proof(valid_office_proofs)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
+
+    def test_backend_regression_and_scope_narrowing_disqualification(self):
+        """Backend changes modifying shared models require multi-module regression and live runtime verification."""
+        # Isolated unit test only without live execution
+        isolated_proofs = ["1/1 unit test passed for UserModel"]
+        is_valid, reason = validate_empirical_proof(isolated_proofs)
+        self.assertFalse(is_valid)
+
+        # Multi-module regression + live curl execution
+        valid_backend_proofs = [
+            "Executed pytest tests/: 48/48 passed across user_service, order_service, and auth_service with exit code 0",
+            "Live curl POST http://127.0.0.1:8000/api/v1/users returned HTTP 201 with verified UUID response payload",
+        ]
+        is_valid, reason = validate_empirical_proof(valid_backend_proofs)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
+
+    def test_web_visual_regression_vs_computed_dom_layout(self):
+        """Web frontend changes require rendered visual proof or computed DOM layout validation."""
+        # Vite build only
+        build_only = ["vite build finished in 1.4s with 0 errors"]
+        is_valid, reason = validate_empirical_proof(build_only)
+        self.assertFalse(is_valid)
+
+        # Visual preview + Playwright computed layout
+        valid_web_proofs = [
+            "Captured rendered screenshot at /tmp/sidebar_desktop.png",
+            "Playwright browser evaluated DOM layout: #sidebar width is 240px with 0px overlap on #main-content",
+        ]
+        is_valid, reason = validate_empirical_proof(valid_web_proofs)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
+
+    def test_data_sql_pipeline_rowcount_proof(self):
+        """Data and SQL pipelines require table query results, row counts, and schema assertions."""
+        # Query written but not run
+        unrun_sql = ["Written query to models/marts/fct_sales.sql", "SQL syntax is valid"]
+        is_valid, reason = validate_empirical_proof(unrun_sql)
+        self.assertFalse(is_valid)
+
+        # Live table query proof
+        valid_sql_proofs = [
+            "Executed query against test sqlite database: returned 1420 rows with non-null transaction_id and valid schema",
+            "dbt test --select fct_sales returned 0 failures with exit code 0",
+        ]
+        is_valid, reason = validate_empirical_proof(valid_sql_proofs)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
 
 
 if __name__ == "__main__":

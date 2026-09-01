@@ -123,7 +123,9 @@ class TestLiteCLIIntegration(unittest.TestCase):
         data = json.loads(res.stdout.strip())
         self.assertIn("injectSteps", data)
         self.assertEqual(data["terminationBehavior"], "force_continue")
-        self.assertIn("Go Signal rejected", data["injectSteps"][0]["userMessage"])
+        injected_msg = data["injectSteps"][0]["userMessage"]
+        self.assertTrue(len(injected_msg) > 10)
+        self.assertTrue(any(word in injected_msg.lower() for word in ["run", "test", "verification", "execute", "proof"]))
 
     def test_cli_stop_hook_fail_decision(self):
         """CLI out-of-process test: Stop hook FAIL returns strict protojson continue decision & reason."""

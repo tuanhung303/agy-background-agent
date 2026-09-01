@@ -77,8 +77,8 @@ def main() -> int:
     prompt = build_lite_verifier_prompt("Build SVG and web app", "Output delivered.")
     required_sections = [
         "0. INTENT TYPE",
-        "1. AUTONOMY & NON-OUTSOURCING",
-        "2. COMPLETENESS & SCOPE INTEGRITY",
+        "1. AUTONOMY & ANTI-DEFERRAL",
+        "2. COMPLETENESS, BLAST RADIUS & REGRESSION IMMUNITY",
         "3. ESCALATION & SAFETY FAILURE",
         "4. MISSING DOMAIN EMPIRICAL PROOF",
         "STRICT DISQUALIFICATION",
@@ -89,8 +89,23 @@ def main() -> int:
         assert sec in prompt, f"Missing section in prompt: {sec}"
         print(f"  ✓ Verified invariant section present: {sec}")
 
-    # 5. Schema Serialization
-    print("\n[5/5] Testing Verdict Schema Serialization...")
+    # 5. Multi-Domain Verification Matrix & Schema Serialization
+    print("\n[5/5] Testing Multi-Domain Matrix (IT, Office, Web, Backend, Data)...")
+    domain_cases = [
+        ("IT/DevOps", ["Executed terraform validate in sandbox: Success! 0 errors."], True),
+        ("IT Deferral", ["Wrote main.tf, user can run terraform apply later"], False),
+        ("Office", ["Audited report.xlsx: 12/12 formulas verified with no #REF! errors"], True),
+        ("Backend Regression", [
+            "Executed pytest tests/ across 3 services with exit code 0",
+            "Live curl POST http://127.0.0.1:8000/api/v1/users returned HTTP 201 with verified UUID",
+        ], True),
+        ("Data SQL", ["Executed query against test db: returned 1420 rows with valid schema"], True),
+    ]
+    for name, proofs, expected in domain_cases:
+        is_val, _ = validate_empirical_proof(proofs)
+        assert is_val == expected, f"Failed domain test for {name}"
+        print(f"  ✓ Verified {name} domain behavior")
+
     v = LiteVerdict(verdict="PASS", comment="Verified live.", proof=["Captured /tmp/test.png"])
     d = v.to_dict()
     assert d["verdict"] == "PASS" and d["proof"] == ["Captured /tmp/test.png"]

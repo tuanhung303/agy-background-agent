@@ -13,14 +13,28 @@ DISQUALIFIED_PATTERNS = (
     r"\btsc\b",
     r"\bvite\s+build\b",
     r"\bnpm\s+(?:run\s+)?build\b",
-    r"\bwebpack\b",
     r"\bgit\s+push\b",
     r"\bcommit\s+[a-f0-9]{6,}\b",
     r"\blint(?:er|ing)?\b",
+    r"\bsyntax\s+(?:is\s+)?valid\b",
+    r"\bsyntax\s+check(?:ed)?\b",
+    r"\b(?:xml|json|sql|html)\s+(?:is\s+)?valid\b",
+    r"\blooks\s+good\b",
+    r"\b(?:written|created)\s+(?:query|file|script)\b",
+)
+
+DEFERRAL_PATTERNS = (
+    r"\buser\s+can\b",
+    r"\b(?:test|verify|run|apply)\s+later\b",
+    r"\bwill\s+(?:test|verify|run|apply)\b",
+    r"\bplease\s+(?:run|verify|test|check|apply)\b",
+    r"\bdefer(?:red|ring)?\b",
+    r"\btodo\b",
+    r"\bmanual(?:ly)?\s+verif\w*\b",
 )
 
 EMPIRICAL_INDICATORS = (
-    r"\.(?:png|jpg|jpeg|webp|gif|svg|md|xlsx|pptx|docx|pdf|txt|csv|py|sh|ts|js|json|ya?ml)\b",
+    r"\.(?:png|jpg|jpeg|webp|gif|svg|md|xlsx|pptx|docx|pdf|txt|csv|py|sh|ts|js|json|ya?ml|tf|tfplan|dockerfile)\b",
     r"\bscreenshot\b",
     r"\bimage\b",
     r"\bbrowser\b",
@@ -36,11 +50,12 @@ EMPIRICAL_INDICATORS = (
     r"\b/tmp/\b",
     r"\bstdout\b",
     r"\boutput:\b",
-    r"\bexit\s+code\s+0\b",
-    r"\bresponse\s+code\s+200\b",
+    r"\bexit\s+code\s+\d+\b",
+    r"\bresponse\s+code\s+\d+\b",
     r"\bplan\b",
     r"\bartifact\b",
-    r"\b(?:slide|sheet|row|sbc/|internal/|inspected|referenced)\b",
+    r"\b(?:slide\s+\d+|sheet\s+\d+|row\s+\d+|rows?\s+returned|\d+\s+rows?|sbc/|internal/|inspected|referenced)\b",
+    r"\b(?:terraform|docker|kubectl|helm|ansible|sandbox|dry-run)\b",
 )
 
 PATH_PATTERN = re.compile(r"(/[a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9_]+)")
@@ -81,6 +96,11 @@ def validate_empirical_proof(
         if not text:
             continue
         text_lower = text.lower()
+
+        # Immediate rejection for any deferral or outsourced verification claim
+        is_deferred = any(re.search(pat, text_lower, re.IGNORECASE) for pat in DEFERRAL_PATTERNS)
+        if is_deferred:
+            continue
 
         if is_plan_qa:
             # For plan / QA / grill-me / research turns, citations of concrete questions, options, files, or artifacts count as valid evidence
