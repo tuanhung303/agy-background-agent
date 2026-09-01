@@ -124,14 +124,42 @@ DEFERRAL_TAXONOMY = (
 
 BANNED_DEFERRAL_PATTERNS = tuple(pat for _, pats in DEFERRAL_TAXONOMY for pat in pats)
 
-# Approval detection lives in sage.sensitive; re-exported here so callers of
-# the deferral/sanitizer API keep a single import surface.
-from sage.sensitive import detect_user_approval  # noqa: E402,F401
+APPROVAL_PATTERNS = (
+    re.compile(r"\bgo (?:ahead|on)\b", re.I),
+    re.compile(r"\b(?:yes|yeah|yep|ok(?:ay)?|sure|approved|proceed|continue|confirmed)\b[,!.]?\s*$", re.I),
+    re.compile(r"\b(?:please )?(?:do it|implement it|run it|execute it|just do(?: it)?)\b", re.I),
+    re.compile(r"\bfeel free to (?:proceed|implement|run)\b", re.I),
+    re.compile(r"\bkeep going\b", re.I),
+    re.compile(r"\b(?:làm đi|chạy đi|triển khai đi|cứ làm|cứ triển khai|cứ chạy|đồng ý|chấp thuận|ok anh|oke anh|ừ làm đi|tiến hành)\b", re.I),
+    re.compile(r"^\s*(?:ừ|uhm?|ok|oke|yes)\b", re.I),
+)
+
+APPROVAL_NEGATIONS = (
+    re.compile(r"\b(?:should|shall|can|could|may|might|would|do|does|did)\b[^?.!\n]*\?", re.I),
+    re.compile(r"\b(?:không|chưa|nhỉ)\s*\?\s*$", re.I),
+    re.compile(r"\bif\b[^?.!\n]*\b(?:then|,)\b", re.I),
+    re.compile(r"\bnếu\b", re.I),
+)
 
 
 def strip_code_blocks(text: Optional[str]) -> str:
     """Strips fenced code blocks (```...```) to only inspect conversational text."""
     return re.sub(r"```[\s\S]*?```", "", str(text or ""))
+
+
+def detect_user_approval(user_prompt):
+    """Detects explicit user approval/permission in the CURRENT user prompt."""
+    if not user_prompt:
+        return {"approved": False, "snippet": ""}
+    clean = _normalize_for_search(strip_code_blocks(user_prompt)).strip()
+    if not clean:
+        return {"approved": False, "snippet": ""}
+    if any(n.search(clean) for n in APPROVAL_NEGATIONS):
+        return {"approved": False, "snippet": ""}
+    for pat in APPROVAL_PATTERNS:
+        if m := pat.search(clean):
+            return {"approved": True, "snippet": m.group(0).strip()}
+    return {"approved": False, "snippet": ""}
 
 
 def _normalize_for_search(text: str) -> str:

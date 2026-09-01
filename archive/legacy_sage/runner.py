@@ -12,10 +12,9 @@ from sage.goals import sync_goal_state
 from sage.guards import (
     check_payload_and_lifecycle, emit_continue_response, emit_recap_response,
     fail_safe_exit, format_hook_message, handle_background_watch_action,
-    is_post_invocation, is_subagent_session, set_pending_inbox_steps,
+    is_post_invocation, is_subagent_session,
 )
 from sage.locking import acquire_conversation_lock, cleanup_stale_tmp_files, log_audit
-from sage.mcp_bridge_helpers import drain_inbox
 from sage.policies import background_watch, final_sage_gate, sage_flow
 from sage.sage import _clear_sage_session
 from sage.session_state import (
@@ -32,8 +31,6 @@ from sage.transcript import (
 def run_session_stop_audit(raw_payload=None):
     payload = json.loads(raw_payload) if raw_payload else check_payload_and_lifecycle()
     conv_id = payload.get("conversationId") or payload.get("conversation_id") or "default"
-    drained = drain_inbox(conv_id)
-    set_pending_inbox_steps([{"userMessage": m.get("message", "")} for m in drained if m.get("message")] if drained else [])
     cleanup_stale_tmp_files(state_max_age_seconds=604800)
     cleanup_evidence_store(max_age_seconds=604800)
     if not acquire_conversation_lock(conv_id):

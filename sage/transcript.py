@@ -8,7 +8,6 @@ from sage.config import MAX_PRIOR_REQUESTS, get_tool_weight
 from sage.guards import is_steering_message
 from sage.locking import log_audit
 from sage.sanitizer import clean_user_prompt, sanitize_tool_output
-from sage.task_structure import get_parallelizable_signals
 from sage.user_context import extract_substantive_user_context
 from sage.watchers import (
     _parse_iso_ts as _parse_ts,

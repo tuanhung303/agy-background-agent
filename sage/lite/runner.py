@@ -7,7 +7,7 @@ from sage.config import LITE_MAX_RETRIES, LITE_MODE_ENABLED
 from sage.git import resolve_workspace_root
 from sage.guards import (
     check_payload_and_lifecycle, emit_continue_response, emit_recap_response,
-    fail_safe_exit, is_post_invocation, is_subagent_session, set_pending_inbox_steps,
+    fail_safe_exit, is_post_invocation, is_subagent_session,
 )
 from sage.lite.fork import cleanup_fork_session, fork_conversation_session
 from sage.lite.gating import extract_turn_execution_provenance, extract_turn_mutations_and_context
@@ -15,7 +15,6 @@ from sage.lite.proof_validator import validate_empirical_proof
 from sage.lite.schemas import LiteVerdict
 from sage.lite.verifier import generate_contextual_reject_action, run_kb_maintenance, run_lite_verification
 from sage.locking import acquire_conversation_lock, log_audit, release_lock
-from sage.mcp_bridge_helpers import drain_inbox
 from sage.session_state import load_and_sync_session_state, save_session_state
 from sage.transcript import (
     _read_transcript_steps, get_active_background_tasks,
@@ -28,11 +27,6 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     """Executes the Lite Mode Stop Hook verification gate."""
     payload = json.loads(raw_payload) if raw_payload else check_payload_and_lifecycle()
     conv_id = str(payload.get("conversationId") or payload.get("conversation_id") or "default")
-
-    # Drain any bridge inbox messages
-    drained = drain_inbox(conv_id)
-    if drained:
-        set_pending_inbox_steps([{"userMessage": m.get("message", "")} for m in drained if m.get("message")])
 
     if not acquire_conversation_lock(conv_id):
         fail_safe_exit(f"Concurrent audit in progress for {conv_id}")

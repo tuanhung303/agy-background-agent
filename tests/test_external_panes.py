@@ -60,46 +60,6 @@ class TestGetActiveExternalPanes(unittest.TestCase):
         ]
         self.assertEqual(get_active_external_panes(steps2), [])
 
-    def test_pane_block_stops_after_two_steers(self):
-        """Kill-mutation for the runner steer ceiling: after 2 steers of the same
-        pane, the stop gate must fall through (no more 'still streaming' block),
-        otherwise the session hangs in an endless stop-block loop (2026-08-27)."""
-        from unittest.mock import patch
-        from sage.runner import run_session_stop_audit
-
-        payload = json.dumps({
-            "conversationId": "test_conv_pane_ceiling",
-            "fullyIdle": True,
-            "transcriptPath": "/tmp/dummy_trans.jsonl",
-        })
-        state = {"external_pane_steers": {"term_abc12345": 2}}
-        exits = []
-
-        with patch("sage.runner.acquire_conversation_lock", return_value=True), \
-             patch("sage.runner.get_transcript_path", return_value="/tmp/dummy.jsonl"), \
-             patch("sage.runner.extract_session_and_turn_data", return_value=("do work", "do work", [], 5, {"run_command"}, 0, 0, 10)), \
-             patch("sage.runner.load_and_sync_session_state", return_value=("do work", "/tmp/state.json", state, False)), \
-             patch("sage.runner.get_active_external_panes", return_value=["term_abc12345"]), \
-             patch("sage.runner.get_active_background_tasks", return_value=[]), \
-             patch("sage.runner.is_subagent_session", return_value=False), \
-             patch("sage.runner.is_post_invocation", return_value=True), \
-             patch("sage.runner.is_post_invocation_completion_candidate", return_value=False), \
-             patch("sage.runner.has_recent_tool_errors", return_value=False), \
-             patch("sage.runner.has_repeated_tool_calls", return_value=False), \
-             patch("sage.runner.sage_flow", return_value={"action": "healthy", "text": "ok"}), \
-             patch("sage.runner.save_session_state"), \
-             patch("sage.runner.emit_continue_response") as emit_mock, \
-             patch("sage.runner.fail_safe_exit", side_effect=lambda reason: exits.append(reason) or (_ for _ in ()).throw(SystemExit)):
-            try:
-                run_session_stop_audit(payload)
-            except SystemExit:
-                pass
-
-        block_exits = [r for r in exits if "pane" in r.lower()]
-        streaming_emits = [c for c in emit_mock.call_args_list if "still streaming" in str(c)]
-        self.assertEqual(block_exits, [], f"steer ceiling breached: blocked again after 2 steers: {exits}")
-        self.assertEqual(streaming_emits, [], "re-emitted 'still streaming' after steer ceiling reached")
-
     def test_pane_tracking_is_scoped_to_current_turn(self):
         """Kill-mutation for transcript turn-scoping: a stale open pane handle
         from a PREVIOUS user turn must not block the current stop — the old

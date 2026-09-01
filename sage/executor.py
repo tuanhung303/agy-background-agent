@@ -25,40 +25,6 @@ def _link_file(src, dst):
             pass
 
 
-def register_sage_mcp_config(iso_cli, iso_cfg):
-    repo_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    mcp_env = {"PYTHONPATH": repo_dir}
-    for k in ("SAGE_MCP_EXEC", "SAGE_INBOX_DIR", "BRAIN_DIR"):
-        if os.environ.get(k):
-            mcp_env[k] = os.environ[k]
-    server_def = {"command": sys.executable or "python3", "args": ["-m", "sage.mcp_bridge"], "env": mcp_env}
-    try:
-        with open(os.path.join(iso_cfg, "mcp_config.json"), "w", encoding="utf-8") as f:
-            json.dump({"mcpServers": {"sage-mcp-bridge": server_def}}, f, indent=2)
-    except OSError:
-        pass
-    real_path = os.path.expanduser("~/.gemini/antigravity-cli/settings.json")
-    settings = {}
-    if os.path.isfile(real_path) and not os.path.realpath(real_path).startswith(os.path.realpath(SAGE_ISOLATED_HOME)):
-        try:
-            with open(real_path, "r", encoding="utf-8") as f:
-                settings = json.load(f)
-        except Exception:
-            settings = {}
-    iso_settings = os.path.join(iso_cli, "settings.json")
-    if os.path.islink(iso_settings) or os.path.lexists(iso_settings):
-        try:
-            os.unlink(iso_settings)
-        except OSError:
-            pass
-    settings.setdefault("mcpServers", {})["sage-mcp-bridge"] = server_def
-    try:
-        with open(iso_settings, "w", encoding="utf-8") as f:
-            json.dump(settings, f, indent=2)
-    except OSError:
-        pass
-
-
 def ensure_isolated_home():
     if os.path.realpath(os.environ.get("HOME", "")).startswith(os.path.realpath(SAGE_ISOLATED_HOME)):
         return SAGE_ISOLATED_HOME
@@ -66,14 +32,21 @@ def ensure_isolated_home():
     os.makedirs(iso_cli, mode=0o700, exist_ok=True)
     os.makedirs(iso_cfg, mode=0o700, exist_ok=True)
     real_cli = os.path.expanduser("~/.gemini/antigravity-cli")
-    for f in os.listdir(real_cli) if os.path.isdir(real_cli) else []:
+    try:
+        entries = os.listdir(real_cli) if os.path.isdir(real_cli) else []
+    except OSError:
+        entries = []
+    for f in entries:
         if "token" in f or "auth" in f or "credential" in f or f == "installation_id":
             _link_file(os.path.join(real_cli, f), os.path.join(iso_cli, f))
     real_kc = os.path.expanduser("~/Library/Keychains")
     if os.path.isdir(real_kc):
         iso_lib = os.path.join(SAGE_ISOLATED_HOME, "Library")
         os.makedirs(iso_lib, mode=0o700, exist_ok=True)
-        _link_file(real_kc, os.path.join(iso_lib, "Keychains"))
+        try:
+            _link_file(real_kc, os.path.join(iso_lib, "Keychains"))
+        except OSError:
+            pass
     iso_hooks = os.path.join(iso_cfg, "hooks.json")
     try:
         if os.path.islink(iso_hooks) or os.path.lexists(iso_hooks):
@@ -82,7 +55,6 @@ def ensure_isolated_home():
             f.write("{}")
     except OSError:
         pass
-    register_sage_mcp_config(iso_cli, iso_cfg)
     return SAGE_ISOLATED_HOME
 
 
@@ -165,10 +137,17 @@ def extract_json_from_llm_output(raw_text, schema_keys=()):
     return None
 
 
+def _list_convs(conv_dir):
+    try:
+        return set(os.listdir(conv_dir)) if os.path.exists(conv_dir) else set()
+    except OSError:
+        return set()
+
+
 def _find_new_conv_id(conv_dir, before_dbs, parent_conv_id=None):
     if not os.path.exists(conv_dir):
         return None
-    diffs = [f for f in (set(os.listdir(conv_dir)) - before_dbs) if f.endswith(".db") and not _is_parent(f.replace(".db", ""), parent_conv_id)]
+    diffs = [f for f in (_list_convs(conv_dir) - before_dbs) if f.endswith(".db") and not _is_parent(f.replace(".db", ""), parent_conv_id)]
     return diffs[0].replace(".db", "") if len(diffs) == 1 else None
 
 
@@ -185,15 +164,18 @@ def run_model_cascade(
     agy_bin, candidates = (shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")), (resolve_candidates_fn() or [])[:4]
     iso_home = ensure_isolated_home()
     conv_dir = os.path.join(iso_home, ".gemini", "antigravity-cli", "conversations")
-    os.makedirs(conv_dir, exist_ok=True)
-    spawn_lock_fh, before_dbs = (acquire_lock_fn() if not existing_session else None), set(os.listdir(conv_dir))
+    try:
+        os.makedirs(conv_dir, exist_ok=True)
+    except OSError:
+        pass
+    spawn_lock_fh, before_dbs = (acquire_lock_fn() if not existing_session else None), _list_convs(conv_dir)
 
     def _reset_bad():
         nonlocal existing_session, before_dbs
         if existing_session:
             clean_resume_fn(existing_session, parent_conv_id=parent_conv_id)
             clear_session_id(parent_conv_id, prefixes)
-            existing_session, before_dbs = None, set(os.listdir(conv_dir))
+            existing_session, before_dbs = None, _list_convs(conv_dir)
 
     try:
         env = dict(os.environ, AGY_STOP_AUDIT_ACTIVE="1", HOME=iso_home, PATH=f"{os.path.expanduser('~/.local/bin')}:{os.environ.get('PATH', '')}")
@@ -203,7 +185,7 @@ def run_model_cascade(
                 log_audit(f"{label} timeout reached; halting fallbacks")
                 break
             if not existing_session and not spawn_lock_fh:
-                spawn_lock_fh, before_dbs = acquire_lock_fn(), set(os.listdir(conv_dir))
+                spawn_lock_fh, before_dbs = acquire_lock_fn(), _list_convs(conv_dir)
             try:
                 cand_timeout = min(SAGE_EXEC_TIMEOUT, max(8.0, rem * 0.7 if (len(candidates) - idx) > 1 else rem))
                 cmd = [agy_bin] + (["--conversation", existing_session] if existing_session else []) + ["-p", prompt, "--model", model, "--disable-slash-commands"]

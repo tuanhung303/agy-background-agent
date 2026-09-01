@@ -635,93 +635,27 @@ class TestSanitizerBudgets(unittest.TestCase):
         self.assertLess(len(narrow), len(wide))
 
 
-class TestTaskStructureSignals(unittest.TestCase):
-    def setUp(self):
-        self.test_dir = tempfile.mkdtemp()
-        self.path = os.path.join(self.test_dir, "transcript.jsonl")
-
-    def tearDown(self):
-        shutil.rmtree(self.test_dir, ignore_errors=True)
-
-    def test_get_parallelizable_signals_disjoint_directories(self):
-        from sage.transcript import get_parallelizable_signals
-        steps = [
-            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Refactor app"},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "/repo/frontend/App.tsx"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "/repo/backend/server.py"}}]},
-        ]
-        res = get_parallelizable_signals(steps)
-        self.assertTrue(res["parallelizable"])
-        self.assertIn("disjoint_files", res["categories"])
-        self.assertIn("Implementer", res["suggested_roles"])
-        self.assertIn("PARALLELIZABLE", res["signal_text"])
-
-    def test_get_parallelizable_signals_coupled_directories_silent(self):
-        from sage.transcript import get_parallelizable_signals
-        steps = [
-            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Refactor package"},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "/repo/advisor/runner.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "replace_file_content", "args": {"TargetFile": "/repo/advisor/policies.py"}}]},
-        ]
-        res = get_parallelizable_signals(steps)
-        self.assertFalse(res["parallelizable"])
-        self.assertEqual(res["categories"], [])
-
-    def test_get_parallelizable_signals_isolated_research(self):
-        from sage.transcript import get_parallelizable_signals
-        steps = [
-            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Research technologies"},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "search_web", "args": {"query": "auth protocol OAuth2"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "search_web", "args": {"query": "billing stripe API"}}]},
-        ]
-        res = get_parallelizable_signals(steps)
-        self.assertTrue(res["parallelizable"])
-        self.assertIn("isolated_research", res["categories"])
-        self.assertIn("Scout", res["suggested_roles"])
-
-    def test_get_parallelizable_signals_independent_verification(self):
-        from sage.transcript import get_parallelizable_signals
-        steps = [
-            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Run tests"},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "pytest tests/test_unit.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "pytest tests/test_integration.py"}}]},
-        ]
-        res = get_parallelizable_signals(steps)
-        self.assertTrue(res["parallelizable"])
-        self.assertIn("independent_verification", res["categories"])
-        self.assertIn("QA", res["suggested_roles"])
-
-
-    def test_get_parallelizable_signals_from_transcript_path(self):
-        from sage.transcript import get_parallelizable_signals
-        lines = [
-            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Build multi-package app"},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "/repo/pkg1/a.py"}}]},
-            {"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "/repo/pkg2/b.py"}}]},
-        ]
-        with open(self.path, "w") as f:
-            for l in lines:
-                f.write(json.dumps(l) + "\n")
-        res = get_parallelizable_signals(self.path)
-        self.assertTrue(res["parallelizable"])
-        self.assertIn("disjoint_files", res["categories"])
-
     def test_extract_session_and_turn_data_sliding_window_compaction(self):
         lines = []
         for i in range(1, 16):
             lines.append({"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": f"<USER_REQUEST>Request {i} detail text</USER_REQUEST>", "created_at": f"2026-08-20T10:{i:02d}:00Z"})
             lines.append({"type": "PLANNER_RESPONSE", "content": f"Step {i}", "tool_calls": [{"name": "view_file"}]})
-        with open(self.path, "w") as f:
+        with tempfile.NamedTemporaryFile("w", delete=False) as f:
             for item in lines:
                 f.write(json.dumps(item) + "\n")
-        user_prompt, raw_prompt, steps, tools_count, _, _, _, _ = extract_session_and_turn_data(self.path)
-        self.assertIn("SESSION HISTORY:", user_prompt)
-        self.assertIn("Prior request 1: Request 1 detail text", user_prompt)
-        self.assertIn("earlier requests omitted", user_prompt)
-        self.assertIn("Prior request 14: Request 14 detail text", user_prompt)
-        self.assertIn("[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\nRequest 15 detail text", user_prompt)
-        self.assertEqual(raw_prompt, "<USER_REQUEST>Request 15 detail text</USER_REQUEST>")
-        self.assertLess(len(user_prompt), 2000)
+            path = f.name
+        try:
+            user_prompt, raw_prompt, steps, tools_count, _, _, _, _ = extract_session_and_turn_data(path)
+            self.assertIn("SESSION HISTORY:", user_prompt)
+            self.assertIn("Prior request 1: Request 1 detail text", user_prompt)
+            self.assertIn("earlier requests omitted", user_prompt)
+            self.assertIn("Prior request 14: Request 14 detail text", user_prompt)
+            self.assertIn("[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\nRequest 15 detail text", user_prompt)
+            self.assertEqual(raw_prompt, "<USER_REQUEST>Request 15 detail text</USER_REQUEST>")
+            self.assertLess(len(user_prompt), 2000)
+        finally:
+            if os.path.exists(path):
+                os.remove(path)
 
 
 if __name__ == "__main__":

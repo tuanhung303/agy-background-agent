@@ -6,10 +6,17 @@ import hashlib
 import json
 import os
 
+from sage.executor import clean_resume_history, clear_session_id, load_session_id
 from sage.guards import is_steering_message
 from sage.locking import atomic_write_json, log_audit, safe_id
-from sage.sage import _clear_sage_session
 from sage.transcript import clean_user_prompt, get_active_turn_identity
+
+
+def _clear_sage_session(parent_conv_id: str) -> None:
+    old_sid = load_session_id(parent_conv_id, ("agy_mid_sage_session_", "agy_mid_advisor_session_", "agy_mid_verifier_session_"))
+    if old_sid:
+        clean_resume_history(old_sid)
+    clear_session_id(parent_conv_id, ("agy_mid_sage_session_", "agy_mid_advisor_session_", "agy_mid_verifier_session_"))
 
 
 def get_state_file_path(conv_id: str) -> str:
