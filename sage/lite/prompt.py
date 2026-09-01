@@ -16,8 +16,9 @@ If No, the work is incomplete.
 
 Evaluate the response against these exact conditions across engineering, scripting, web, data, and document disciplines:
 
-0. INTENT TYPE (Plan, Brainstorm, QA, Research, File Search, Advisory, Document Survey):
-- Deterministic Routing: If the user request specifically asked for research, file discovery, document analysis, codebase search, planning, brainstorming, design options, question answering, or strategic advice (e.g. searching/comparing slides, analyzing an Excel/SOW, reviewing files, /plan, /qa, /learn, /bro, 'find where', 'check the slides', 'recommend what to discuss'), and the agent delivered a thorough analysis/synthesis citing concrete file paths or structured artifacts -> Output PASS with proof citing the analyzed files/artifacts. Do NOT demand execution commands or UI screenshots for research/file-search turns.
+0. INTENT TYPE (Plan, Brainstorm, QA, Research, File Search, Advisory, Document Survey, Grill-Me / Interview):
+- Deterministic Routing: If the user request specifically asked for research, file discovery, document analysis, codebase search, planning, brainstorming, design options, question answering, strategic advice, or interview/clarification (/plan, /qa, /learn, /bro, /grill-me, 'find where', 'check the slides', 'recommend what to discuss', 'interview me'), the agent must deliver a structured deliverable with verifiable citations (e.g. cited file paths, specific questions formulated, decision tree nodes, slide/sheet/row numbers).
+- Invariant: A PASS without evidence is strictly FORBIDDEN across all domains. Proof array must cite the specific analyzed files, formulated interview questions, or plan artifacts. Do NOT demand execution commands or UI screenshots for research/interview/planning turns, but proof array must NEVER be empty.
 - Invariant Boundary: For all implementation, coding, development, bug fixing, and office creation tasks -> Strict empirical verification below is MANDATORY.
 
 1. AUTONOMY & NON-OUTSOURCING:
@@ -43,10 +44,12 @@ Claiming completion without concrete, domain-appropriate verification evidence -
 - Data & Infrastructure (SQL, Pipelines, Cloud): Querying actual live database tables or inspecting live infrastructure state with output proof is MANDATORY.
 - Documents & Office: Auditing the complete document for narrative coherence, formatting consistency, and numeric accuracy is MANDATORY.
 - Research & File Search (Exploration, Document Review, Advisory): Citing exact verified file paths, row/slide numbers, and analytical findings with evidence from the investigated files is MANDATORY.
+- Release, Remote Merge & Deployment (git push, staging/prod deploy, release branch): Local git push stdout, pre-push hook outputs, and local builds are strictly DISQUALIFIED as deployment proof. Mandatory empirical proof requires remote CI/CD workflow verification (e.g. `gh run watch`, `gh run list --branch <branch>`), live endpoint health check (`curl` returning HTTP 200), or fresh visual screenshot of the deployed preview/staging site. If pushed without verifying CI/CD or staging endpoint health -> FAIL.
 
 STRICT DISQUALIFICATION:
 Disqualify pseudo-proofs immediately on detection:
 - Build logs, compilation status, typecheck outputs, lint runs, git push logs, and isolated unit test pass counts are NEVER accepted as final empirical proof.
+- Historical proofs or screenshots from prior turns are strictly invalid. Only actions and artifacts produced in the current turn are acceptable.
 - Narrative claims like "verified in code" or "XML is valid" without concrete artifacts (screenshot path, live query output, raw execution stdout) MUST BE REJECTED IMMEDIATELY as FAIL.
 
 [PRE-FLIGHT ADVERSARIAL PROTOCOL]
@@ -62,20 +65,34 @@ Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
   "action": "String. Imperative command if FAIL, empty string if PASS.",
   "comment": "String. If PASS, a concise 1-sentence natural comment describing what was verified. Empty string if FAIL.",
   "proof": [
-    "Array of strings citing recent concrete empirical evidence from the turn (e.g. screenshot path, browser session, or live runtime execution output; NEVER static unit tests, tsc, or build logs). Empty array if FAIL."
+    "Array of strings citing recent concrete empirical evidence from the current turn (e.g. screenshot path, browser session, or live runtime execution output; NEVER static unit tests, tsc, git push, or build logs). Empty array if FAIL."
   ]
 }}
 """
 
 
-def build_lite_verifier_prompt(user_prompt: str, last_agent_output: str) -> str:
+def build_lite_verifier_prompt(
+    user_prompt: str,
+    last_agent_output: str,
+    turn_execution_summary: Optional[str] = None,
+) -> str:
     """Builds the Final Verifier prompt injected into the newest turn of the forked session."""
+    from typing import Optional
     clean_user = (user_prompt or "").strip()
     clean_agent = (last_agent_output or "").strip()
-    return VERIFIER_PROMPT_TEMPLATE.format(
+    base_prompt = VERIFIER_PROMPT_TEMPLATE.format(
         user_request=clean_user if clean_user else "N/A",
         last_agent_response=clean_agent if clean_agent else "N/A",
     ).strip()
+
+    if turn_execution_summary and turn_execution_summary.strip():
+        exec_block = (
+            f"\n\n<current_turn_tool_executions>\n{turn_execution_summary.strip()}\n</current_turn_tool_executions>\n"
+            "Note: Only empirical evidence and artifacts generated by the above current-turn tool executions are valid for proof citation. Historical screenshots and prior-turn tests are strictly invalid."
+        )
+        return base_prompt + exec_block
+
+    return base_prompt
 
 
 KB_MAINTAINER_PROMPT = """You are the Knowledge Base & Skill Registry Maintainer for ~/Documents/GitHub/agentic/skills/ and its .okf catalog. Your primary directive is high signal, zero bloat.

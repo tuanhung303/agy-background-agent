@@ -139,6 +139,98 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         self.assertEqual(verdict.verdict, "PASS")
         self.assertEqual(len(verdict.proof), 3)
 
+    def test_release_and_git_push_alone_is_disqualified(self):
+        """Pushed branch to remote or staging without CI/CD or endpoint check must fail."""
+        user_prompt = "good push to remote, merge to staging"
+        agent_response = "Merged and pushed to origin staging. 37/37 pre-push tests passed."
+        prompt = build_lite_verifier_prompt(user_prompt, agent_response)
+        self.assertIn("Release, Remote Merge & Deployment (git push, staging/prod deploy, release branch)", prompt)
+        self.assertIn("STRICT DISQUALIFICATION", prompt)
+
+        pseudo_proofs = ["git push origin staging -> 658423aa..b1e599b1 staging -> staging", "37/37 pre-push tests passed"]
+        is_valid, reason = validate_empirical_proof(pseudo_proofs)
+        self.assertFalse(is_valid)
+        self.assertIn("disqualified items", reason)
+
+    def test_stale_recycled_artifact_is_disqualified_by_provenance(self):
+        """Proof citing an old screenshot generated in a prior turn must be rejected."""
+        import os
+        import tempfile
+        import time
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            f.write(b"PNG_MOCK")
+            old_path = f.name
+
+        try:
+            # Set file mtime to 10 seconds ago
+            old_time = time.time() - 20.0
+            os.utime(old_path, (old_time, old_time))
+
+            # Turn started 5 seconds ago (after the file was created)
+            turn_start = time.time() - 5.0
+            turn_prov = {
+                "turn_start_time": turn_start,
+                "written_files": ["/other/file.txt"],
+                "generated_images": [],
+            }
+
+            proof = [f"Captured screenshot at {old_path}"]
+            is_valid, reason = validate_empirical_proof(proof, turn_provenance=turn_prov)
+            self.assertFalse(is_valid)
+            self.assertIn("stale", reason.lower())
+        finally:
+            if os.path.exists(old_path):
+                os.remove(old_path)
+
+    def test_fresh_turn_artifact_passes_provenance(self):
+        """Proof citing an artifact touched or created in the current turn passes cleanly."""
+        import os
+        import tempfile
+        import time
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            f.write(b"PNG_MOCK")
+            fresh_path = f.name
+
+        try:
+            turn_start = time.time() - 2.0
+            turn_prov = {
+                "turn_start_time": turn_start,
+                "written_files": [fresh_path],
+                "generated_images": [],
+            }
+
+            proof = [f"Captured screenshot at {fresh_path}"]
+            is_valid, reason = validate_empirical_proof(proof, turn_provenance=turn_prov)
+            self.assertTrue(is_valid)
+            self.assertEqual(reason, "")
+        finally:
+            if os.path.exists(fresh_path):
+                os.remove(fresh_path)
+
+    def test_grill_me_and_planning_intent_requires_evidence(self):
+        """Interactive /grill-me and planning prompts require cited evidence and cannot pass with empty proof."""
+        prompts = [
+            "/grill-me interview me about the architecture",
+            "/grill-me /grill-me> what is the design",
+            "<GRILL_ME> Clarify the requirements",
+            "/plan outline the database migration steps",
+            "brainstorm the test cases",
+        ]
+        for p in prompts:
+            self.assertTrue(is_plan_or_qa_intent(p), f"Failed to detect plan/QA intent for: {p}")
+            # Empty proof must be rejected
+            is_valid_empty, reason_empty = validate_empirical_proof([], user_prompt=p)
+            self.assertFalse(is_valid_empty)
+            self.assertIn("empty", reason_empty.lower())
+
+            # Cited questions / artifacts must pass cleanly
+            valid_evidence = [f"Formulated architectural decision branch and questions for: {p}"]
+            is_valid, reason = validate_empirical_proof(valid_evidence, user_prompt=p)
+            self.assertTrue(is_valid, f"Rejected valid evidence for {p}: {reason}")
+            self.assertEqual(reason, "")
+
 
 if __name__ == "__main__":
     unittest.main()

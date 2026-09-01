@@ -10,10 +10,10 @@ from sage.guards import (
     fail_safe_exit, is_post_invocation, is_subagent_session, set_pending_inbox_steps,
 )
 from sage.lite.fork import cleanup_fork_session, fork_conversation_session
-from sage.lite.gating import extract_turn_mutations_and_context
+from sage.lite.gating import extract_turn_execution_provenance, extract_turn_mutations_and_context
 from sage.lite.proof_validator import validate_empirical_proof
 from sage.lite.schemas import LiteVerdict
-from sage.lite.verifier import run_kb_maintenance, run_lite_verification
+from sage.lite.verifier import generate_contextual_reject_action, run_kb_maintenance, run_lite_verification
 from sage.locking import acquire_conversation_lock, log_audit, release_lock
 from sage.mcp_bridge_helpers import drain_inbox
 from sage.session_state import load_and_sync_session_state, save_session_state
@@ -61,8 +61,12 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     if get_active_external_panes(transcript_path):
         fail_safe_exit("Active external panes streaming")
 
-    # 4. Mutation gating check (Pure transcript inspection)
-    has_mutation, reason, true_user_prompt, last_agent_output = extract_turn_mutations_and_context(steps)
+    # 4. Mutation gating check & turn provenance distillation
+    turn_provenance = extract_turn_execution_provenance(steps)
+    has_mutation = turn_provenance["has_mutation"]
+    reason = turn_provenance["mutation_reason"]
+    true_user_prompt = turn_provenance["true_user_prompt"]
+    last_agent_output = turn_provenance["last_agent_output"]
 
     # Load session state for circuit breaker & statusline
     clean_prompt, state_file, state, _ = load_and_sync_session_state(conv_id, transcript_path, true_user_prompt)
@@ -105,6 +109,7 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             user_prompt=true_user_prompt,
             last_agent_output=last_agent_output,
             cwd=workspace_root,
+            turn_execution_summary=turn_provenance.get("tool_executions_summary"),
         )
     finally:
         preserve_failed = (verdict.verdict == "FAIL")
@@ -116,11 +121,23 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
 
     # 7. Validate Empirical Proof if PASS
     if verdict.verdict == "PASS":
-        is_valid_proof, reject_reason = validate_empirical_proof(verdict.proof)
+        user_p = true_user_prompt or turn_provenance.get("true_user_prompt", "")
+        is_valid_proof, reject_reason = validate_empirical_proof(
+            verdict.proof,
+            turn_provenance=turn_provenance,
+            user_prompt=user_p,
+        )
         if not is_valid_proof:
             log_audit(f"Lite Mode verifier PASS overridden to FAIL by proof validator: {reject_reason}")
             verdict.verdict = "FAIL"
-            verdict.action = f"Go Signal rejected: {reject_reason}. You must execute and document at least one empirical verification channel (e.g. capture a visual screenshot, perform browser verification, or execute a live command with exact output)."
+            contextual_action = generate_contextual_reject_action(
+                fork_conv_id=fork_conv_id,
+                user_prompt=true_user_prompt,
+                last_agent_output=last_agent_output,
+                reject_reason=reject_reason,
+                cwd=workspace_root,
+            )
+            verdict.action = contextual_action if contextual_action else f"Verification rejected: {reject_reason}."
 
     # 8. Dispatch Verdict
     if verdict.verdict == "FAIL" and verdict.action:

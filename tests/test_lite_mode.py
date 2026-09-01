@@ -254,7 +254,8 @@ class TestLiteRunner(unittest.TestCase):
     @patch("sage.lite.runner.fork_conversation_session", return_value="fork_ver_disq")
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
-    def test_runner_pass_overridden_when_proof_is_disqualified(self, mock_ver, mock_clean, mock_fork, mock_cont):
+    @patch("sage.lite.runner.generate_contextual_reject_action", return_value="Run live pytest test execution with stdout before stopping.")
+    def test_runner_pass_overridden_when_proof_is_disqualified(self, mock_gen, mock_ver, mock_clean, mock_fork, mock_cont):
         mock_cont.side_effect = SystemExit(0)
         mock_ver.return_value = LiteVerdict(
             verdict="PASS",
@@ -276,7 +277,7 @@ class TestLiteRunner(unittest.TestCase):
             except SystemExit:
                 pass
             mock_cont.assert_called_once()
-            self.assertIn("Go Signal rejected", mock_cont.call_args[0][0])
+            self.assertIn("pytest test execution", mock_cont.call_args[0][0])
 
     @patch("sage.lite.runner.fail_safe_exit")
     def test_runner_bypasses_when_background_or_not_idle(self, mock_exit):

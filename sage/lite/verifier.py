@@ -15,7 +15,7 @@ from sage.locking import log_audit
 LITE_MODEL_CANDIDATES = (
     "Gemini 3.7 Flash (Low)",
     "Gemini 3.7 Flash (Medium)",
-    "Gemini 3.5 Flash (High)",
+    "Gemini 3.7 Flash (High)",
 )
 
 
@@ -26,8 +26,9 @@ def run_lite_verification(
     last_agent_output: str,
     timeout: float = LITE_MODE_TIMEOUT,
     cwd: Optional[str] = None,
+    turn_execution_summary: Optional[str] = None,
 ) -> LiteVerdict:
-    """Executes Gemini Low on the forked conversation and returns a LiteVerdict."""
+    """Executes Gemini Medium/High on the forked conversation and returns a LiteVerdict."""
     mock_val = os.environ.get("AGY_LITE_MOCK_VERDICT", "").strip()
     if mock_val:
         if mock_val.upper().startswith("FAIL"):
@@ -37,7 +38,11 @@ def run_lite_verification(
         proof = [comment] if comment else ["Verified screenshot captured at /tmp/test.png"]
         return LiteVerdict(verdict="PASS", action="", comment=comment, proof=proof)
 
-    prompt = build_lite_verifier_prompt(user_prompt, last_agent_output)
+    prompt = build_lite_verifier_prompt(
+        user_prompt,
+        last_agent_output,
+        turn_execution_summary=turn_execution_summary,
+    )
     agy_bin = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
     iso_home = ensure_isolated_home()
 
@@ -156,3 +161,71 @@ def run_kb_maintenance(
             continue
 
     return ""
+
+
+def generate_contextual_reject_action(
+    fork_conv_id: str,
+    user_prompt: str,
+    last_agent_output: str,
+    reject_reason: str,
+    timeout: float = 12.0,
+    cwd: Optional[str] = None,
+) -> str:
+    """Invokes verifier model to generate domain-specific actionable instruction instead of static boilerplate."""
+    mock_val = os.environ.get("AGY_LITE_MOCK_VERDICT", "").strip()
+    if mock_val and mock_val.upper().startswith("FAIL"):
+        return mock_val.split(":", 1)[1].strip() if ":" in mock_val else "Mandatory verification required."
+
+    clean_user = (user_prompt or "").strip()
+    clean_agent = (last_agent_output or "").strip()
+    prompt = (
+        "You are the Quality Gate Verifier. The agent attempted to stop on this request:\n"
+        f"<user_request>\n{clean_user}\n</user_request>\n\n"
+        f"<last_agent_response>\n{clean_agent}\n</last_agent_response>\n\n"
+        f"Empirical proof validation failed: {reject_reason}\n\n"
+        "State in 1-2 direct imperative sentences the exact, concrete verification action or proof the agent must perform for this specific task and codebase before stopping.\n"
+        "Never use generic boilerplate (e.g. 'execute and document at least one empirical verification channel'). Focus on the actual files, endpoints, or features touched."
+    )
+    agy_bin = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
+    iso_home = ensure_isolated_home()
+
+    start_t = time.time()
+    env = dict(
+        os.environ,
+        AGY_STOP_AUDIT_ACTIVE="1",
+        HOME=iso_home,
+        PATH=f"{os.path.expanduser('~/.local/bin')}:{os.environ.get('PATH', '')}",
+    )
+
+    for model in LITE_MODEL_CANDIDATES:
+        rem = timeout - (time.time() - start_t)
+        if rem <= 0.5:
+            break
+        cand_timeout = min(timeout, max(2.0, rem))
+        cmd = [
+            agy_bin,
+            "--conversation", fork_conv_id,
+            "-p", prompt,
+            "--model", model,
+            "--disable-slash-commands",
+        ]
+        run_cwd = cwd if (cwd and os.path.isdir(cwd)) else None
+        try:
+            res = subprocess.run(
+                cmd,
+                input="",
+                capture_output=True,
+                text=True,
+                timeout=cand_timeout,
+                env=env,
+                cwd=run_cwd,
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                lines = [l.strip() for l in res.stdout.strip().splitlines() if l.strip() and not l.startswith("```")]
+                if lines:
+                    return " ".join(lines)
+        except Exception:
+            continue
+
+    return f"Verification rejected: {reject_reason}. Verify the specific changes in this turn before completing."
+

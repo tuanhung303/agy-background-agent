@@ -37,15 +37,15 @@ def main() -> int:
         assert not is_plan_or_qa_intent(p), f"False positive plan intent: {p}"
         print(f"  ✓ Recognized implementation intent: {p[:45]}...")
 
-    # 2. Visual / Website / SVG Proof Disqualification
-    print("\n[2/5] Testing Visual / Website / SVG Pseudo-Proof Disqualification...")
-    pseudo_proofs = ["vite build finished in 2.1s", "15/15 unit tests passed", "pre-push hook passed"]
+    # 2. Visual / Website / SVG / Release Proof Disqualification
+    print("\n[2/5] Testing Visual / Website / SVG / Release Pseudo-Proof Disqualification...")
+    pseudo_proofs = ["vite build finished in 2.1s", "15/15 unit tests passed", "pre-push hook passed", "git push origin staging -> 658423aa..b1e599b1"]
     valid, reason = validate_empirical_proof(pseudo_proofs)
     assert not valid, "Failed to disqualify pseudo-proofs"
     print(f"  ✓ Pseudo-proof correctly disqualified: {reason}")
 
-    # 3. Visual & Perceptual Proof Acceptance
-    print("\n[3/5] Testing Visual & Sandbox Empirical Proof Acceptance...")
+    # 3. Visual, Sandbox & Provenance Proof Acceptance
+    print("\n[3/5] Testing Visual, Sandbox & Provenance Empirical Proof Acceptance...")
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_img:
         tmp_img.write(b"PNG_MOCK")
         img_path = tmp_img.name
@@ -58,6 +58,16 @@ def main() -> int:
         valid, reason = validate_empirical_proof(genuine_proofs)
         assert valid, f"Valid proofs rejected: {reason}"
         print(f"  ✓ Genuine empirical proofs accepted: {genuine_proofs[0][:40]}...")
+
+        # Test stale artifact rejection when turn started after file creation
+        turn_prov_stale = {
+            "turn_start_time": 9999999999.0,
+            "written_files": ["/other/file.ts"],
+            "generated_images": [],
+        }
+        stale_valid, stale_reason = validate_empirical_proof([f"Captured screenshot at {img_path}"], turn_provenance=turn_prov_stale)
+        assert not stale_valid, "Failed to reject stale recycled artifact"
+        print(f"  ✓ Stale recycled artifact correctly rejected: {stale_reason}")
     finally:
         if os.path.exists(img_path):
             os.remove(img_path)
