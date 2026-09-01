@@ -311,6 +311,73 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         self.assertTrue(is_valid)
         self.assertEqual(reason, "")
 
+    def test_prod_terraform_destructive_plan_disqualified_vs_safe_plan(self):
+        """Destructive terraform plan with resources to destroy must be disqualified without escalation."""
+        destructive_plan = ["plan: 1 to add, 0 to change, 1 to destroy in staging"]
+        is_valid, reason = validate_empirical_proof(destructive_plan)
+        self.assertFalse(is_valid)
+
+        safe_plan = [
+            "Executed terraform plan -out=tfplan with exit code 0: 2 to add, 1 to change, 0 to destroy",
+        ]
+        is_valid, reason = validate_empirical_proof(safe_plan)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
+
+    def test_container_docker_build_only_disqualified_vs_container_healthcheck(self):
+        """Docker build alone is disqualified without live container boot and healthcheck verification."""
+        build_only = ["docker build successful for image app:latest"]
+        is_valid, reason = validate_empirical_proof(build_only)
+        self.assertFalse(is_valid)
+
+        live_container = [
+            "Executed docker run in sandbox and curl http://127.0.0.1:8080/healthz returned response code 200",
+        ]
+        is_valid, reason = validate_empirical_proof(live_container)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
+
+    def test_svg_viewbox_and_bounding_geometry_proof(self):
+        """SVG vector proof requires explicit viewBox and non-zero layout bounding geometry."""
+        syntax_only = ["SVG XML is valid, all tags closed"]
+        is_valid, reason = validate_empirical_proof(syntax_only)
+        self.assertFalse(is_valid)
+
+        geometry_proof = [
+            "Evaluated SVG in browser: explicit viewBox='0 0 500 200' with DOM getBoundingClientRect width 500px",
+            "Captured rendered visual screenshot at /tmp/chart_preview.png",
+        ]
+        is_valid, reason = validate_empirical_proof(geometry_proof)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
+
+    def test_backend_mock_only_test_disqualified_vs_live_negative_curl(self):
+        """Mocked unit test pass counts are disqualified; live execution with negative cases is accepted."""
+        mock_only = ["4 passed on mock with @patch"]
+        is_valid, reason = validate_empirical_proof(mock_only)
+        self.assertFalse(is_valid)
+
+        live_curl = [
+            "Live curl -X POST http://127.0.0.1:8000/api/v1/webhook with empty payload returned response code 422",
+            "Live curl http://127.0.0.1:8000/api/v1/health returned response code 200",
+        ]
+        is_valid, reason = validate_empirical_proof(live_curl)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
+
+    def test_migration_with_upgrade_and_downgrade_rollback_proof(self):
+        """Database migration requires both upgrade and downgrade rollback validation without manual deferral."""
+        deferred_migration = ["Generated migration, please apply in production database"]
+        is_valid, reason = validate_empirical_proof(deferred_migration)
+        self.assertFalse(is_valid)
+
+        rollback_proof = [
+            "Executed alembic upgrade head and alembic downgrade -1 against test database with exit code 0",
+        ]
+        is_valid, reason = validate_empirical_proof(rollback_proof)
+        self.assertTrue(is_valid)
+        self.assertEqual(reason, "")
+
 
 if __name__ == "__main__":
     unittest.main()

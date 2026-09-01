@@ -13,6 +13,9 @@ DISQUALIFIED_PATTERNS = (
     r"\btsc\b",
     r"\bvite\s+build\b",
     r"\bnpm\s+(?:run\s+)?build\b",
+    r"\bdocker\s+build\b",
+    r"\bimage\s+build\b",
+    r"\bwebpack\b",
     r"\bgit\s+push\b",
     r"\bcommit\s+[a-f0-9]{6,}\b",
     r"\blint(?:er|ing)?\b",
@@ -21,6 +24,9 @@ DISQUALIFIED_PATTERNS = (
     r"\b(?:xml|json|sql|html)\s+(?:is\s+)?valid\b",
     r"\blooks\s+good\b",
     r"\b(?:written|created)\s+(?:query|file|script)\b",
+    r"\b\d+\s+mocked\b",
+    r"\bpassed\s+on\s+mock\b",
+    r"\bplan:\s+\d+\s+to\s+add,\s+\d+\s+to\s+change,\s+[1-9]\d*\s+to\s+destroy\b",
 )
 
 DEFERRAL_PATTERNS = (
@@ -28,6 +34,7 @@ DEFERRAL_PATTERNS = (
     r"\b(?:test|verify|run|apply)\s+later\b",
     r"\bwill\s+(?:test|verify|run|apply)\b",
     r"\bplease\s+(?:run|verify|test|check|apply)\b",
+    r"\bapply\s+in\s+(?:staging|prod|production)\b",
     r"\bdefer(?:red|ring)?\b",
     r"\btodo\b",
     r"\bmanual(?:ly)?\s+verif\w*\b",
@@ -55,7 +62,7 @@ EMPIRICAL_INDICATORS = (
     r"\bplan\b",
     r"\bartifact\b",
     r"\b(?:slide\s+\d+|sheet\s+\d+|row\s+\d+|rows?\s+returned|\d+\s+rows?|sbc/|internal/|inspected|referenced)\b",
-    r"\b(?:terraform|docker|kubectl|helm|ansible|sandbox|dry-run)\b",
+    r"\b(?:terraform|docker|kubectl|helm|ansible|sandbox|dry-run|0\s+to\s+destroy|tfplan|viewBox|scrollWidth|explain\s+analyze|downgrade)\b",
 )
 
 PATH_PATTERN = re.compile(r"(/[a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9_]+)")
