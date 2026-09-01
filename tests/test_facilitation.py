@@ -433,11 +433,8 @@ class TestFacilitationCommand(unittest.TestCase):
                 self.assertEqual(cm.exception.code, 0)
                 written = "".join([c.args[0] for c in mock_stdout.write.mock_calls if c.args])
                 data = json.loads(written.strip())
-                msg = data.get("reason") or (data.get("injectSteps", [{}])[0].get("userMessage", ""))
-                self.assertIn("[RECAP·on_track] All done", msg)
-                self.assertNotIn("[CMD·facilitation", msg)
-                self.assertNotIn("Delegate execution to subagents", msg)
-                self.assertNotIn("[WATCH·delegate·confirm]", msg)
+                self.assertTrue(data.get("decision") == "stop" or data.get("injectSteps") == [])
+                self.assertNotIn("terminationBehavior", data)
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)

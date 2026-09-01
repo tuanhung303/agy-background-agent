@@ -7,6 +7,7 @@ from sage.command_policy import is_sage_command_safe
 from sage.config import FILE_EDITING_TOOLS
 from sage.guards import is_steering_message
 from sage.sanitizer import clean_user_prompt
+from sage.user_context import extract_substantive_user_context
 
 MUTATING_TOOLS: Set[str] = {
     "write_to_file",
@@ -108,15 +109,23 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
     """Extracts mutations, timestamps, tool calls, tool outputs, and provenance artifacts for the current turn."""
     empty_res = {
         "has_mutation": False, "mutation_reason": "Empty transcript steps",
-        "true_user_prompt": "", "last_agent_output": "", "turn_start_time": 0.0,
+        "true_user_prompt": "", "latest_user_prompt": "", "primary_goal": "",
+        "has_compaction": False, "last_agent_output": "", "turn_start_time": 0.0,
         "written_files": [], "executed_commands": [], "generated_images": [],
         "image_files": [], "tool_executions_summary": "(No tool calls executed in current turn)",
     }
     if not steps or not isinstance(steps, list):
         return empty_res
 
+    user_ctx = extract_substantive_user_context(steps)
+    true_user_prompt = user_ctx["true_user_prompt"]
+    latest_user_prompt = user_ctx["latest_user_prompt"]
+    primary_goal = user_ctx["primary_goal"]
+    has_compaction = user_ctx["has_compaction"]
+    turn_start_time = user_ctx["turn_start_time"]
+
     has_mutation, mutation_reason = False, "No mutating tool calls detected in turn"
-    true_user_prompt, last_agent_output, turn_start_time = "", "", 0.0
+    last_agent_output = ""
     written_files, executed_commands = set(), []
     generated_images, image_files, tool_summary_lines = set(), set(), []
 
@@ -130,9 +139,6 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
             cleaned = clean_user_prompt(raw_content)
             if is_steering_message(cleaned):
                 continue
-            if not true_user_prompt and cleaned:
-                true_user_prompt = cleaned
-                turn_start_time = _parse_ts_to_epoch(s.get("created_at"))
             break
     turn_steps.reverse()
 
@@ -205,17 +211,12 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
         for match in IMAGE_PATH_PATTERN.findall(last_agent_output):
             image_files.add(match)
 
-    if not true_user_prompt:
-        for s in steps:
-            if isinstance(s, dict) and s.get("type") == "USER_INPUT":
-                true_user_prompt = clean_user_prompt(str(s.get("content") or ""))
-                if not turn_start_time:
-                    turn_start_time = _parse_ts_to_epoch(s.get("created_at"))
-
     tool_exec_summary = "\n".join(tool_summary_lines) if tool_summary_lines else "(No tool calls executed in current turn)"
     return {
         "has_mutation": has_mutation, "mutation_reason": mutation_reason,
-        "true_user_prompt": true_user_prompt, "last_agent_output": last_agent_output,
+        "true_user_prompt": true_user_prompt, "latest_user_prompt": latest_user_prompt,
+        "primary_goal": primary_goal, "has_compaction": has_compaction,
+        "last_agent_output": last_agent_output,
         "turn_start_time": turn_start_time, "written_files": list(written_files),
         "executed_commands": executed_commands, "generated_images": list(generated_images),
         "image_files": list(image_files), "tool_executions_summary": tool_exec_summary,

@@ -9,6 +9,7 @@ from sage.guards import is_steering_message
 from sage.locking import log_audit
 from sage.sanitizer import clean_user_prompt, sanitize_tool_output
 from sage.task_structure import get_parallelizable_signals
+from sage.user_context import extract_substantive_user_context
 from sage.watchers import (
     _parse_iso_ts as _parse_ts,
     get_active_background_tasks as _get_tasks,
@@ -64,28 +65,17 @@ def extract_session_and_turn_data(transcript_path):
     if not steps:
         return "", "", [], 0, set(), None, None, 0
     user_prompt, raw_user_prompt, agent_steps, total_tools, tool_names = "", "", [], 0, set()
-    first_ts, user_ts, all_prompts, last_user_idx = None, None, [], -1
+    first_ts, user_ts, last_user_idx = None, None, -1
     for i, s in enumerate(steps):
         ts = _parse_ts(s.get("created_at"))
         first_ts = first_ts or ts
         if is_explicit_user_input(s):
             last_user_idx, raw_user_prompt, user_ts = i, str(s.get("content") or ""), ts or user_ts
-            cleaned = clean_user_prompt(raw_user_prompt)
-            if cleaned:
-                all_prompts.append(cleaned)
-    if all_prompts:
-        prior = all_prompts[:-1]
-        if not prior:
-            user_prompt = f"[LATEST ACTIVE USER REQUEST]:\n{all_prompts[-1]}"
-        else:
-            max_priors = max(1, MAX_PRIOR_REQUESTS)
-            if len(prior) <= max_priors:
-                hist_lines = [f"- Prior request {idx+1}: {p[:200]}" for idx, p in enumerate(prior)]
-            else:
-                hist_lines = [f"- Prior request 1: {prior[0][:200]}", f"- (…{len(prior) - max_priors} earlier requests omitted)"]
-                hist_lines.extend(f"- Prior request {idx+1}: {prior[idx][:200]}" for idx in range(len(prior) - (max_priors - 1), len(prior)))
-            hist = "\n".join(hist_lines)
-            user_prompt = f"SESSION HISTORY:\n{hist}\n\n[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\n{all_prompts[-1]}"
+
+    user_ctx = extract_substantive_user_context(steps)
+    user_prompt = user_ctx["true_user_prompt"]
+    if user_prompt and not user_prompt.startswith(("[", "SESSION")):
+        user_prompt = f"[LATEST ACTIVE USER REQUEST]:\n{user_prompt}"
     if last_user_idx == -1:
         return user_prompt, raw_user_prompt, agent_steps, 0, tool_names, first_ts, user_ts, len(steps)
     for s in steps[last_user_idx + 1:]:
