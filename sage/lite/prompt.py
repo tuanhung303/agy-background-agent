@@ -49,6 +49,7 @@ Claiming completion without concrete, domain-appropriate verification evidence -
 - Data & SQL (Pipelines, Queries, Tables): Querying actual live/test database tables with row counts, schema proof, partition pruning / explain plan, and idempotency verification is MANDATORY.
 - Research & File Search (Exploration, Document Review, Advisory): Citing exact verified file paths, row/slide numbers, and analytical findings with evidence from the investigated files is MANDATORY.
 - Release, Remote Merge & Deployment (git push, staging/prod deploy, release branch): Local git push stdout, pre-push hook outputs, and local builds are strictly DISQUALIFIED as deployment proof. Mandatory empirical proof requires remote CI/CD workflow verification (e.g. `gh run watch`, `gh run list --branch <branch>`), live endpoint health check (`curl` returning HTTP 200), or fresh visual screenshot of the deployed preview/staging site. If pushed without verifying CI/CD or staging endpoint health -> FAIL.
+- Persistent Topic-Based Verification Standard: For non-trivial calculations, solvers, multi-tier deployments, API contracts, or data pipelines, empirical verification must be structured into reusable topic modules under `scripts/verify/<topic>/` orchestrated by `scripts/verify/all.py` (or `npm run verify`). Throwaway one-off inline scripts that are discarded at turn end are prohibited when repeatable verification is required.
 
 STRICT DISQUALIFICATION:
 Disqualify pseudo-proofs immediately on detection:

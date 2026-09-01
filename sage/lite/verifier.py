@@ -184,6 +184,7 @@ def generate_contextual_reject_action(
         f"<last_agent_response>\n{clean_agent}\n</last_agent_response>\n\n"
         f"Empirical proof validation failed: {reject_reason}\n\n"
         "State in 1-2 direct imperative sentences the exact, concrete verification action or proof the agent must perform for this specific task and codebase before stopping.\n"
+        "Recommend adding or updating the matching topic module under scripts/verify/<topic>/ (orchestrated by scripts/verify/all.py or npm run verify) so the check is repeatable across future turns.\n"
         "Never use generic boilerplate (e.g. 'execute and document at least one empirical verification channel'). Focus on the actual files, endpoints, or features touched."
     )
     agy_bin = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
