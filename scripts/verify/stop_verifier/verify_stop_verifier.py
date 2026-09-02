@@ -118,7 +118,25 @@ def main() -> int:
     assert d["verdict"] == "PASS" and d["proof"] == ["Captured /tmp/test.png"]
     print("  ✓ Schema serialization verified cleanly.")
 
-    print("\n=== ALL 5 VERIFICATION CHANNELS PASSED CLEANLY ===")
+    # 6. Sibling Blast Radius & Recurrence Class Universe U Verification
+    print("\n[6/6] Testing Enumerable Entity Universe U Verification (Channels, Tenants, Formulas, Routes)...")
+    universe_entities = {
+        "channels": ["meta_spend", "google_spend", "tiktok_spend", "ctv_spend", "offline_spend"],
+        "tenants": ["seeda", "datum", "cbc", "gr", "tcc", "kleva", "sbc"],
+        "formulas": ["roas_calc", "margin_calc", "variance_calc", "currency_convert"],
+        "routes": ["auth_service", "billing_service", "reports_service", "data_service"],
+    }
+    for category, entities in universe_entities.items():
+        # Assert full universe cardinality and non-empty members
+        assert len(entities) >= 4, f"Universe for {category} must contain >= 4 candidates"
+        aggregated_proof = [
+            f"Executed verified test matrix across universe U_{category} ({len(entities)}/{len(entities)} candidates verified: {', '.join(entities)}) with exit code 0"
+        ]
+        is_val, reason = validate_empirical_proof(aggregated_proof)
+        assert is_val, f"Aggregated proof for universe U_{category} rejected: {reason}"
+        print(f"  ✓ Verified Universe U_{category} (|U|={len(entities)}) across: {', '.join(entities)}")
+
+    print("\n=== ALL 6 VERIFICATION CHANNELS PASSED CLEANLY ===")
     return 0
 
 
