@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, patch
 
 from sage.lite.fork import FAILED_FORKS_DIR, cleanup_fork_session, fork_conversation_session, prune_failed_forks_dir
 from sage.lite.gating import extract_turn_mutations_and_context, is_mutating_tool_call
-from sage.lite.prompt import build_kb_maintainer_prompt, build_lite_verifier_prompt
+from sage.lite.prompt import build_lite_verifier_prompt
 from sage.lite.runner import run_lite_stop_audit
 from sage.lite.schemas import LiteVerdict
-from sage.lite.verifier import run_kb_maintenance, run_lite_verification
+from sage.lite.verifier import run_lite_verification
 from statusline.statusline import get_sage_steer_badges, render_statusline
 
 
@@ -102,21 +102,8 @@ class TestLitePrompt(unittest.TestCase):
         self.assertIn("Data & SQL", prompt)
         self.assertIn("STRICT DISQUALIFICATION", prompt)
         self.assertIn("PRE-FLIGHT ADVERSARIAL PROTOCOL", prompt)
-        self.assertIn("KNOWLEDGE UPDATE CRITERIA", prompt)
         self.assertIn('"verdict": "PASS" | "FAIL"', prompt)
         self.assertIn('"proof": [', prompt)
-        self.assertIn('"update_knowledge": false | true', prompt)
-
-    def test_kb_maintainer_prompt(self):
-        prompt = build_kb_maintainer_prompt()
-        self.assertIn("Knowledge Base & Field Notes Maintainer", prompt)
-        self.assertIn("[DOMAIN A: FIELD NOTES & TENANT/PIPELINE GOTCHAS]", prompt)
-        self.assertIn("[DOMAIN B: CENTRAL SKILLS REGISTRY MAINTENANCE]", prompt)
-        self.assertIn("okf_validate.py", prompt)
-        self.assertIn("/Documents/GitHub/agentic/skills", prompt)
-        self.assertIn("/Documents/GitHub/field-notes", prompt)
-        self.assertNotIn("~/", prompt)
-
 
 
 class TestLiteFork(unittest.TestCase):
@@ -207,13 +194,12 @@ class TestLiteRunner(unittest.TestCase):
             mock_cont.assert_called_once_with("Run pytest tests/test_app.py now.")
 
     @patch("sage.lite.runner.fail_safe_exit")
-    @patch("sage.lite.runner.fork_conversation_session", side_effect=["fork_ver_123", "fork_kb_456"])
+    @patch("sage.lite.runner.fork_conversation_session", return_value="fork_ver_pass")
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
-    @patch("sage.lite.runner.dispatch_async_kb_maintenance", return_value=12345)
-    def test_runner_pass_runs_kb_maintenance_when_requested(self, mock_dispatch, mock_ver, mock_clean, mock_fork, mock_exit):
+    def test_runner_pass_verifies_cleanly(self, mock_ver, mock_clean, mock_fork, mock_exit):
         mock_exit.side_effect = SystemExit(0)
-        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", proof=["Captured screenshot at /tmp/chart.png"], update_knowledge=True)
+        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", comment="all unit tests passed.", proof=["Captured screenshot at /tmp/chart.png"])
         payload = {
             "conversationId": "test_conv_pass",
             "transcript_path": "/tmp/nonexistent.jsonl",
@@ -228,36 +214,6 @@ class TestLiteRunner(unittest.TestCase):
                 run_lite_stop_audit(json.dumps(payload))
             except SystemExit:
                 pass
-            mock_dispatch.assert_called_once_with(
-                parent_conv_id="test_conv_pass",
-                fork_conv_id="fork_kb_456",
-                cwd=mock_dispatch.call_args[1]["cwd"],
-            )
-            mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
-
-    @patch("sage.lite.runner.fail_safe_exit")
-    @patch("sage.lite.runner.fork_conversation_session", return_value="fork_ver_custom")
-    @patch("sage.lite.runner.cleanup_fork_session")
-    @patch("sage.lite.runner.run_lite_verification")
-    @patch("sage.lite.runner.dispatch_async_kb_maintenance")
-    def test_runner_pass_bypasses_kb_maintenance_by_default(self, mock_dispatch, mock_ver, mock_clean, mock_fork, mock_exit):
-        mock_exit.side_effect = SystemExit(0)
-        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", comment="all unit tests passed.", proof=["Captured screenshot at /tmp/chart.png"], update_knowledge=False)
-        payload = {
-            "conversationId": "test_conv_custom_comment",
-            "transcript_path": "/tmp/nonexistent.jsonl",
-        }
-        with patch("sage.lite.runner._read_transcript_steps", return_value=[
-            {"type": "USER_INPUT", "content": "Modify code"},
-            {"type": "PLANNER_RESPONSE", "content": "Edited", "tool_calls": [
-                {"name": "write_to_file", "args": {"TargetFile": "/src/app.py"}},
-            ]},
-        ]):
-            try:
-                run_lite_stop_audit(json.dumps(payload))
-            except SystemExit:
-                pass
-            mock_dispatch.assert_not_called()
             mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
 
     @patch("sage.lite.runner.emit_continue_response")
@@ -396,26 +352,6 @@ class TestLiteStatusline(unittest.TestCase):
                     os.remove(sf)
                 if os.path.exists(tf):
                     os.remove(tf)
-
-
-class TestRunKbMaintenance(unittest.TestCase):
-    @patch("sage.lite.verifier.subprocess.run")
-    @patch("sage.lite.verifier.ensure_isolated_home", return_value="/tmp/test_iso_home")
-    def test_run_kb_maintenance_success(self, mock_iso, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="Updated skills/.okf catalog cleanly.\n", stderr="")
-        out = run_kb_maintenance(parent_conv_id="parent_123", fork_conv_id="fork_456")
-        self.assertEqual(out, "Updated skills/.okf catalog cleanly.")
-        self.assertTrue(mock_run.called)
-        call_env = mock_run.call_args[1]["env"]
-        self.assertIn("AGY_REAL_HOME", call_env)
-        self.assertEqual(call_env["HOME"], "/tmp/test_iso_home")
-
-    @patch("sage.lite.verifier.subprocess.run")
-    @patch("sage.lite.verifier.ensure_isolated_home", return_value="/tmp/test_iso_home")
-    def test_run_kb_maintenance_failure_fallback(self, mock_iso, mock_run):
-        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="command failed")
-        out = run_kb_maintenance(parent_conv_id="parent_123", fork_conv_id="fork_456", timeout=2.0)
-        self.assertEqual(out, "")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,6 @@ tests = [
     "tests/test_stop_verifier_cases.py",
     "tests/test_lite_mode.py",
     "tests/test_lite_integration.py",
-    "tests/test_knowledge_maintenance.py",
 ]
 
 res = subprocess.run([sys.executable, "-m", "unittest"] + tests, cwd=root)

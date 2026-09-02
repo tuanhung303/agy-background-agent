@@ -7,9 +7,9 @@ import sys
 import time
 from typing import Optional
 
-from sage.config import KB_MAINTENANCE_TIMEOUT, KB_MODEL_CANDIDATES, LITE_MODE_TIMEOUT, get_real_user_home
+from sage.config import LITE_MODE_TIMEOUT, get_real_user_home
 from sage.executor import ensure_isolated_home, extract_json_from_llm_output
-from sage.lite.prompt import build_kb_maintainer_prompt, build_lite_verifier_prompt
+from sage.lite.prompt import build_lite_verifier_prompt
 from sage.lite.schemas import LiteVerdict
 from sage.locking import log_audit
 
@@ -103,126 +103,6 @@ def run_lite_verification(
 
     log_audit("Lite Mode verifier cascade exhausted or timed out; failing open with PASS")
     return LiteVerdict(verdict="PASS", action="")
-
-
-def run_kb_maintenance(
-    parent_conv_id: str,
-    fork_conv_id: str,
-    timeout: float = KB_MAINTENANCE_TIMEOUT,
-    cwd: Optional[str] = None,
-) -> str:
-    """Executes the Knowledge Base Persona Maintainer on a forked conversation."""
-    prompt = build_kb_maintainer_prompt()
-    real_home = get_real_user_home()
-    agy_bin = shutil.which("agy") or os.path.join(real_home, ".local", "bin", "agy") or os.path.expanduser("~/.local/bin/agy")
-    iso_home = ensure_isolated_home()
-    field_notes_dir = os.path.join(real_home, "Documents", "GitHub", "field-notes")
-    skills_dir = os.path.join(real_home, "Documents", "GitHub", "agentic", "skills")
-
-    start_t = time.time()
-    env = dict(
-        os.environ,
-        AGY_STOP_AUDIT_ACTIVE="1",
-        AGY_REAL_HOME=real_home,
-        HOME=iso_home,
-        PATH=f"{os.path.join(real_home, '.local', 'bin')}:{os.environ.get('PATH', '')}",
-    )
-
-    for idx, model in enumerate(KB_MODEL_CANDIDATES):
-        rem = timeout - (time.time() - start_t)
-        if rem <= 0.5:
-            log_audit("KB Maintainer timeout budget reached; completing")
-            break
-
-        cand_timeout = min(timeout, max(2.0, rem))
-        cmd = [
-            agy_bin,
-            "--conversation", fork_conv_id,
-            "-p", prompt,
-            "--model", model,
-            "--disable-slash-commands",
-            "--dangerously-skip-permissions",
-        ]
-        if os.path.isdir(field_notes_dir):
-            cmd.extend(["--add-dir", field_notes_dir])
-        if os.path.isdir(skills_dir):
-            cmd.extend(["--add-dir", skills_dir])
-
-        run_cwd = cwd if (cwd and os.path.isdir(cwd)) else None
-        try:
-            res = subprocess.run(
-                cmd,
-                input="",
-                capture_output=True,
-                text=True,
-                timeout=cand_timeout,
-                env=env,
-                cwd=run_cwd,
-            )
-            if res.returncode == 0 and res.stdout.strip():
-                dur = round(time.time() - start_t, 2)
-                log_audit(f"KB Maintainer finished in {dur}s with {model}: {res.stdout.strip()[:160]}")
-                return res.stdout.strip()
-            else:
-                err_preview = (res.stderr or res.stdout or "").strip()[:160]
-                log_audit(f"KB Maintainer candidate '{model}' returned code {res.returncode}: {err_preview}")
-        except subprocess.TimeoutExpired:
-            log_audit(f"KB Maintainer candidate '{model}' timed out after {cand_timeout}s")
-            continue
-        except Exception as e:
-            log_audit(f"KB Maintainer candidate '{model}' exception: {e}")
-            continue
-
-    return ""
-
-
-def dispatch_async_kb_maintenance(
-    parent_conv_id: str,
-    fork_conv_id: str,
-    timeout: float = KB_MAINTENANCE_TIMEOUT,
-    cwd: Optional[str] = None,
-) -> Optional[int]:
-    """Spawns a detached background worker process to execute KB maintenance asynchronously."""
-    mock_val = os.environ.get("AGY_LITE_MOCK_VERDICT", "").strip()
-    if mock_val:
-        log_audit(f"Mock async KB worker dispatched for {fork_conv_id}")
-        return 99999
-
-    repo_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    python_bin = sys.executable or shutil.which("python3") or "python3"
-
-    cmd = [
-        python_bin,
-        "-m", "sage.lite.kb_worker",
-        "--parent-conv-id", str(parent_conv_id),
-        "--fork-conv-id", str(fork_conv_id),
-        "--timeout", str(float(timeout)),
-    ]
-    if cwd and os.path.isdir(cwd):
-        cmd.extend(["--cwd", str(cwd)])
-
-    log_file_path = f"/tmp/agy_kb_worker_{fork_conv_id}.log"
-    env = dict(
-        os.environ,
-        PYTHONPATH=f"{repo_dir}:{os.environ.get('PYTHONPATH', '')}",
-    )
-
-    try:
-        log_fp = open(log_file_path, "w", encoding="utf-8")
-        proc = subprocess.Popen(
-            cmd,
-            stdout=log_fp,
-            stderr=subprocess.STDOUT,
-            stdin=subprocess.DEVNULL,
-            cwd=repo_dir,
-            env=env,
-            start_new_session=True,
-        )
-        log_audit(f"Dispatched async KB worker [PID={proc.pid}, fork={fork_conv_id}, log={log_file_path}]")
-        return proc.pid
-    except Exception as e:
-        log_audit(f"Failed to dispatch async KB worker: {e}")
-        return None
 
 
 def generate_contextual_reject_action(

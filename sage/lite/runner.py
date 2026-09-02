@@ -14,9 +14,7 @@ from sage.lite.gating import extract_turn_execution_provenance, extract_turn_mut
 from sage.lite.proof_validator import validate_empirical_proof
 from sage.lite.schemas import LiteVerdict
 from sage.lite.verifier import (
-    dispatch_async_kb_maintenance,
     generate_contextual_reject_action,
-    run_kb_maintenance,
     run_lite_verification,
 )
 from sage.locking import acquire_conversation_lock, log_audit, release_lock
@@ -157,32 +155,6 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     else:
         if verdict.proof:
             log_audit(f"Lite Mode verifier PASS proofs: {verdict.proof}")
-        if verdict.update_knowledge:
-            log_audit("Lite Mode verifier PASS (knowledge update requested); dispatching background knowledge base maintainer")
-            # 8. Update statusline to 'updating knowledge/memory' and dispatch async KB maintainer
-            save_session_state(
-                state_file,
-                state,
-                lite_fail_count=0,
-                lite_status="updating knowledge/memory",
-                sage_status="updating",
-                last_audited_line_count=len(steps),
-            )
-            kb_fork_id = fork_conversation_session(conv_id)
-            if kb_fork_id:
-                pid = dispatch_async_kb_maintenance(
-                    parent_conv_id=conv_id,
-                    fork_conv_id=kb_fork_id,
-                    cwd=workspace_root,
-                )
-                if pid:
-                    log_audit(f"Background KB Maintainer dispatched with PID {pid} for {kb_fork_id}")
-                else:
-                    log_audit("Failed to dispatch async KB maintainer; cleaning fork session")
-                    cleanup_fork_session(kb_fork_id)
-        else:
-            log_audit("Lite Mode verifier PASS (no knowledge update requested); bypassing knowledge base maintainer")
-
         save_session_state(
             state_file,
             state,
