@@ -101,9 +101,9 @@ class TestAdvisorParsingAdversarial(unittest.TestCase):
         raw = json.dumps({
             "status": "watchout",
             "category": "missing_proof",
-            "action": "Tạo tệp báo cáo: `báo_cáo_tiến_độ_🚀.md`",
-            "evidence": "Thiếu tài liệu bàn giao 🎯",
-            "guidance": "Hoàn thiện tài liệu trước khi kết thúc turn.",
+            "action": "Create report file: `progress_report_🚀.md`",
+            "evidence": "Missing handover documentation 🎯",
+            "guidance": "Complete documentation before finishing turn.",
             "confidence": 0.95,
         })
         parsed = parse_sage_output(raw)
@@ -179,9 +179,9 @@ class TestAdvisorParsingAdversarial(unittest.TestCase):
         self.assertEqual(goal, "Fallback prompt body")
 
     def test_extract_target_goal_with_cjk_and_emojis(self):
-        prompt = "[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\nKiểm tra mã nguồn và tối ưu hóa 🚀"
+        prompt = "[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\nVerify source code and optimize 🚀"
         goal = extract_target_goal(prompt)
-        self.assertEqual(goal, "Kiểm tra mã nguồn và tối ưu hóa 🚀")
+        self.assertEqual(goal, "Verify source code and optimize 🚀")
 
     def test_build_advisor_prompt_truncation_and_template_fallbacks(self):
         long_steps = "Step action log " * 500

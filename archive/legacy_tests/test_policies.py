@@ -384,7 +384,7 @@ class TestAdaptiveCadence(unittest.TestCase):
 
     def test_sage_flow_no_approval_flag_for_questions(self):
         ctx = _ctx(
-            user_prompt="anh có muốn train không?",
+            user_prompt="do you want to train the model?",
             state={"mid_turn_steers": 0, "sage_error_streak": 0, "last_verified_tools": 0},
         )
         captured = {}

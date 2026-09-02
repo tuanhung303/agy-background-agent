@@ -30,10 +30,11 @@ def _link_file(src, dst):
 
 
 def ensure_isolated_home():
-    iso_home = get_isolated_home()
+    iso_home = SAGE_ISOLATED_HOME or get_isolated_home()
     if os.path.realpath(os.environ.get("HOME", "")).startswith(os.path.realpath(iso_home)):
         return iso_home
-    iso_cli, iso_cfg = os.path.join(iso_home, ".gemini", "antigravity-cli"), os.path.join(iso_home, ".gemini", "config")
+    iso_cli = SAGE_CLI_DIR or os.path.join(iso_home, ".gemini", "antigravity-cli")
+    iso_cfg = os.path.join(iso_home, ".gemini", "config")
     os.makedirs(iso_cli, mode=0o700, exist_ok=True)
     os.makedirs(iso_cfg, mode=0o700, exist_ok=True)
     real_home = get_real_user_home()

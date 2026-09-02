@@ -10,7 +10,10 @@ from sage.guards import (
     fail_safe_exit, is_post_invocation, is_subagent_session,
 )
 from sage.lite.fork import cleanup_fork_session, fork_conversation_session
-from sage.lite.gating import extract_turn_execution_provenance, extract_turn_mutations_and_context
+from sage.lite.gating import (
+    extract_turn_execution_provenance, extract_turn_mutations_and_context,
+    is_slash_plan_intent,
+)
 from sage.lite.proof_validator import validate_empirical_proof
 from sage.lite.schemas import LiteVerdict
 from sage.lite.verifier import (
@@ -63,13 +66,15 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     has_mutation = turn_provenance["has_mutation"]
     reason = turn_provenance["mutation_reason"]
     true_user_prompt = turn_provenance["true_user_prompt"]
+    latest_user_prompt = turn_provenance.get("latest_user_prompt", "")
     last_agent_output = turn_provenance["last_agent_output"]
+    is_slash_plan = is_slash_plan_intent(true_user_prompt) or is_slash_plan_intent(latest_user_prompt)
 
     # Load session state for circuit breaker & statusline
     clean_prompt, state_file, state, _ = load_and_sync_session_state(conv_id, transcript_path, true_user_prompt)
     fail_count = int(state.get("lite_fail_count", 0))
 
-    if not has_mutation and fail_count == 0:
+    if not has_mutation and fail_count == 0 and not is_slash_plan:
         log_audit(f"Lite Mode bypass: {reason}")
         fail_safe_exit(f"Lite Mode bypass: {reason}")
 
@@ -136,6 +141,8 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
                 last_agent_output=last_agent_output,
                 reject_reason=reject_reason,
                 cwd=workspace_root,
+                turn_execution_summary=turn_provenance.get("tool_executions_summary"),
+                most_recent_terminal_cmd=turn_provenance.get("most_recent_terminal_cmd"),
             )
             verdict.action = contextual_action if contextual_action else f"Verification rejected: {reject_reason}."
 

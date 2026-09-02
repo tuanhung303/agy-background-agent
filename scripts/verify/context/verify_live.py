@@ -22,7 +22,7 @@ def run_live_user_context_verification():
     temp_dir = tempfile.mkdtemp(prefix="agy_context_live_")
     try:
         # Scenario 1: Multi-turn substantive request followed by trivial acks
-        print("\n--- Scenario 1: Multi-turn Substantive Request with 'ok' and 'tiếp đi' Follow-ups ---")
+        print("\n--- Scenario 1: Multi-turn Substantive Request with 'ok' and 'continue' Follow-ups ---")
         s1_file = os.path.join(temp_dir, "s1_transcript.jsonl")
         s1_lines = [
             {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "<USER_REQUEST>Implement user authentication with JWT tokens and bcrypt password hashing</USER_REQUEST>", "created_at": "2026-09-01T10:00:00Z"},
@@ -31,7 +31,7 @@ def run_live_user_context_verification():
             {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "<USER_REQUEST>ok proceed</USER_REQUEST>", "created_at": "2026-09-01T10:05:00Z"},
             {"type": "PLANNER_RESPONSE", "content": "Added unit tests", "tool_calls": [{"name": "write_to_file", "args": {"TargetFile": "/app/test_auth.py"}}]},
             {"type": "GENERIC", "content": "File /app/test_auth.py written successfully."},
-            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "<USER_REQUEST>tiếp đi</USER_REQUEST>", "created_at": "2026-09-01T10:10:00Z"},
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "<USER_REQUEST>continue</USER_REQUEST>", "created_at": "2026-09-01T10:10:00Z"},
             {"type": "PLANNER_RESPONSE", "content": "Ran test suite, all 12 tests passed", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "pytest tests/"}}]},
             {"type": "GENERIC", "content": "12 passed in 0.45s"},
         ]
@@ -64,8 +64,8 @@ def run_live_user_context_verification():
 
         assert "Implement user authentication with JWT tokens" in prov1["true_user_prompt"], "Primary goal missing"
         assert "ok proceed" in prov1["true_user_prompt"], "Intermediate follow-up missing"
-        assert "tiếp đi" in prov1["true_user_prompt"], "Latest ack missing"
-        assert prov1["latest_user_prompt"] == "tiếp đi", "Latest prompt mismatch"
+        assert "continue" in prov1["true_user_prompt"], "Latest ack missing"
+        assert prov1["latest_user_prompt"] == "continue", "Latest prompt mismatch"
         print("  [PASS] Scenario 1 multi-turn provenance distilled with primary goal and follow-ups.")
 
         # Scenario 2: Transcript Compaction Checkpoint Recovery
@@ -78,7 +78,7 @@ def run_live_user_context_verification():
                 "created_at": "2026-09-01T09:00:00Z",
             },
             {"type": "PLANNER_RESPONSE", "content": "Loaded checkpoint state", "tool_calls": []},
-            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "<USER_REQUEST>chạy test và đẩy lên remote</USER_REQUEST>", "created_at": "2026-09-01T10:00:00Z"},
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "<USER_REQUEST>run tests and push to remote</USER_REQUEST>", "created_at": "2026-09-01T10:00:00Z"},
             {"type": "PLANNER_RESPONSE", "content": "Tests passed cleanly, pushed to origin/main", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "git push origin main"}}]},
             {"type": "GENERIC", "content": "Everything up-to-date."},
         ]
@@ -101,7 +101,7 @@ def run_live_user_context_verification():
 
         assert prov2["has_compaction"] is True, "Expected has_compaction=True"
         assert "Refactored billing service: migrated payment gateway" in prov2["true_user_prompt"], "Compacted summary missing"
-        assert "chạy test và đẩy lên remote" in prov2["true_user_prompt"], "Active prompt missing"
+        assert "run tests and push to remote" in prov2["true_user_prompt"], "Active prompt missing"
         print("  [PASS] Scenario 2 compacted history correctly reconstructed and linked with active turn.")
 
         # Scenario 3: End-to-end session stop audit out-of-process runner

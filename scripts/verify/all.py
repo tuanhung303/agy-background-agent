@@ -39,7 +39,11 @@ def run_topic(topic_name: str, script_path: str, cwd: str) -> tuple:
 def main():
     parser = argparse.ArgumentParser(description="Master verification runner")
     parser.add_argument("--topic", help="Run a specific topic only", default=None)
+    parser.add_argument("--slash-plan", action="store_true", help="Run slash plan gating and steering verification directly")
     args = parser.parse_args()
+
+    if args.slash_plan:
+        args.topic = "slash_plan"
 
     root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     verify_dir = os.path.abspath(os.path.dirname(__file__))

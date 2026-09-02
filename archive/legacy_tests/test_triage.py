@@ -289,14 +289,14 @@ class TestTriage(unittest.TestCase):
             "status": "watchout",
             "category": "confused_goal",
             "action": "Apply recall workflow to inspect recent transcripts and git history",
-            "evidence": "User prompt refers vaguely to past task 'làm nốt hôm trước'",
+            "evidence": "User prompt refers vaguely to past task 'finish yesterday task'",
             "confidence": 0.9,
-            "guidance": "Search recent transcript logs and commits to reconstruct context before asking user.",
+            "guidance": "Search recent logs and commits to reconstruct context before asking user.",
         }
-        res = classify_advice(ver_res)
+        res = classify_advice(msg, "sample user prompt")
         self.assertEqual(res["decision"], "watchout")
         self.assertEqual(res["category"], "confused_goal")
-        self.assertIn("user prompt refers vaguely to past task 'làm nốt hôm trước'. apply recall workflow to inspect recent transcripts and git history", res["text"])
+        self.assertIn("user prompt refers vaguely to past task 'finish yesterday task'. apply recall workflow to inspect recent transcripts and git history", res["text"])
 
     def test_classify_advice_prove_it_works_fake_verification(self):
         ver_res = {

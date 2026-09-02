@@ -167,7 +167,7 @@ def read_convs(conv_dirs: list[Path], ws: Path) -> CellMetrics:
 
 
 def grade(task: str, ws: Path) -> dict:
-    ws = ws.resolve()  # gates dùng APP_ROOT/PYTHONPATH tuyệt đối — relative sẽ sai khi child đổi cwd
+    ws = ws.resolve()  # gates use absolute APP_ROOT/PYTHONPATH: relative paths fail if child changes cwd
     env = dict(os.environ)
     env["APP_ROOT"] = str(ws)
     env["PYTHONPATH"] = str(ws)
@@ -179,12 +179,12 @@ def grade(task: str, ws: Path) -> dict:
             r = subprocess.run([sys.executable, script], cwd=ws, env=env,
                                capture_output=True, text=True, timeout=300)
             gates[name] = r.returncode == 0 and "passed" in (r.stdout + r.stderr).lower()
-        # privilege-drop test (scenario_30) là container-only (xem RESULTS-R3:
-        # "24/25 host, 1 env-only deselect privilege-drop") — deselect trên host
+        # privilege-drop test (scenario_30) is container-only (see RESULTS-R3:
+        # "24/25 host, 1 env-only deselect privilege-drop"): deselect on host
         r = subprocess.run([sys.executable, "-m", "pytest", "tests/_hidden_outputs.py", "-q",
                             "--deselect", "tests/_hidden_outputs.py::TestSuite04A::test_scenario_30"],
                            cwd=ws, env=env, capture_output=True, text=True, timeout=600)
-        # pytest -q với dots thay vì verbose: không có " PASSED" per-line; parse dòng tổng kết
+        # pytest -q with dots instead of verbose: no per-line " PASSED"; parse summary line
         tail = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
         gates["hidden"] = r.returncode == 0 and " passed" in tail and " failed" not in tail
     else:

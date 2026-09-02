@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from sage.command_policy import is_sage_command_safe
 from sage.config import FILE_EDITING_TOOLS
 from sage.guards import is_steering_message
-from sage.sanitizer import clean_user_prompt
+from sage.sanitizer import clean_user_prompt, sanitize_tool_output
 from sage.user_context import extract_substantive_user_context
 
 MUTATING_TOOLS: Set[str] = {
@@ -35,6 +35,9 @@ PLAN_OR_QA_PATTERNS = (
     r"(?:^|\s)/(?:plan|qa|learn|drill|bro|teach|grill-me|grill_me|grill|boost)\b",
     r"<GRILL_ME>",
     r"\b(?:make\s+a\s+plan\s+first|plan\s+first|brainstorm|create\s+a\s+plan|plan\s+the|research|search\s+for|check\s+the\s+slides|find\s+where|find\s+all|investigate|audit\s+the|interview\s+me|ask\s+clarifying\s+questions|grill\s+me)\b",
+    r"\b(?:is\s+there|are\s+there|does\s+(?:it|this|that)\s+have|why\s+(?:is|did|does|was)|how\s+come|what\s+(?:is|are|about)|can\s+you\s+(?:explain|check|verify)|could\s+you\s+(?:explain|check|verify)|sanity\s+check|explain\s+(?:the|how|why)|check\s+(?:if|whether))\b",
+    r"\b(?:is\s+that\s+right|is\s+it\s+correct|correct\??|right\??)\b",
+    r"\?\s*$",
 )
 
 
@@ -44,6 +47,14 @@ def is_plan_or_qa_intent(prompt: str) -> bool:
         return False
     text = prompt.strip().lower()
     return any(re.search(pat, text, re.IGNORECASE) for pat in PLAN_OR_QA_PATTERNS)
+
+
+def is_slash_plan_intent(prompt: str) -> bool:
+    """Checks if the user prompt is an explicit slash plan (/plan) request."""
+    if not prompt or not isinstance(prompt, str):
+        return False
+    text = prompt.strip().lower()
+    return bool(re.search(r"(?:^|\s)/plan\b", text, re.IGNORECASE) or "<plan>" in text)
 
 
 def is_mutating_tool_call(tool_name: str, tool_args: Any) -> bool:
@@ -96,13 +107,13 @@ IMAGE_FILE_EXTENSIONS: Tuple[str, ...] = (".png", ".jpg", ".jpeg", ".webp", ".sv
 IMAGE_PATH_PATTERN = re.compile(r"(/[a-zA-Z0-9_\-\.\/]+\.(?:png|jpg|jpeg|webp|svg|gif|bmp|tiff))", re.IGNORECASE)
 
 
-def _clean_tool_output_snippet(raw_content: str) -> str:
+def _clean_tool_output_snippet(raw_content: str, max_chars: int = 300) -> str:
     """Extracts a concise, non-empty summary snippet from tool result content."""
     if not raw_content or not isinstance(raw_content, str):
         return ""
     meaningful = [l.strip() for l in raw_content.splitlines() if l.strip() and not l.strip().startswith(("Created At:", "Completed At:", "The following is the entire", "Log:", "Task logs are available"))]
     snippet = " ".join(meaningful).strip()
-    return (snippet[:177] + "...") if len(snippet) > 180 else snippet
+    return (snippet[:max_chars - 3] + "...") if len(snippet) > max_chars else snippet
 
 
 def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -113,6 +124,8 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
         "has_compaction": False, "last_agent_output": "", "turn_start_time": 0.0,
         "written_files": [], "executed_commands": [], "generated_images": [],
         "image_files": [], "tool_executions_summary": "(No tool calls executed in current turn)",
+        "has_asked_question": False,
+        "most_recent_terminal_cmd": None,
     }
     if not steps or not isinstance(steps, list):
         return empty_res
@@ -125,9 +138,11 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
     turn_start_time = user_ctx["turn_start_time"]
 
     has_mutation, mutation_reason = False, "No mutating tool calls detected in turn"
+    has_asked_question = False
     last_agent_output = ""
     written_files, executed_commands = set(), []
     generated_images, image_files, tool_summary_lines = set(), set(), []
+    most_recent_terminal_cmd: Optional[Dict[str, Any]] = None
 
     turn_steps: List[Dict[str, Any]] = []
     for s in reversed(steps):
@@ -154,6 +169,8 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
                     continue
                 tname = str(tc.get("name") or tc.get("tool_name") or tc.get("tool") or "")
                 targs = tc.get("args") or tc.get("arguments") or tc.get("parameters") or {}
+                if tname in ("ask_question", "ask_user"):
+                    has_asked_question = True
                 if is_mutating_tool_call(tname, targs):
                     has_mutation, mutation_reason = True, f"Mutating tool call executed: {tname}"
 
@@ -180,30 +197,36 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
                         generated_images.add(raw_img)
                         image_files.add(raw_img)
 
+                raw_out = ""
                 if idx + 1 < len(turn_steps):
                     next_step = turn_steps[idx + 1]
                     if next_step.get("type") in ("GENERIC", "SYSTEM_MESSAGE", "EPHEMERAL_MESSAGE"):
                         raw_out = str(next_step.get("content") or "")
-                        output_snippet = _clean_tool_output_snippet(raw_out)
+                        output_snippet = _clean_tool_output_snippet(raw_out, max_chars=300)
                         for match in IMAGE_PATH_PATTERN.findall(raw_out):
                             image_files.add(match)
 
                 if cmd_str:
-                    entry = f"- {tname}: `{cmd_str[:140]}`"
+                    most_recent_terminal_cmd = {
+                        "tool": tname,
+                        "command": cmd_str,
+                        "output": sanitize_tool_output(raw_out, max_chars=1200, max_line_len=300) if raw_out else "",
+                    }
+                    entry = f"- {tname}: `{cmd_str[:500]}`"
                     if output_snippet:
-                        entry += f" -> [{output_snippet[:100]}]"
+                        entry += f" -> [{output_snippet}]"
                     tool_summary_lines.append(entry)
                 elif target_fp:
                     entry = f"- {tname}: `{target_fp}`"
                     if output_snippet:
-                        entry += f" -> [{output_snippet[:100]}]"
+                        entry += f" -> [{output_snippet}]"
                     tool_summary_lines.append(entry)
                 elif img_name:
                     tool_summary_lines.append(f"- {tname}: `{img_name}`")
                 else:
                     entry = f"- {tname}"
                     if output_snippet:
-                        entry += f" -> [{output_snippet[:100]}]"
+                        entry += f" -> [{output_snippet}]"
                     tool_summary_lines.append(entry)
 
     if agent_responses:
@@ -220,6 +243,8 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
         "turn_start_time": turn_start_time, "written_files": list(written_files),
         "executed_commands": executed_commands, "generated_images": list(generated_images),
         "image_files": list(image_files), "tool_executions_summary": tool_exec_summary,
+        "has_asked_question": has_asked_question,
+        "most_recent_terminal_cmd": most_recent_terminal_cmd,
     }
 
 

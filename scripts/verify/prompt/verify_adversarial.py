@@ -19,8 +19,8 @@ def run_adversarial_visual_eval():
     t0 = time.time()
 
     # 1. Structural prompt verification
-    user_p = "0.83x ROAS nhiều hơn 1.17x (dài hơn), hệ thống scale có vấn đề"
-    agent_out = "thanh roas hiện tại tăng dần đều theo đúng giá trị: 0.83x < 1.05x < 1.17x < 1.25x < 1.40x. ảnh chụp thực tế: granular_channel_default_verified.png"
+    user_p = "0.83x ROAS is rendered longer than 1.17x ROAS, the chart scale has a defect"
+    agent_out = "The ROAS bars currently scale strictly monotonically: 0.83x < 1.05x < 1.17x < 1.25x < 1.40x. Screenshot verified: granular_channel_default_verified.png"
     img_path = "/Users/__blitzzz/.gemini/antigravity-cli/brain/faf717a9-150f-46c3-b054-4a0eda945fa0/granular_channel_default_verified.png"
 
     turn_exec = (

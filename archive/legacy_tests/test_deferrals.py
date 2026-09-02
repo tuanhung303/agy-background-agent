@@ -35,14 +35,14 @@ class TestDeferrals(unittest.TestCase):
             self.assertTrue(len(matches) > 0, f"Failed to detect in: {prompt}")
             self.assertTrue(any(expected.lower() in m.lower() for m in matches))
 
-    def test_detect_vietnamese_deferral_and_question_dumping(self):
+    def test_detect_additional_deferrals_and_question_dumping(self):
         cases = [
-            ("còn xyz có muốn làm không anh?", "còn xyz có muốn làm không"),
-            ("advise đã sync có muốn làm không em?", "advise đã sync có muốn làm không"),
-            ("1 số lỗi ... không thuộc scope có muốn address không?", "không thuộc scope"),
-            ("phần này để sau làm nhé.", "để sau làm"),
-            ("tạm thời như vậy là ổn rồi.", "tạm thời như vậy"),
-            ("anh có muốn triển khai tiếp phần này không?", "anh có muốn triển khai"),
+            ("would you like me to do xyz next?", "would you like me to"),
+            ("do you want me to sync the advice?", "do you want me to"),
+            ("some errors are out of scope, should we address them?", "out of scope"),
+            ("we will revisit this part later.", "revisit"),
+            ("good enough for now.", "good enough for now"),
+            ("would you prefer to implement this part next?", "would you prefer"),
         ]
         for prompt, expected in cases:
             matches = detect_deferral_in_text(prompt)
@@ -54,8 +54,8 @@ class TestDeferrals(unittest.TestCase):
 
     def test_detect_transcript_deferral(self):
         steps = [
-            {"type": "USER_INPUT", "content": "triển khai tính năng mới"},
-            {"type": "PLANNER_RESPONSE", "content": "Em đã làm xong phần A, còn phần B anh có muốn làm không?"},
+            {"type": "USER_INPUT", "content": "implement new feature"},
+            {"type": "PLANNER_RESPONSE", "content": "I finished part A, would you like me to do part B as well?"},
         ]
         res = detect_transcript_deferral(steps)
         self.assertTrue(res["matched"])
@@ -93,13 +93,13 @@ class TestDeferrals(unittest.TestCase):
         }
         deferral = {
             "matched": True,
-            "snippet": "còn xyz có muốn làm không",
-            "phrases": ["còn xyz có muốn làm không"],
+            "snippet": "would you like me to do xyz as well",
+            "phrases": ["would you like me to do xyz as well"],
         }
         classified = classify_advice(ver_res, deferral=deferral)
         self.assertEqual(classified["decision"], "watchout")
         self.assertEqual(classified["category"], "missing_proof")
-        self.assertIn("còn xyz có muốn làm không", classified["text"])
+        self.assertIn("would you like me to do xyz as well", classified["text"])
 
 
     def test_lexical_variants_normalization(self):
@@ -107,7 +107,7 @@ class TestDeferrals(unittest.TestCase):
             "This is out-of-scope for now.",
             "This is out  of  scope.",
             "This is out\u200bof scope.",
-            "Lỗi này ngoài-scope nhé.",
+            "This error is out-of-scope.",
         ]
         for text in cases:
             matches = detect_deferral_in_text(text)
@@ -115,8 +115,8 @@ class TestDeferrals(unittest.TestCase):
 
     def test_washout_avoidance_turn_wide_scan(self):
         steps = [
-            {"type": "USER_INPUT", "content": "triển khai tính năng"},
-            {"type": "PLANNER_RESPONSE", "content": "Em đã làm phần 1, còn phần 2 anh có muốn em làm không?"},
+            {"type": "USER_INPUT", "content": "implement feature"},
+            {"type": "PLANNER_RESPONSE", "content": "I finished part 1, would you like me to do part 2?"},
             {"type": "GENERIC", "content": "Tool output"},
             {"type": "PLANNER_RESPONSE", "content": "Done."},
         ]
@@ -125,8 +125,8 @@ class TestDeferrals(unittest.TestCase):
 
     def test_delegated_command_extraction(self):
         steps = [
-            {"type": "USER_INPUT", "content": "chạy test"},
-            {"type": "PLANNER_RESPONSE", "content": "Em xong rồi, bạn có thể tự chạy lệnh: `pytest tests/test_deferrals.py` để verify."},
+            {"type": "USER_INPUT", "content": "run tests"},
+            {"type": "PLANNER_RESPONSE", "content": "Done, please run command: `pytest tests/test_deferrals.py` to verify."},
         ]
         res = detect_transcript_deferral(steps)
         self.assertTrue(res["matched"])
@@ -137,8 +137,8 @@ class TestDeferrals(unittest.TestCase):
 
     def test_tail_todo_extraction(self):
         steps = [
-            {"type": "USER_INPUT", "content": "hoàn thiện task"},
-            {"type": "PLANNER_RESPONSE", "content": "Hoàn tất các mục chính.\n\n## Remaining Work\n- Check production logs"},
+            {"type": "USER_INPUT", "content": "complete task"},
+            {"type": "PLANNER_RESPONSE", "content": "Completed all main tasks.\n\n## Remaining Work\n- Check production logs"},
         ]
         res = detect_transcript_deferral(steps)
         self.assertTrue(res["matched"])
@@ -150,8 +150,8 @@ class TestDeferrals(unittest.TestCase):
     def test_dedup_does_not_suppress_active_deferral_at_final_gate(self):
         deferral = {
             "matched": True,
-            "snippet": "còn xyz có muốn làm không",
-            "phrases": ["còn xyz có muốn làm không"],
+            "snippet": "would you like me to do xyz as well",
+            "phrases": ["would you like me to do xyz as well"],
         }
         # First stop emission
         res1 = classify_advice({"status": "on_track", "healthy": True}, seen_advice={}, deferral=deferral)
@@ -179,25 +179,25 @@ class TestUserApproval(unittest.TestCase):
             res = detect_user_approval(prompt)
             self.assertTrue(res["approved"], f"approval missed: {prompt!r}")
 
-    def test_detect_vietnamese_approval(self):
+    def test_detect_affirmative_approval(self):
         cases = [
-            "làm đi anh",
-            "cứ triển khai nhé",
-            "ok anh",
-            "ừ làm đi",
-            "đồng ý, tiến hành",
-            "chạy đi em",
+            "please implement it",
+            "just do it",
+            "feel free to proceed",
+            "confirmed",
+            "continue",
+            "yeah, go ahead",
         ]
         for prompt in cases:
             res = detect_user_approval(prompt)
-            self.assertTrue(res["approved"], f"VN approval missed: {prompt!r}")
+            self.assertTrue(res["approved"], f"approval missed: {prompt!r}")
 
     def test_questions_and_conditionals_are_not_approval(self):
         cases = [
             "should we retrain the model?",
-            "anh có muốn train không?",
+            "do you want to train the model?",
             "if you want, we can start with the GR client",
-            "nếu cần thì làm nhé",
+            "if needed, we can do it later",
             "do you want me to go ahead?",  # question-shaped even with 'go ahead'
         ]
         for prompt in cases:

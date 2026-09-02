@@ -40,6 +40,13 @@ DEFERRAL_PATTERNS = (
     r"\bmanual(?:ly)?\s+verif\w*\b",
 )
 
+EXTERNAL_BLOCKER_PATTERNS = (
+    r"\b(?:mfa|2fa|sso|adfs|saml|otp|authenticator)\b",
+    r"\b(?:rdp\s+session|remote\s+desktop|session\s+conflict|jumpbox\s+lock)\b",
+    r"\b(?:requires?\s+(?:human|user|manual)\s+(?:auth|approval|login|action))\b",
+    r"\b(?:interactive\s+login\s+required|permission\s+denied\s+by\s+policy)\b",
+)
+
 EMPIRICAL_INDICATORS = (
     r"\.(?:png|jpg|jpeg|webp|gif|svg|md|xlsx|pptx|docx|pdf|txt|csv|py|sh|ts|js|json|ya?ml|tf|tfplan|dockerfile)\b",
     r"\bscreenshot\b",
@@ -79,13 +86,23 @@ def validate_empirical_proof(
     user_prompt: str = "",
 ) -> Tuple[bool, str]:
     """Validates that proof array contains genuine empirical evidence and not disqualified pseudo-proof or stale artifacts."""
-    from sage.lite.gating import is_plan_or_qa_intent
+    from sage.lite.gating import is_plan_or_qa_intent, is_slash_plan_intent
 
     if not proof or not isinstance(proof, list) or not any(str(p or "").strip() for p in proof):
         return False, "Proof array is empty. Verifiable domain evidence is required for completion across all task types."
 
     prompt_to_check = user_prompt or (turn_provenance.get("true_user_prompt", "") if isinstance(turn_provenance, dict) else "")
+    is_slash_plan = bool(prompt_to_check and is_slash_plan_intent(prompt_to_check))
     is_plan_qa = bool(prompt_to_check and is_plan_or_qa_intent(prompt_to_check))
+
+    if is_slash_plan:
+        has_asked = False
+        if isinstance(turn_provenance, dict) and turn_provenance.get("has_asked_question"):
+            has_asked = True
+        elif any(re.search(r"\b(?:questions?|interview|grill-?me|ask_question)\b", str(p), re.I) for p in proof):
+            has_asked = True
+        if not has_asked:
+            return False, "Slash plan requires grill-me verification with the user via ask_question. Interview the user on plan blind spots and design trade-offs before finalizing."
 
     turn_start_time = 0.0
     written_files = set()
@@ -103,6 +120,12 @@ def validate_empirical_proof(
         if not text:
             continue
         text_lower = text.lower()
+
+        # Legitimate external blockers with error signatures are valid escalation proof, not lazy deferral
+        is_blocker_escalation = any(re.search(pat, text_lower, re.IGNORECASE) for pat in EXTERNAL_BLOCKER_PATTERNS)
+        if is_blocker_escalation:
+            valid_proofs.append(item)
+            continue
 
         # Immediate rejection for any deferral or outsourced verification claim
         is_deferred = any(re.search(pat, text_lower, re.IGNORECASE) for pat in DEFERRAL_PATTERNS)

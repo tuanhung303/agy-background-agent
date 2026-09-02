@@ -135,7 +135,38 @@ def main() -> int:
         assert is_val, f"Aggregated proof for universe U_{category} rejected: {reason}"
         print(f"  ✓ Verified generalized Universe U_{category} (|U|={len(entities)})")
 
-    print("\n=== ALL 6 VERIFICATION CHANNELS PASSED CLEANLY ===")
+    # 7. Slash Plan Grill-Me Gating & Steering Protocol Verification
+    print("\n[7/7] Testing Slash Plan Grill-Me Gating & Steering Protocol...")
+    from sage.lite.gating import is_slash_plan_intent
+    from sage.lite.verifier import generate_contextual_reject_action
+
+    assert is_slash_plan_intent("/plan refactor database architecture"), "Failed to recognize slash plan intent"
+    assert not is_slash_plan_intent("/planning"), "False positive on /planning"
+
+    # Proof validator rejects /plan when ask_question was not executed
+    valid_unasked, reason_unasked = validate_empirical_proof(
+        ["implementation_plan.md created in /brain/"],
+        turn_provenance={"has_asked_question": False},
+        user_prompt="/plan migration",
+    )
+    assert not valid_unasked, "Slash plan without ask_question must be rejected"
+    assert "grill-me verification with the user via ask_question" in reason_unasked
+
+    # Proof validator accepts /plan when ask_question was executed
+    valid_asked, reason_asked = validate_empirical_proof(
+        ["Interviewed user on migration strategy choices via ask_question"],
+        turn_provenance={"has_asked_question": True},
+        user_prompt="/plan migration",
+    )
+    assert valid_asked, f"Slash plan with ask_question rejected: {reason_asked}"
+
+    # Steering action synthesis instructs agent to run grill-me
+    action = generate_contextual_reject_action("fork_test", "/plan migration", "plan written", reason_unasked)
+    assert "Run grill-me to verify the plan with the user" in action
+    assert "ask_question" in action
+    print("  ✓ Verified Slash Plan Grill-Me gating and contextual steering directive.")
+
+    print("\n=== ALL 7 VERIFICATION CHANNELS PASSED CLEANLY ===")
     return 0
 
 

@@ -20,12 +20,10 @@ class TestTrivialAcknowledgment(unittest.TestCase):
             with self.subTest(ack=ack):
                 self.assertTrue(is_trivial_acknowledgment(ack), f"Expected '{ack}' to be trivial ack")
 
-    def test_vietnamese_trivial_acks(self):
+    def test_extended_trivial_acks(self):
         acks = [
-            "tiếp", "tiếp đi", "tiếp tục", "làm tiếp", "làm tiếp đi",
-            "làm đi", "làm đi bạn", "chạy đi", "được rồi", "đc rồi",
-            "oke r", "oke rồi", "ok rồi", "ok r", "xong", "cảm ơn",
-            "đẩy lên", "push lên", "push đi", "commit đi",
+            "run it", "execute", "do it", "push", "push code", "commit and push",
+            "go for it", "all right", "fine", "next", "alright", "perfect",
         ]
         for ack in acks:
             with self.subTest(ack=ack):
@@ -39,8 +37,8 @@ class TestTrivialAcknowledgment(unittest.TestCase):
             "Refactor DatabaseConnection class in db.py",
             "Why is the verifier failing on line 45?",
             "Make the plan first, gather last user messages",
-            "oke nhưng sửa thêm hàm validate_token nữa nhé",
-            "tiếp tục với task số 2 trong requirements.md",
+            "ok but also update the validate_token function as well",
+            "continue with task 2 in requirements.md",
         ]
         for s in substantive:
             with self.subTest(prompt=s):
@@ -77,20 +75,20 @@ class TestExtractSubstantiveUserContext(unittest.TestCase):
         self.assertIn("[FOLLOW-UP INSTRUCTIONS & REFINEMENTS]:", ctx["true_user_prompt"])
         self.assertIn("ok proceed", ctx["true_user_prompt"])
 
-    def test_multi_turn_with_substantive_followups_and_vietnamese_ack(self):
+    def test_multi_turn_with_substantive_followups_and_short_ack(self):
         steps = [
-            {"type": "USER_INPUT", "content": "Tối ưu hóa database query cho bảng orders", "created_at": "2026-09-01T10:00:00Z"},
+            {"type": "USER_INPUT", "content": "Optimize database queries for orders table", "created_at": "2026-09-01T10:00:00Z"},
             {"type": "PLANNER_RESPONSE", "content": "Added indexes", "tool_calls": []},
-            {"type": "USER_INPUT", "content": "Thêm cache Redis cho endpoint getOrders", "created_at": "2026-09-01T10:05:00Z"},
+            {"type": "USER_INPUT", "content": "Add Redis cache for endpoint getOrders", "created_at": "2026-09-01T10:05:00Z"},
             {"type": "PLANNER_RESPONSE", "content": "Added Redis cache", "tool_calls": []},
-            {"type": "USER_INPUT", "content": "tiếp đi", "created_at": "2026-09-01T10:10:00Z"},
+            {"type": "USER_INPUT", "content": "continue", "created_at": "2026-09-01T10:10:00Z"},
         ]
         ctx = extract_substantive_user_context(steps)
         self.assertTrue(ctx["is_latest_trivial"])
-        self.assertEqual(ctx["primary_goal"], "Thêm cache Redis cho endpoint getOrders")
+        self.assertEqual(ctx["primary_goal"], "Add Redis cache for endpoint getOrders")
         self.assertIn("[PRIMARY USER GOAL]:", ctx["true_user_prompt"])
-        self.assertIn("Thêm cache Redis cho endpoint getOrders", ctx["true_user_prompt"])
-        self.assertIn("tiếp đi", ctx["true_user_prompt"])
+        self.assertIn("Add Redis cache for endpoint getOrders", ctx["true_user_prompt"])
+        self.assertIn("continue", ctx["true_user_prompt"])
 
     def test_compaction_summary_handling(self):
         steps = [
@@ -100,14 +98,14 @@ class TestExtractSubstantiveUserContext(unittest.TestCase):
                 "created_at": "2026-09-01T09:00:00Z",
             },
             {"type": "PLANNER_RESPONSE", "content": "Previous state loaded", "tool_calls": []},
-            {"type": "USER_INPUT", "content": "làm tiếp", "created_at": "2026-09-01T10:00:00Z"},
+            {"type": "USER_INPUT", "content": "continue", "created_at": "2026-09-01T10:00:00Z"},
             {"type": "PLANNER_RESPONSE", "content": "Finished Kafka producer tests", "tool_calls": []},
         ]
         ctx = extract_substantive_user_context(steps)
         self.assertTrue(ctx["has_compaction"])
         self.assertIn("building a microservice with auth", ctx["compaction_summary"])
         self.assertIn("[COMPACTED CONVERSATION SUMMARY]:", ctx["true_user_prompt"])
-        self.assertIn("làm tiếp", ctx["true_user_prompt"])
+        self.assertIn("continue", ctx["true_user_prompt"])
 
     def test_compaction_with_fresh_substantive_request(self):
         steps = [

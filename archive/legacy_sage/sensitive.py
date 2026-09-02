@@ -113,23 +113,18 @@ def scan_turn_tools_for_sensitive(tool_calls, keywords=None):
 # the agent's turn violates a granted permission and must escalate to STEER.
 
 APPROVAL_PATTERNS = (
-    # English
     re.compile(r"\bgo (?:ahead|on)\b", re.I),
     re.compile(r"\b(?:yes|yeah|yep|ok(?:ay)?|sure|approved|proceed|continue|confirmed)\b[,!.]?\s*$", re.I),
     re.compile(r"\b(?:please )?(?:do it|implement it|run it|execute it|just do(?: it)?)\b", re.I),
     re.compile(r"\bfeel free to (?:proceed|implement|run)\b", re.I),
     re.compile(r"\bkeep going\b", re.I),
-    # Vietnamese
-    re.compile(r"\b(?:làm đi|chạy đi|triển khai đi|cứ làm|cứ triển khai|cứ chạy|đồng ý|chấp thuận|ok anh|oke anh|ừ làm đi|tiến hành)\b", re.I),
-    re.compile(r"^\s*(?:ừ|uhm?|ok|oke|yes)\b", re.I),
+    re.compile(r"^\s*(?:yep|yeah|ok|okay|yes)\b", re.I),
 )
 
 # Shapes that look like approval but are questions or conditionals — NOT approval.
 APPROVAL_NEGATIONS = (
     re.compile(r"\b(?:should|shall|can|could|may|might|would|do|does|did)\b[^?.!\n]*\?", re.I),
-    re.compile(r"\b(?:không|chưa|nhỉ)\s*\?\s*$", re.I),
     re.compile(r"\bif\b[^?.!\n]*\b(?:then|,)\b", re.I),
-    re.compile(r"\bnếu\b", re.I),
 )
 
 

@@ -77,6 +77,21 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(config.REVIEWER_MODEL_SPEC, "Gemini 3.7 Flash (High)")
             self.assertEqual(config.REVIEWER_EFFORT, "high")
 
+    def test_lite_verifier_model_defaults_and_env_binding(self):
+        self.assertEqual(config.LITE_VERIFIER_MODEL_SPEC, "Gemini 3.8 Flash (Low)")
+        self.assertEqual(config.LITE_MODEL_CANDIDATES[0], "Gemini 3.8 Flash (Low)")
+        self.assertIn("Gemini 3.8 Flash (Low)", config.LITE_MODEL_CANDIDATES)
+
+        with patch.dict(os.environ, {"AGY_LITE_VERIFIER_MODEL": "Gemini 3.8 Flash (Medium)"}):
+            importlib.reload(config)
+            self.assertEqual(config.LITE_VERIFIER_MODEL_SPEC, "Gemini 3.8 Flash (Medium)")
+            self.assertEqual(config.LITE_MODEL_CANDIDATES[0], "Gemini 3.8 Flash (Medium)")
+
+        with patch.dict(os.environ, {}, clear=True):
+            importlib.reload(config)
+            self.assertEqual(config.LITE_VERIFIER_MODEL_SPEC, "Gemini 3.8 Flash (Low)")
+            self.assertEqual(config.LITE_MODEL_CANDIDATES[0], "Gemini 3.8 Flash (Low)")
+
 
 if __name__ == "__main__":
     unittest.main()

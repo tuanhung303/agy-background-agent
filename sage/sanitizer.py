@@ -102,22 +102,19 @@ def clamp_diff(git_diff: Optional[str], budget: int = 4000) -> str:
 DEFERRAL_TAXONOMY = (
     ("question_dumping", (
         re.compile(r"\b(?:would you like me to|do you want me to|tell me if you(?:'d| would)?(?: like| want me to)?|let me know if (?:you(?:'d| would)?(?: like| want)|it helps)|should (?:i|we)|shall (?:i|we)|how would you like to proceed|what would you like to do next)\b", re.I),
-        re.compile(r"\b(?:bạn|anh|chị|senpai)\s*(?:có\s+)?(?:muốn|cần|muốn em|muốn mình)\b.*(?:\?|không\??)", re.I),
-        re.compile(r"\b(?:có\s+)?(?:muốn|cần)\s+(?:mình|em|tôi|tiếp tục|làm tiếp|triển khai|chạy|fix|sửa|test|address)\b.*(?:\?|không\??)", re.I),
-        re.compile(r"\bcòn\s+.*\s+(?:có\s+)?(?:muốn|cần|muốn em)\s+.*(?:\?|không\??)", re.I),
-        re.compile(r"\badvise đã sync có muốn làm không\b", re.I),
+        re.compile(r"\b(?:do you (?:want|need|prefer)|would you (?:prefer|want)|do you wish)\b.*(?:\?|$)", re.I),
     )),
     ("scope_evasion", (
-        re.compile(r"\b(?:out[\s_-]?of[\s_-]?scope|outside(?: of)? scope|không thuộc scope|ngoài scope|ngoài phạm vi|pre-existing|not in (?:the )?(?:original )?prompt|beyond the scope)\b", re.I),
+        re.compile(r"\b(?:out[\s_-]?of[\s_-]?scope|outside(?: of)? scope|not in scope|beyond scope|pre-existing|not in (?:the )?(?:original )?prompt|beyond the scope)\b", re.I),
     )),
     ("aspirational_gap", (
-        re.compile(r"\b(?:good enough for (?:v1|now)|future (?:change|work|enhancement|iteration)|(?:we can|we will) revisit|we will need to|left for user judgment|for now we(?:'ll| will) just|tạm thời (?:như vậy|chấp nhận|thế)|để sau (?:làm|xử lý|tính)|gác lại phần này|mvp mindset|non-blocking|not blocking|deliberate accepted cost|accept the (?:gap|slight|small|aspirational))\b", re.I),
+        re.compile(r"\b(?:good enough for (?:v1|now)|future (?:change|work|enhancement|iteration)|(?:we can|we will) revisit|we will need to|left for user judgment|for now we(?:'ll| will) just|mvp mindset|non-blocking|not blocking|deliberate accepted cost|accept the (?:gap|slight|small|aspirational))\b", re.I),
     )),
     ("delegated_execution", (
-        re.compile(r"\b(?:(?:bạn|anh|chị|senpai)\s+(?:có thể\s+)?(?:tự\s+)?(?:chạy|thử|test|run|execute)|(?:you can|please|feel free to)\s+(?:now\s+)?(?:run|test|execute|verify|try)|hãy\s+(?:tự\s+)?(?:chạy|chạy lệnh|run)|to\s+(?:test|verify|run),?\s+(?:you can\s+)?run)\b", re.I),
+        re.compile(r"\b(?:(?:you can|please|feel free to)\s+(?:now\s+)?(?:run|test|execute|verify|try)|to\s+(?:test|verify|run),?\s+(?:you can\s+)?run)\b", re.I),
     )),
     ("tail_todo", (
-        re.compile(r"(?:^|\n)#{1,4}\s*(?:Next Steps|Remaining Work|Remaining|TODO|Caveats|Limitations|Lưu ý|Việc cần làm|Bước tiếp theo|Known issues?)\b", re.I),
+        re.compile(r"(?:^|\n)#{1,4}\s*(?:Next Steps|Remaining Work|Remaining|TODO|Caveats|Limitations|Action Items|Known issues?)\b", re.I),
         re.compile(r"(?:^|\n)-\s*\[\s*\]\s*TODO:", re.I),
     )),
 )
@@ -130,15 +127,12 @@ APPROVAL_PATTERNS = (
     re.compile(r"\b(?:please )?(?:do it|implement it|run it|execute it|just do(?: it)?)\b", re.I),
     re.compile(r"\bfeel free to (?:proceed|implement|run)\b", re.I),
     re.compile(r"\bkeep going\b", re.I),
-    re.compile(r"\b(?:làm đi|chạy đi|triển khai đi|cứ làm|cứ triển khai|cứ chạy|đồng ý|chấp thuận|ok anh|oke anh|ừ làm đi|tiến hành)\b", re.I),
-    re.compile(r"^\s*(?:ừ|uhm?|ok|oke|yes)\b", re.I),
+    re.compile(r"^\s*(?:yep|yeah|ok|okay|yes)\b", re.I),
 )
 
 APPROVAL_NEGATIONS = (
     re.compile(r"\b(?:should|shall|can|could|may|might|would|do|does|did)\b[^?.!\n]*\?", re.I),
-    re.compile(r"\b(?:không|chưa|nhỉ)\s*\?\s*$", re.I),
     re.compile(r"\bif\b[^?.!\n]*\b(?:then|,)\b", re.I),
-    re.compile(r"\bnếu\b", re.I),
 )
 
 
@@ -167,7 +161,7 @@ def _normalize_for_search(text: str) -> str:
         return ""
     cleaned = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", str(text)).replace("\u00a0", " ")
     collapsed = re.sub(r"[^\S\n]+", " ", cleaned)
-    return re.sub(r"\b(out|ngoài|không\s+thuộc)[-_]scope\b", r"\1 scope", collapsed, flags=re.I)
+    return re.sub(r"\bout[-_]scope\b", "out scope", collapsed, flags=re.I)
 
 
 def detect_deferral_in_text(text: Optional[str]) -> List[str]:
@@ -180,13 +174,13 @@ def detect_deferral_in_text(text: Optional[str]) -> List[str]:
 
 def extract_delegated_command(text: str) -> str:
     clean = strip_code_blocks(text)
-    m = re.search(r"(?:chạy|run|execute|lệnh|test(?:ing)?)\s*(?:bằng|with|command)?:?\s*`([^`]+)`", clean, re.I)
+    m = re.search(r"(?:run|execute|command|test(?:ing)?)\s*(?:with|command)?:?\s*`([^`]+)`", clean, re.I)
     return m.group(1).strip() if m else ""
 
 
 def extract_tail_todo(text: str) -> str:
     clean = strip_code_blocks(text)
-    m = re.search(r"(?:^|\n)(#{1,4}\s*(?:Next Steps|Remaining Work|Remaining|TODO|Việc cần làm|Bước tiếp theo)[^\n]*)", clean, re.I)
+    m = re.search(r"(?:^|\n)(#{1,4}\s*(?:Next Steps|Remaining Work|Remaining|TODO|Action Items)[^\n]*)", clean, re.I)
     return m.group(1).strip() if m else ""
 
 

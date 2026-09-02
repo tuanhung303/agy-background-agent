@@ -248,7 +248,7 @@
       <rect x="0" y="0" width="508" height="144" class="card-focus"/>
       <text x="16" y="24" class="item-title">sage/lite/verifier.py &amp; sage/lite/prompt.py</text>
       <text x="16" y="46" class="item-sub">Runs fast-thinking Gemini model cascade on the forked session:</text>
-      <text x="16" y="66" class="mono" font-size="11" fill="#18181B">Gemini 3.7 Flash (Low) → Flash (Medium) → Flash (High)</text>
+      <text x="16" y="66" class="mono" font-size="11" fill="#18181B">Gemini 3.8 Flash (Low) → Flash (Medium) → Gemini 3.7 Flash (Low)</text>
       <text x="16" y="88" class="item-sub">• Evaluates verbatim user Definition of Done (DoD)</text>
       <text x="16" y="106" class="item-sub">• Extracts structured JSON LiteVerdict: {"verdict": "PASS"|"FAIL", "action": "..."}</text>
       <rect x="390" y="12" width="104" height="18" class="tag-chip"/>

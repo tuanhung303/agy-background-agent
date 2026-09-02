@@ -12,15 +12,11 @@ _TRIVIAL_PHRASES: Set[str] = {
     "lgtm", "looks good", "looks good to me", "done", "thx", "thanks", "thank you", "ty", "next",
     "ship", "ship it", "ship code", "push", "push code", "push to remote", "commit and push",
     "run it", "execute", "do it", "perfect", "great", "nice", "sounds good", "alright", "all right", "fine",
-    "tiếp", "tiếp đi", "tiếp tục", "tiếp tục đi", "làm tiếp", "làm tiếp đi", "làm đi", "làm đi bạn",
-    "chạy đi", "chạy tiếp", "được rồi", "đc rồi", "được", "đc", "oke r", "oke rồi", "ok rồi", "ok r",
-    "xong", "cảm ơn", "cảm ơn bạn", "cám ơn", "tuyệt", "chuẩn", "hợp lý", "đẩy lên", "push lên", "push đi", "commit đi",
 }
 
 _TRIVIAL_RE = re.compile(
     r"^(?:ok(?:ay|e|ie|ies|ey)?|y(?:es|eah|ep|up)?|sure|proceed|continue|go ahead|approved?|lgtm|looks good|"
-    r"push(?: (?:code|to remote|it|changes))?|ship(?: (?:it|code))?|tiếp(?: (?:đi|tục|bạn))?|"
-    r"làm (?:tiếp|đi)(?: bạn)?|chạy (?:đi|tiếp)|đ(?:ược|c)(?: rồi)?|oke?(?: rồi| r)?|cảm ơn(?: bạn)?)[!.,? ]*$",
+    r"push(?: (?:code|to remote|it|changes))?|ship(?: (?:it|code))?|run it|do it|done|thanks?)[!.,? ]*$",
     re.I,
 )
 _INTER_AGENT_RE = re.compile(r"(?:^|\n)\s*(?:\[Message\]|sender=)|has gone idle", re.I)
@@ -38,7 +34,7 @@ def is_trivial_acknowledgment(text: Optional[str]) -> bool:
         return True
     words = norm.split()
     if len(words) <= 3 and len(norm) <= 25:
-        if all(w in _TRIVIAL_PHRASES or w in ("please", "bạn", "nha", "nhé", "luôn", "nhé bạn") for w in words):
+        if all(w in _TRIVIAL_PHRASES or w in ("please", "now", "here", "too", "as well") for w in words):
             return True
     return False
 

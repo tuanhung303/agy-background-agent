@@ -1,5 +1,6 @@
 """tests.test_stop_verifier_cases - Test suite for Stop Verifier adversarial cases and domain channels."""
 import unittest
+from unittest.mock import MagicMock, patch
 
 from sage.lite.gating import is_plan_or_qa_intent
 from sage.lite.proof_validator import validate_empirical_proof
@@ -448,6 +449,99 @@ class TestStopVerifierDomainCases(unittest.TestCase):
         self.assertIn("Treat an error in any enumerable collection or sibling entity", prompt)
         self.assertIn("Prohibit single-sighting narrow patching", prompt)
         self.assertIn("Sibling Verification Contract: The agent must declare the active candidate universe U", prompt)
+
+    def test_external_blocker_escalation_passes(self):
+        """External blocker such as corporate MFA or RDP session conflict must pass validation."""
+        blocker_proofs = [
+            "Azure MFA interactive login required for user kai@cbc.com. Redirected to https://login.microsoftonline.com with 2FA prompt.",
+            "Active RDP session conflict: Session ID 3 on jumpbox held by user d360_admin. Disconnect requires human action.",
+        ]
+        is_valid, reason = validate_empirical_proof(blocker_proofs)
+        self.assertTrue(is_valid, f"Expected blocker escalation to be valid proof, but failed with: {reason}")
+
+        user_prompt = "Execute data extraction on CBC Synapse via RDP jumpbox"
+        agent_response = "Encountered active RDP session lock. Disconnect required from user."
+        prompt = build_lite_verifier_prompt(user_prompt, agent_response)
+        self.assertIn("External Blocker & Human Escalation Boundary", prompt)
+        self.assertIn("Distinguish between lazy deferral and hard external blockers", prompt)
+
+    def test_informational_inquiry_intent_and_prompt(self):
+        """Informational data inquiry intent must be detected and governed by inquiry rule."""
+        self.assertTrue(is_plan_or_qa_intent("is there spend in this file?"))
+        self.assertTrue(is_plan_or_qa_intent("why is order_value different from total_spend?"))
+        self.assertTrue(is_plan_or_qa_intent("can you check if this column is attributed?"))
+
+        prompt = build_lite_verifier_prompt("is there spend in this file?", "Order amount is revenue, not spend.")
+        self.assertIn("Informational & Data Inquiries (Sanity Checks, Explanations, Discrepancy Audits)", prompt)
+    def test_recent_terminal_command_provenance_and_prompt_formatting(self):
+        """Recent terminal command and output must be preserved in provenance and verifier prompt."""
+        from sage.lite.gating import extract_turn_execution_provenance
+        from sage.lite.verifier import generate_contextual_reject_action
+
+        steps = [
+            {"type": "USER_INPUT", "content": "can you check what columns are in data.xlsx?"},
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "Let me inspect the columns with python.",
+                "tool_calls": [
+                    {
+                        "name": "run_command",
+                        "args": {
+                            "CommandLine": "python3 -c \"import pandas as pd; df = pd.read_excel('data.xlsx'); print(df.columns); print(df.head(2))\""
+                        }
+                    }
+                ]
+            },
+            {
+                "type": "GENERIC",
+                "content": "Index(['Order ID', 'Conversion Type', 'Order Amount', 'Date'], dtype='object')\nRow 0: JB45515332 475.00\nRow 1: CB79829170 139.00"
+            },
+            {
+                "type": "PLANNER_RESPONSE",
+                "content": "The Excel file contains Order ID, Conversion Type, Order Amount, and Date. Order Amount is revenue, not spend."
+            }
+        ]
+
+        prov = extract_turn_execution_provenance(steps)
+        recent_cmd = prov.get("most_recent_terminal_cmd")
+        self.assertIsNotNone(recent_cmd)
+        self.assertEqual(recent_cmd["tool"], "run_command")
+        self.assertIn("import pandas as pd", recent_cmd["command"])
+        self.assertIn("Order ID", recent_cmd["output"])
+        self.assertIn("Order Amount", recent_cmd["output"])
+
+        prompt = build_lite_verifier_prompt(
+            user_prompt="can you check what columns are in data.xlsx?",
+            last_agent_output=steps[-1]["content"],
+            turn_provenance=prov,
+        )
+        self.assertIn("<most_recent_terminal_command>", prompt)
+        self.assertIn("Command: `python3 -c \"import pandas as pd", prompt)
+        self.assertIn("Order Amount", prompt)
+        self.assertIn("cross-examine", prompt)
+
+        with patch("subprocess.run") as mock_run:
+            mock_proc = MagicMock()
+            mock_proc.returncode = 0
+            mock_proc.stdout = "Check the exact numeric diff in Order Amount."
+            mock_proc.stderr = ""
+            mock_run.return_value = mock_proc
+
+            act = generate_contextual_reject_action(
+                fork_conv_id="test_fork",
+                user_prompt="check columns in data.xlsx",
+                last_agent_output=steps[-1]["content"],
+                reject_reason="Missing proof",
+                most_recent_terminal_cmd=recent_cmd,
+            )
+            self.assertEqual(act, "Check the exact numeric diff in Order Amount.")
+            args, _ = mock_run.call_args
+            cli_cmd = args[0]
+            p_idx = cli_cmd.index("-p")
+            prompt_sent = cli_cmd[p_idx + 1]
+            self.assertIn("<recent_tool_executions>", prompt_sent)
+            self.assertIn("Most recent terminal command: `python3 -c", prompt_sent)
+            self.assertIn("Order Amount", prompt_sent)
 
 
 if __name__ == "__main__":

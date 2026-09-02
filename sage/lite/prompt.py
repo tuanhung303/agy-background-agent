@@ -26,15 +26,24 @@ If No, the work is incomplete.
 
 Evaluate the response against these exact conditions across engineering, scripting, web, data, and document disciplines:
 
-0. INTENT TYPE (Plan, Brainstorm, QA, Research, File Search, Advisory, Document Survey, Grill-Me / Interview):
-- Deterministic Routing: If the user request specifically asked for research, file discovery, document analysis, codebase search, planning, brainstorming, design options, question answering, strategic advice, or interview/clarification (/plan, /qa, /learn, /bro, /grill-me, 'find where', 'check the slides', 'recommend what to discuss', 'interview me'), the agent must deliver a structured deliverable with verifiable citations (e.g. cited file paths, specific questions formulated, decision tree nodes, slide/sheet/row numbers).
+0. INTENT TYPE & SLASH PLAN GRILL-ME PROTOCOL:
+- Slash Plan (/plan): When the user request invokes `/plan` or planning mode, the agent MUST NOT stop immediately after drafting the plan. The agent must verify the plan with the user by conducting a grill-me audit: inspect the plan for blind spots, hidden assumptions, schema risks, and critical design trade-offs, then interview the user via `ask_question`. If the agent attempts to stop after drafting the plan without having interviewed the user via `ask_question` -> FAIL (Action: "Run grill-me to verify the plan with the user: audit the implementation plan for blind spots, hidden assumptions, and design trade-offs, then use `ask_question` to interview the user and confirm critical decisions before proceeding.").
+- Informational & Data Inquiries (Sanity Checks, Explanations, Discrepancy Audits): If the user request asks a clarification, sanity check, diagnostic question, or factual inquiry about data, files, schemas, metrics, or system behaviors (e.g. 'is there spend in this file?', 'why did this change?', 'is this metric attributed or direct?'), the agent must deliver factual, quantitative evidence and field-level citations directly in the response. Do NOT demand that the agent write or commit reusable test modules under `scripts/verify/` for informational or sanity inquiries unless the user explicitly requested building a verification test suite.
+- Other Intent Types (Brainstorm, QA, Research, File Search, Advisory, Document Survey, Grill-Me): If the user request specifically asked for research, file discovery, document analysis, codebase search, brainstorming, design options, question answering, strategic advice, or interview/clarification (/qa, /learn, /bro, /grill-me, 'find where', 'check the slides', 'recommend what to discuss', 'interview me'), the agent must deliver a structured deliverable with verifiable citations (e.g. cited file paths, specific questions formulated, decision tree nodes, slide/sheet/row numbers).
 - Invariant: A PASS without evidence is strictly FORBIDDEN across all domains. Proof array must cite the specific analyzed files, formulated interview questions, or plan artifacts. Do NOT demand execution commands or UI screenshots for research/interview/planning turns, but proof array must NEVER be empty.
 - Invariant Boundary: For all implementation, coding, development, bug fixing, and office creation tasks -> Strict empirical verification below is MANDATORY.
 
 1. AUTONOMY & ANTI-DEFERRAL:
 > "Did the agent finish the job autonomously to completion, or did it defer verification, leave placeholders, or outsource commands to the user?"
 - Deterministic Check: Prohibit deferring tests ("will test later", "test in staging"), asking permission, asking trivial "Yes/No" questions, leaving TODOs, or telling the user to run commands/migrations/verification manually.
-- Routing: -> FAIL (Action: "Do not defer or outsource. Execute the required commands and verification directly yourself.")
+- External Blocker & Human Escalation Boundary:
+  > "Is execution blocked by an external boundary beyond autonomous reach, and did the agent satisfy the 3-part escalation contract?"
+  Distinguish between lazy deferral and hard external blockers. A stop is legitimate and must NOT fail under anti-deferral when execution is blocked by external security, authentication, or infrastructure boundaries beyond the agent's autonomous reach:
+  1. Interactive authentication: Multi-factor authentication (MFA), corporate SSO/ADFS login challenges, CAPTCHA, or hardware security keys.
+  2. External session locks: Remote desktop (RDP) sessions actively held by another user or process on a jumpbox, or locked Windows GUI sessions that CLI cannot terminate without human intervention.
+  3. Explicit human approval gates: Staging/production apply boundaries, financial/billing transactions, or destructive actions requiring out-of-band user approval.
+  Escalation Contract: The agent must explicitly provide (a) the exact technical error, URL, or lock signature, (b) the autonomous resolution attempts already executed, and (c) the specific concrete action required from the user to unblock execution. If these three elements are present, the escalation is valid: return PASS with the documented blocker in the proof array.
+- Routing: If the agent deferred commands without satisfying the escalation contract -> FAIL (Action: "Do not defer or outsource. Execute the required commands and verification directly yourself."). If the escalation contract is satisfied -> PASS.
 
 2. COMPLETENESS, BLAST RADIUS & REGRESSION IMMUNITY:
 > "Is the change verified across the entire enumerable class and downstream callers without narrowing to an isolated sighting?"
@@ -148,6 +157,24 @@ def build_lite_verifier_prompt(
             "Historical screenshots and prior-turn tests are strictly invalid."
         )
         extra_blocks.append(exec_block)
+
+    most_recent_cmd = None
+    if isinstance(turn_provenance, dict):
+        most_recent_cmd = turn_provenance.get("most_recent_terminal_cmd")
+
+    if most_recent_cmd and isinstance(most_recent_cmd, dict) and most_recent_cmd.get("command"):
+        cmd_text = str(most_recent_cmd.get("command") or "").strip()
+        cmd_out = str(most_recent_cmd.get("output") or "").strip()
+        recent_block = (
+            f"<most_recent_terminal_command>\n"
+            f"Command: `{cmd_text}`\n"
+            f"Output:\n{cmd_out if cmd_out else '(No output or clean exit)'}\n\n"
+            "Note: If the user request is an informational, audit, or data reconciliation inquiry, cross-examine "
+            "the numbers, column names, and field values cited in the agent response against this actual terminal output. "
+            "If the terminal output empirically proves the agent's factual findings, approve with PASS."
+            f"\n</most_recent_terminal_command>"
+        )
+        extra_blocks.append(recent_block)
 
     if extra_blocks:
         return base_prompt + "\n\n" + "\n\n".join(extra_blocks)

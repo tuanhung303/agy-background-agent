@@ -12,7 +12,7 @@ from sage.lite.gating import extract_turn_mutations_and_context, is_mutating_too
 from sage.lite.prompt import build_lite_verifier_prompt
 from sage.lite.runner import run_lite_stop_audit
 from sage.lite.schemas import LiteVerdict
-from sage.lite.verifier import run_lite_verification
+from sage.lite.verifier import generate_contextual_reject_action, run_lite_verification
 from statusline.statusline import get_sage_steer_badges, render_statusline
 
 
@@ -352,6 +352,160 @@ class TestLiteStatusline(unittest.TestCase):
                     os.remove(sf)
                 if os.path.exists(tf):
                     os.remove(tf)
+
+
+class TestLiteVerifierExecution(unittest.TestCase):
+    @patch("sage.lite.verifier.subprocess.run")
+    def test_run_lite_verification_uses_gemini_3_8_low(self, mock_run):
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = '{"verdict": "PASS", "proof": ["unit test stdout verified"]}'
+        mock_run.return_value = mock_proc
+
+        verdict = run_lite_verification("parent_123", "fork_123", "fix bug", "done")
+        self.assertEqual(verdict.verdict, "PASS")
+        cmd = mock_run.call_args[0][0]
+        self.assertIn("--model", cmd)
+        model_idx = cmd.index("--model")
+        self.assertEqual(cmd[model_idx + 1], "Gemini 3.8 Flash (Low)")
+
+    @patch("sage.lite.verifier.subprocess.run")
+    def test_generate_contextual_reject_action_uses_gemini_3_8_low(self, mock_run):
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "Run pytest tests/test_app.py before stopping."
+        mock_run.return_value = mock_proc
+
+        act = generate_contextual_reject_action("fork_123", "fix bug", "done", "missing test proof")
+        self.assertEqual(act, "Run pytest tests/test_app.py before stopping.")
+        cmd = mock_run.call_args[0][0]
+        self.assertIn("--model", cmd)
+        model_idx = cmd.index("--model")
+        self.assertEqual(cmd[model_idx + 1], "Gemini 3.8 Flash (Low)")
+
+
+class TestSlashPlanGrillMeSteering(unittest.TestCase):
+    def test_is_slash_plan_intent(self):
+        from sage.lite.gating import is_slash_plan_intent
+        self.assertTrue(is_slash_plan_intent("/plan"))
+        self.assertTrue(is_slash_plan_intent("/plan refactor database architecture"))
+        self.assertTrue(is_slash_plan_intent("/plan: setup microservice"))
+        self.assertTrue(is_slash_plan_intent("please run /plan for this feature"))
+        self.assertTrue(is_slash_plan_intent("<plan> build auth flow"))
+
+        self.assertFalse(is_slash_plan_intent("/planning"))
+        self.assertFalse(is_slash_plan_intent("/qa explain architecture"))
+        self.assertFalse(is_slash_plan_intent("implement the login endpoint"))
+
+    @patch("sage.lite.runner.fail_safe_exit")
+    @patch("sage.lite.runner.fork_conversation_session", return_value="fork_plan_123")
+    @patch("sage.lite.runner.cleanup_fork_session")
+    @patch("sage.lite.runner.run_lite_verification")
+    def test_slash_plan_does_not_bypass_mutation_gating(self, mock_ver, mock_clean, mock_fork, mock_exit):
+        """Even with zero codebase mutations (only /brain/ plan file), /plan must not bypass."""
+        mock_exit.side_effect = SystemExit(0)
+        mock_ver.return_value = LiteVerdict(
+            verdict="PASS", action="", comment="plan ready",
+            proof=["Formulated architectural questions for: /plan database migration"],
+        )
+        payload = {
+            "conversationId": "test_conv_plan_gate",
+            "transcript_path": "/tmp/nonexistent.jsonl",
+        }
+        steps = [
+            {"type": "USER_INPUT", "content": "/plan database migration"},
+            {"type": "PLANNER_RESPONSE", "content": "Drafting plan", "tool_calls": [
+                {"name": "write_to_file", "args": {"TargetFile": "/Users/test/.gemini/antigravity/brain/conv123/implementation_plan.md"}},
+            ]},
+            {"type": "PLANNER_RESPONSE", "content": "I have created the implementation plan."},
+        ]
+        with patch("sage.lite.runner._read_transcript_steps", return_value=steps):
+            try:
+                run_lite_stop_audit(json.dumps(payload))
+            except SystemExit:
+                pass
+            # Must proceed to fork and verification rather than bypassing on zero mutations
+            mock_fork.assert_called_once_with("test_conv_plan_gate")
+            mock_ver.assert_called_once()
+
+    @patch("sage.lite.runner.emit_continue_response")
+    @patch("sage.lite.runner.fork_conversation_session", return_value="fork_plan_reject")
+    @patch("sage.lite.runner.cleanup_fork_session")
+    @patch("sage.lite.runner.run_lite_verification")
+    def test_slash_plan_without_ask_question_steers_to_grill_me(self, mock_ver, mock_clean, mock_fork, mock_cont):
+        """Stopping on /plan without having interviewed the user via ask_question must trigger grill-me steering."""
+        mock_cont.side_effect = SystemExit(0)
+        # LLM mistakenly says PASS without proof of grill-me interview
+        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", comment="plan written", proof=["plan drafted in artifact"])
+        payload = {
+            "conversationId": "test_conv_plan_steer",
+            "transcript_path": "/tmp/nonexistent.jsonl",
+        }
+        steps = [
+            {"type": "USER_INPUT", "content": "/plan postgres migration"},
+            {"type": "PLANNER_RESPONSE", "content": "Drafted plan", "tool_calls": [
+                {"name": "write_to_file", "args": {"TargetFile": "/brain/implementation_plan.md"}},
+            ]},
+            {"type": "PLANNER_RESPONSE", "content": "Plan is ready in implementation_plan.md."},
+        ]
+        with patch("sage.lite.runner._read_transcript_steps", return_value=steps):
+            try:
+                run_lite_stop_audit(json.dumps(payload))
+            except SystemExit:
+                pass
+            mock_cont.assert_called_once()
+            steer_msg = mock_cont.call_args[0][0]
+            self.assertIn("Run grill-me to verify the plan with the user", steer_msg)
+            self.assertIn("ask_question", steer_msg)
+
+    @patch("sage.lite.runner.fail_safe_exit")
+    @patch("sage.lite.runner.fork_conversation_session", return_value="fork_plan_pass")
+    @patch("sage.lite.runner.cleanup_fork_session")
+    @patch("sage.lite.runner.run_lite_verification")
+    def test_slash_plan_with_ask_question_passes_cleanly(self, mock_ver, mock_clean, mock_fork, mock_exit):
+        """When the agent executed ask_question to interview the user, /plan passes cleanly."""
+        mock_exit.side_effect = SystemExit(0)
+        genuine_proof = ["Grill-me interview completed via ask_question: confirmed migration strategy with user"]
+        mock_ver.return_value = LiteVerdict(verdict="PASS", action="", comment="verified with user", proof=genuine_proof)
+        payload = {
+            "conversationId": "test_conv_plan_pass",
+            "transcript_path": "/tmp/nonexistent.jsonl",
+        }
+        steps = [
+            {"type": "USER_INPUT", "content": "/plan postgres migration"},
+            {"type": "PLANNER_RESPONSE", "content": "Drafted plan", "tool_calls": [
+                {"name": "write_to_file", "args": {"TargetFile": "/brain/implementation_plan.md"}},
+                {"name": "ask_question", "args": {"questions": [{"question": "Which migration tool?"}]}},
+            ]},
+            {"type": "PLANNER_RESPONSE", "content": "Plan aligned with user."},
+        ]
+        with patch("sage.lite.runner._read_transcript_steps", return_value=steps):
+            try:
+                run_lite_stop_audit(json.dumps(payload))
+            except SystemExit:
+                pass
+            mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
+
+    def test_proof_validator_rejects_plan_without_grill_me(self):
+        """Proof validator rejects /plan without ask_question or grill-me interview proof."""
+        from sage.lite.proof_validator import validate_empirical_proof
+        # Plan without ask_question tool call and without interview evidence must be rejected
+        is_valid, reason = validate_empirical_proof(
+            ["implementation_plan.md drafted"],
+            turn_provenance={"has_asked_question": False},
+            user_prompt="/plan database migration",
+        )
+        self.assertFalse(is_valid)
+        self.assertIn("grill-me verification with the user via ask_question", reason)
+
+        # Plan with has_asked_question=True passes
+        is_valid_pass, reason_pass = validate_empirical_proof(
+            ["Interviewed user on migration strategy and verified choices"],
+            turn_provenance={"has_asked_question": True},
+            user_prompt="/plan database migration",
+        )
+        self.assertTrue(is_valid_pass)
+        self.assertEqual(reason_pass, "")
 
 
 if __name__ == "__main__":

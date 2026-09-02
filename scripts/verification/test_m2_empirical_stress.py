@@ -84,7 +84,7 @@ class TestM2EmpiricalStress(unittest.TestCase):
         self.assertEqual(k1, k2)
 
         # Unicode / Emojis / Special characters handling
-        k_unicode = compute_advice_key("🚨 risk", "rm -rf 🔥", "xóa dữ liệu")
+        k_unicode = compute_advice_key("🚨 risk", "rm -rf 🔥", "delete data ⚡")
         self.assertEqual(len(k_unicode), 12)
         self.assertTrue(all(c in "0123456789abcdef" for c in k_unicode))
 
