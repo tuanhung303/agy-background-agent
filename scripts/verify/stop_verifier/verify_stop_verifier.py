@@ -91,6 +91,11 @@ def main() -> int:
         assert sec in prompt, f"Missing section in prompt: {sec}"
         print(f"  ✓ Verified invariant section present: {sec}")
 
+    assert "Treat an error in any enumerable entity (channel, tenant, route, formula, parser, model) as a sighting" in prompt
+    assert "Prohibit single-sighting narrow patching" in prompt
+    assert "Sibling Verification Contract: The agent must declare the active candidate universe U" in prompt
+    print("  ✓ Verified Aftershock sibling entity blast-radius invariants in prompt.")
+
     # 5. Multi-Domain Verification Matrix & Schema Serialization
     print("\n[5/5] Testing Multi-Domain Matrix (IT, Office, Web, Backend, Data)...")
     domain_cases = [
