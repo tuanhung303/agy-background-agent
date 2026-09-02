@@ -5,6 +5,7 @@ import sqlite3
 import time
 from typing import Optional
 
+from sage.config import get_real_user_home
 from sage.executor import SAGE_CLI_DIR, SAGE_ISOLATED_HOME, clean_resume_history, ensure_isolated_home
 from sage.locking import log_audit, safe_id
 
@@ -50,9 +51,10 @@ def fork_conversation_session(parent_conv_id: str) -> Optional[str]:
     ts = int(time.time() * 1000)
     fork_id = f"{safe_id(parent_conv_id)[:24]}_lite_{ts}"
 
-    real_cli_dir = os.path.expanduser("~/.gemini/antigravity-cli")
+    real_home = get_real_user_home()
+    real_cli_dir = os.path.join(real_home, ".gemini", "antigravity-cli")
     real_conv_dir = os.path.join(real_cli_dir, "conversations")
-    iso_conv_dir = os.path.join(SAGE_CLI_DIR, "conversations")
+    iso_conv_dir = os.path.join(iso_home, ".gemini", "antigravity-cli", "conversations")
     os.makedirs(iso_conv_dir, exist_ok=True)
 
     # 1. Locate parent DB

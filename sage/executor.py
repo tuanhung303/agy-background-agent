@@ -2,11 +2,15 @@
 sage.executor - Subprocess AGY execution with isolated home and session persistence.
 """
 import json, os, re, shutil, sqlite3, subprocess, sys, time
-from sage.config import SAGE_EXEC_TIMEOUT, SAGE_TIMEOUT_BUDGET
+from sage.config import SAGE_EXEC_TIMEOUT, SAGE_TIMEOUT_BUDGET, get_real_user_home
 from sage.locking import acquire_spawn_lock, log_audit, release_spawn_lock, safe_id
 from sage.models import cache_working_model, resolve_model_candidates
 
-SAGE_ISOLATED_HOME = os.path.expanduser("~/.gemini/antigravity-cli/sage_isolated_home")
+def get_isolated_home() -> str:
+    return os.environ.get("SAGE_ISOLATED_HOME") or os.environ.get("AGY_ISOLATED_HOME") or os.path.expanduser("~/.gemini/antigravity-cli/sage_isolated_home")
+
+
+SAGE_ISOLATED_HOME = get_isolated_home()
 SAGE_CLI_DIR = os.path.join(SAGE_ISOLATED_HOME, ".gemini", "antigravity-cli")
 CONV_DB_DIR = os.path.join(SAGE_CLI_DIR, "conversations")
 
@@ -26,12 +30,14 @@ def _link_file(src, dst):
 
 
 def ensure_isolated_home():
-    if os.path.realpath(os.environ.get("HOME", "")).startswith(os.path.realpath(SAGE_ISOLATED_HOME)):
-        return SAGE_ISOLATED_HOME
-    iso_cli, iso_cfg = SAGE_CLI_DIR, os.path.join(SAGE_ISOLATED_HOME, ".gemini", "config")
+    iso_home = get_isolated_home()
+    if os.path.realpath(os.environ.get("HOME", "")).startswith(os.path.realpath(iso_home)):
+        return iso_home
+    iso_cli, iso_cfg = os.path.join(iso_home, ".gemini", "antigravity-cli"), os.path.join(iso_home, ".gemini", "config")
     os.makedirs(iso_cli, mode=0o700, exist_ok=True)
     os.makedirs(iso_cfg, mode=0o700, exist_ok=True)
-    real_cli = os.path.expanduser("~/.gemini/antigravity-cli")
+    real_home = get_real_user_home()
+    real_cli = os.path.join(real_home, ".gemini", "antigravity-cli")
     try:
         entries = os.listdir(real_cli) if os.path.isdir(real_cli) else []
     except OSError:

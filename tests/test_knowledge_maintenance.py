@@ -54,15 +54,28 @@ class TestStage1ContractAndPromptInvariants(unittest.TestCase):
         self.assertIn('"update_knowledge": false | true', prompt)
         self.assertIn('"verdict": "PASS" | "FAIL"', prompt)
 
-    def test_s1_03_kb_maintainer_prompt_uses_absolute_paths(self):
+    def test_s1_03_kb_maintainer_prompt_uses_absolute_paths_and_context_boundary(self):
         prompt = build_kb_maintainer_prompt()
+        self.assertIn("<context_boundary>", prompt)
+        self.assertIn("=== CACHED HISTORICAL CONTEXT & REFERENCE ONLY ===", prompt)
+        self.assertIn("Epistemic Isolation", prompt)
+        self.assertIn("<active_maintainer_scope>", prompt)
+        self.assertIn("[CONFLICT & NOVELTY AUDIT]", prompt)
+        self.assertIn("[DETERMINISTIC MAINTENANCE PIPELINE]", prompt)
+        self.assertIn("Rollback on Failure", prompt)
         self.assertIn("Knowledge Base & Skill Registry Maintainer", prompt)
         self.assertIn("/Documents/GitHub/agentic/skills", prompt)
         self.assertIn("/.hermes/skills/validate/scripts/okf_validate.py", prompt)
         self.assertNotIn(" ~/Documents", prompt)
         self.assertNotIn(" ~/.hermes", prompt)
 
-    def test_s1_04_schema_casting_all_types(self):
+    def test_s1_04_kb_maintainer_defaults_to_gemini_flash_low(self):
+        from sage.config import KB_MAINTENANCE_MODEL_SPEC, KB_MODEL_CANDIDATES
+        self.assertEqual(KB_MAINTENANCE_MODEL_SPEC, "Gemini 3.7 Flash (Low)")
+        self.assertEqual(KB_MODEL_CANDIDATES[0], "Gemini 3.7 Flash (Low)")
+
+
+    def test_s1_05_schema_casting_all_types(self):
         # Boolean True / False
         v1 = LiteVerdict.from_dict({"verdict": "PASS", "update_knowledge": True})
         self.assertTrue(v1.update_knowledge)
@@ -89,7 +102,7 @@ class TestStage1ContractAndPromptInvariants(unittest.TestCase):
         v_alias2 = LiteVerdict.from_dict({"verdict": "PASS", "knowledge_update": "yes"})
         self.assertTrue(v_alias2.update_knowledge)
 
-    def test_s1_05_get_real_user_home_escapes_isolated_home(self):
+    def test_s1_06_get_real_user_home_escapes_isolated_home(self):
         with patch.dict(os.environ, {"HOME": "/Users/testuser/.gemini/antigravity-cli/sage_isolated_home"}):
             real = get_real_user_home()
             self.assertEqual(real, "/Users/testuser")
@@ -104,7 +117,7 @@ class TestStage2ForkSessionLifecycle(unittest.TestCase):
 
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
-        self.real_cli = os.path.join(self.test_dir, "real_cli")
+        self.real_cli = os.path.join(self.test_dir, ".gemini", "antigravity-cli")
         self.iso_home = os.path.join(self.test_dir, "iso_home")
         os.makedirs(os.path.join(self.real_cli, "conversations"), exist_ok=True)
         os.makedirs(self.iso_home, exist_ok=True)
@@ -121,8 +134,7 @@ class TestStage2ForkSessionLifecycle(unittest.TestCase):
             conn.commit()
 
         with patch("sage.lite.fork.ensure_isolated_home", return_value=self.iso_home), \
-             patch("sage.lite.fork.SAGE_CLI_DIR", os.path.join(self.iso_home, ".gemini", "antigravity-cli")), \
-             patch("os.path.expanduser", side_effect=lambda p: self.real_cli if "antigravity-cli" in p else p):
+             patch("sage.lite.fork.get_real_user_home", return_value=self.test_dir):
             fork_id = fork_conversation_session(parent_id)
             self.assertIsNotNone(fork_id)
             self.assertTrue(fork_id.startswith(parent_id[:24]))

@@ -6,7 +6,12 @@ import subprocess
 import time
 from typing import Optional
 
-from sage.config import KB_MAINTENANCE_TIMEOUT, LITE_MODE_TIMEOUT, get_real_user_home
+from sage.config import (
+    KB_MAINTENANCE_TIMEOUT,
+    KB_MODEL_CANDIDATES,
+    LITE_MODE_TIMEOUT,
+    get_real_user_home,
+)
 from sage.executor import ensure_isolated_home, extract_json_from_llm_output
 from sage.lite.prompt import build_kb_maintainer_prompt, build_lite_verifier_prompt
 from sage.lite.schemas import LiteVerdict
@@ -129,7 +134,7 @@ def run_kb_maintenance(
         PATH=f"{os.path.join(real_home, '.local', 'bin')}:{os.environ.get('PATH', '')}",
     )
 
-    for idx, model in enumerate(LITE_MODEL_CANDIDATES):
+    for idx, model in enumerate(KB_MODEL_CANDIDATES):
         rem = timeout - (time.time() - start_t)
         if rem <= 0.5:
             log_audit("KB Maintainer timeout budget reached; completing")

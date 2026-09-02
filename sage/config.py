@@ -126,6 +126,15 @@ LITE_MODE_TIMEOUT = _safe_float_multi(("AGY_LITE_MODE_TIMEOUT",), 20.0)
 KB_MAINTENANCE_TIMEOUT = _safe_float_multi(("AGY_KB_MAINTENANCE_TIMEOUT", "AGY_LITE_KB_TIMEOUT"), 45.0)
 LITE_MAX_RETRIES = _safe_int_multi(("AGY_LITE_MAX_RETRIES",), 3)
 
+KB_MAINTENANCE_MODEL_SPEC = _env_get("AGY_KB_MAINTENANCE_MODEL", "AGY_LITE_KB_MODEL", default="Gemini 3.7 Flash (Low)")
+KB_MODEL_CANDIDATES = (
+    KB_MAINTENANCE_MODEL_SPEC,
+    "Gemini 3.7 Flash (Low)",
+    "Gemini 3.7 Flash (Medium)",
+    "Gemini 3.7 Flash (High)",
+)
+
+
 
 def get_real_user_home() -> str:
     """Returns the real user home directory, escaping isolated home if present."""
