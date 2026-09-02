@@ -440,12 +440,12 @@ class TestStopVerifierDomainCases(unittest.TestCase):
 
 
     def test_aftershock_sibling_blast_radius_escalation(self):
-        """Single-sighting failures on enumerable entities (channels/tenants/formulas) must enforce universe expansion."""
-        user_prompt = "Fix Meta spend calculation discrepancy in marketing dashboard"
-        agent_response = "Patched Meta spend formula in sheets/meta.py."
+        """Single-sighting failures on enumerable entities must enforce universe expansion."""
+        user_prompt = "Fix data processing discrepancy in calculation module"
+        agent_response = "Patched calculation formula in module_a.py."
         prompt = build_lite_verifier_prompt(user_prompt, agent_response)
         self.assertIn("COMPLETENESS, BLAST RADIUS & REGRESSION IMMUNITY", prompt)
-        self.assertIn("Treat an error in any enumerable entity (channel, tenant, route, formula, parser, model) as a sighting", prompt)
+        self.assertIn("Treat an error in any enumerable collection or sibling entity", prompt)
         self.assertIn("Prohibit single-sighting narrow patching", prompt)
         self.assertIn("Sibling Verification Contract: The agent must declare the active candidate universe U", prompt)
 

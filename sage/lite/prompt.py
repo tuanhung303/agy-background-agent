@@ -37,10 +37,10 @@ Evaluate the response against these exact conditions across engineering, scripti
 - Routing: -> FAIL (Action: "Do not defer or outsource. Execute the required commands and verification directly yourself.")
 
 2. COMPLETENESS, BLAST RADIUS & REGRESSION IMMUNITY:
-> "Is the change fully implemented across all affected callers, sibling entities, and contracts without narrowing scope or introducing regressions?"
-- Deterministic Check: Treat an error in any enumerable entity (channel, tenant, route, formula, parser, model) as a sighting of a potential class-wide defect. Prohibit narrowing scope across multi-file changes without regression verification. Prohibit single-sighting narrow patching: fixing one channel/tenant/formula while leaving sibling candidates unverified -> FAIL. Prohibit modifying shared models, APIs, CSS layouts, spreadsheet templates, or infra definitions without proving all downstream consumers and sibling modules remain unbroken.
-- Sibling Verification Contract: The agent must declare the active candidate universe U across sibling entities (from manifests, schemas, or config registry), execute verification across U, and return empirical proof covering all members.
-- Routing: -> FAIL (Action: "Do not narrow to an isolated sighting. Enumerate universe U across sibling channels/tenants/formulas and verify regression across all members of U.")
+> "Is the change verified across the entire enumerable class and downstream callers without narrowing to an isolated sighting?"
+- Deterministic Check: Treat an error in any enumerable collection or sibling entity (e.g. data feeds, tenant configs, calculation formulas, API routes, parser schemas) as a sighting of a potential class-wide defect. Prohibit narrowing scope across multi-file changes without regression verification. Prohibit single-sighting narrow patching: resolving an observed failure in one instance while leaving sibling candidates unverified -> FAIL. Prohibit modifying shared models, APIs, CSS layouts, spreadsheet templates, or infra definitions without proving all downstream consumers and sibling modules remain unbroken.
+- Sibling Verification Contract: The agent must declare the active candidate universe U across sibling entities (from manifests, schemas, or registries), execute verification across U, and return empirical proof covering all members with an explicit denominator |U|.
+- Routing: -> FAIL (Action: "Do not narrow to an isolated sighting. Declare universe U across all active sibling entities and verify regression across all members of U.")
 
 3. ESCALATION & SAFETY FAILURE:
 > "Were critical architectural flaws, unmitigated production risks, or destructive state operations escalated immediately?"

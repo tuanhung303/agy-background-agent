@@ -248,7 +248,7 @@ def generate_contextual_reject_action(
         f"<last_agent_response>\n{clean_agent}\n</last_agent_response>\n\n"
         f"Empirical proof validation failed: {reject_reason}\n\n"
         "State in 1-2 direct imperative sentences the exact, concrete verification action or proof the agent must perform for this specific task and codebase before stopping.\n"
-        "If the defect touches an enumerable entity (e.g. channel, tenant, route, formula, parser, model), treat this as a sighting: instruct the agent to declare universe U across all active sibling candidates and verify the entire class rather than patching an isolated sighting.\n"
+        "If the defect touches an enumerable collection or sibling entity (e.g. data feeds, tenant configs, calculation formulas, API routes, parser schemas), treat it as a sighting: instruct the agent to declare universe U from authoritative manifests or registries and verify the entire class rather than patching an isolated instance.\n"
         "Recommend adding or updating the matching topic module under scripts/verify/<topic>/ (orchestrated by scripts/verify/all.py or npm run verify) so the check is repeatable across future turns.\n"
         "Never use generic boilerplate (e.g. 'execute and document at least one empirical verification channel'). Focus on the affected universe and concrete execution commands."
     )

@@ -91,7 +91,7 @@ def main() -> int:
         assert sec in prompt, f"Missing section in prompt: {sec}"
         print(f"  ✓ Verified invariant section present: {sec}")
 
-    assert "Treat an error in any enumerable entity (channel, tenant, route, formula, parser, model) as a sighting" in prompt
+    assert "Treat an error in any enumerable collection or sibling entity" in prompt
     assert "Prohibit single-sighting narrow patching" in prompt
     assert "Sibling Verification Contract: The agent must declare the active candidate universe U" in prompt
     print("  ✓ Verified Aftershock sibling entity blast-radius invariants in prompt.")
@@ -119,22 +119,21 @@ def main() -> int:
     print("  ✓ Schema serialization verified cleanly.")
 
     # 6. Sibling Blast Radius & Recurrence Class Universe U Verification
-    print("\n[6/6] Testing Enumerable Entity Universe U Verification (Channels, Tenants, Formulas, Routes)...")
-    universe_entities = {
-        "channels": ["meta_spend", "google_spend", "tiktok_spend", "ctv_spend", "offline_spend"],
-        "tenants": ["seeda", "datum", "cbc", "gr", "tcc", "kleva", "sbc"],
-        "formulas": ["roas_calc", "margin_calc", "variance_calc", "currency_convert"],
-        "routes": ["auth_service", "billing_service", "reports_service", "data_service"],
+    print("\n[6/6] Testing Enumerable Entity Universe U Verification across Generalized Collections...")
+    universe_collections = {
+        "data_feed_connectors": ["connector_alpha", "connector_beta", "connector_gamma", "connector_delta"],
+        "tenant_partition_configs": ["tenant_env_a", "tenant_env_b", "tenant_env_c", "tenant_env_d"],
+        "calculation_transformation_rules": ["rule_aggregation", "rule_ratio", "rule_variance", "rule_conversion"],
+        "api_service_routes": ["route_auth", "route_billing", "route_reporting", "route_data"],
     }
-    for category, entities in universe_entities.items():
-        # Assert full universe cardinality and non-empty members
+    for category, entities in universe_collections.items():
         assert len(entities) >= 4, f"Universe for {category} must contain >= 4 candidates"
         aggregated_proof = [
             f"Executed verified test matrix across universe U_{category} ({len(entities)}/{len(entities)} candidates verified: {', '.join(entities)}) with exit code 0"
         ]
         is_val, reason = validate_empirical_proof(aggregated_proof)
         assert is_val, f"Aggregated proof for universe U_{category} rejected: {reason}"
-        print(f"  ✓ Verified Universe U_{category} (|U|={len(entities)}) across: {', '.join(entities)}")
+        print(f"  ✓ Verified generalized Universe U_{category} (|U|={len(entities)})")
 
     print("\n=== ALL 6 VERIFICATION CHANNELS PASSED CLEANLY ===")
     return 0
