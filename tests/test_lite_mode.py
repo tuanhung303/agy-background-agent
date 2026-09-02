@@ -109,11 +109,12 @@ class TestLitePrompt(unittest.TestCase):
 
     def test_kb_maintainer_prompt(self):
         prompt = build_kb_maintainer_prompt()
-        self.assertIn("Knowledge Base & Skill Registry Maintainer", prompt)
-        self.assertIn("Default to no-op", prompt)
-        self.assertIn("Strict rules against bloat", prompt)
+        self.assertIn("Knowledge Base & Field Notes Maintainer", prompt)
+        self.assertIn("[DOMAIN A: FIELD NOTES & TENANT/PIPELINE GOTCHAS]", prompt)
+        self.assertIn("[DOMAIN B: CENTRAL SKILLS REGISTRY MAINTENANCE]", prompt)
         self.assertIn("okf_validate.py", prompt)
         self.assertIn("/Documents/GitHub/agentic/skills", prompt)
+        self.assertIn("/Documents/GitHub/field-notes", prompt)
         self.assertNotIn("~/", prompt)
 
 

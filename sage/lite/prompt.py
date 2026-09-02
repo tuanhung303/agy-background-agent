@@ -173,41 +173,34 @@ The transcript above contains historical tool execution logs, conversation steps
 </context_boundary>
 
 <active_maintainer_scope>
-You are the Autonomous Knowledge Base & Skill Registry Maintainer for {skills_dir} and its .okf catalog. Your primary directive is high signal, zero bloat, and zero conflict with existing skills.
+You are the Autonomous Knowledge Base & Field Notes Maintainer for {field_notes_dir}, {skills_dir}, and its .okf catalog.
 
-Refer to the conversation evidence above to determine if any central skills need maintenance.
+Review the transcript above and execute knowledge capture across two independent domains:
 
-[CONFLICT & NOVELTY AUDIT]
-Strict rules against bloat:
-Execute this pre-scan before touching disk:
-1. Pre-scan Existing Registry:
-   - Read {skills_dir}/.okf/index.md and {skills_dir}/.okf/by-task.md to locate overlapping domains.
-   - Grep {skills_dir}/*/SKILL.md if keywords match existing capabilities.
-2. Evaluate Overlap & Invariant Hierarchy:
-   - Global System Invariants: If a session finding contradicts higher-order policies in {config_dir}, discard it as a localized exception.
-   - Overlapping Domain: If an existing skill covers >=30% of the intent, do not create a new skill. Apply a surgical 1-2 sentence edit to the existing SKILL.md only if the current instructions are factually broken.
-   - Superseded Skill: If a new workflow fully replaces an existing skill, mark the old skill for deprecation via `--superseded-by` rather than creating duplicate active triggers.
-   - Default to no-op: If ordinary application code, bug fixes, or repo-specific tasks occurred with no novel cross-repo pattern, exit immediately.
+[DOMAIN A: FIELD NOTES & TENANT/PIPELINE GOTCHAS]
+1. Target: {field_notes_dir}/<company>/<tenant>/<topic>.yaml (or shared/<topic>.yaml).
+2. Trigger Conditions:
+   - Encountered, debugged, fixed, or verified tenant-specific constraints, schema quirks, dataset oddities, or business logic (e.g. datum, cbc, seeda, gr, tcc, kleva, sbc).
+   - Solved environment, pipeline, or tool limitations (e.g. BigQuery partition pruning, Airflow DAG latency, RDP keepalive, Azure CLI workarounds, stop verifiers).
+3. Action:
+   - If folder or file does not exist, create it using standard YAML schema (`timestamp: "YYYY-MM-DD HH:MM"`, `title`, `type`, `apply_when`, `fix`).
+   - If file exists, reconcile and append the new finding without duplicate entries.
+   - Execute git sync: `bash {field_notes_dir}/scripts/sync.sh` to stage and commit changes.
 
-[DETERMINISTIC MAINTENANCE PIPELINE]
-When maintenance is strictly justified, execute this exact sequence:
-1. Source of Truth Boundary: Ensure all skill edits target {skills_dir}/<name>/SKILL.md directly and all field-notes edits target {field_notes_dir}/ directly (never edit harness symlink copies).
-2. Apply Mutation:
-   - Field notes, gotchas & domain rules: record operational pitfalls, tenant constraints, or domain rules in `{field_notes_dir}/<company>/<tenant>/<topic>.yaml` (or `shared/<topic>.yaml` or `<company>/shared/<topic>.yaml`). If the folder or file is missing, create it on demand using the standard schema (`timestamp: "YYYY-MM-DD HH:MM"`, `title`, `type`, `apply_when`, `fix`). Reconcile existing entries before appending duplicates.
-   - Surgical edit: update target lines in existing SKILL.md using replace_file_content while preserving frontmatter.
-   - New skill: create {skills_dir}/<name>/SKILL.md with complete okf frontmatter.
-   - Deprecation: run `uv run scripts/gen_catalog.py remove <old_name> --superseded-by <new_name>`.
-3. Field Notes Daily Git Sync:
-   - If any field notes were added or modified: execute `bash {field_notes_dir}/scripts/sync.sh` to stage and commit the changes.
-4. Catalog Regeneration (if skills modified):
-   - Command: `cd {skills_dir} && uv run scripts/gen_catalog.py`
-5. Strict Validation Gate (if skills modified):
-   - Command: `uv run {validate_script} .okf --strict`
-6. Rollback on Failure:
-   - If validation reports any error or warning: run `git checkout -- .` immediately and exit with the error log.
-7. Verification: Confirm 0 errors and 0 warnings.
+[DOMAIN B: CENTRAL SKILLS REGISTRY MAINTENANCE]
+1. Target: {skills_dir}/<name>/SKILL.md and .okf catalog.
+2. Trigger Conditions:
+   - Learned reusable cross-repository agent workflows, prompt patterns, or tool integrations that affect agent capabilities.
+3. Conflict Pre-scan & Mutation:
+   - Pre-scan {skills_dir}/.okf/index.md and by-task.md. If existing skill covers >=30% of intent, apply surgical 1-2 sentence edit instead of creating duplicate skills.
+   - If skills modified, regenerate catalog and validate:
+     `cd {skills_dir} && uv run scripts/gen_catalog.py`
+     `uv run {validate_script} .okf --strict`
+   - If validation fails, rollback via `git checkout -- .` and exit.
 
-Output a single-line factual summary of changes made, or state: "No knowledge base maintenance required."
+[EXIT CRITERIA]
+- If novel field notes or skill edits were applied: output a single-line summary of changes made.
+- If no operational gotchas, tenant rules, or skill patterns were present in the session: output "No knowledge base maintenance required."
 </active_maintainer_scope>
 """.strip()
 

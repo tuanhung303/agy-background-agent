@@ -7,22 +7,13 @@ import sys
 import time
 from typing import Optional
 
-from sage.config import (
-    KB_MAINTENANCE_TIMEOUT,
-    KB_MODEL_CANDIDATES,
-    LITE_MODE_TIMEOUT,
-    get_real_user_home,
-)
+from sage.config import KB_MAINTENANCE_TIMEOUT, KB_MODEL_CANDIDATES, LITE_MODE_TIMEOUT, get_real_user_home
 from sage.executor import ensure_isolated_home, extract_json_from_llm_output
 from sage.lite.prompt import build_kb_maintainer_prompt, build_lite_verifier_prompt
 from sage.lite.schemas import LiteVerdict
 from sage.locking import log_audit
 
-LITE_MODEL_CANDIDATES = (
-    "Gemini 3.7 Flash (Low)",
-    "Gemini 3.7 Flash (Medium)",
-    "Gemini 3.7 Flash (High)",
-)
+LITE_MODEL_CANDIDATES = ("Gemini 3.7 Flash (Low)", "Gemini 3.7 Flash (Medium)", "Gemini 3.7 Flash (High)")
 
 
 def run_lite_verification(
@@ -125,6 +116,8 @@ def run_kb_maintenance(
     real_home = get_real_user_home()
     agy_bin = shutil.which("agy") or os.path.join(real_home, ".local", "bin", "agy") or os.path.expanduser("~/.local/bin/agy")
     iso_home = ensure_isolated_home()
+    field_notes_dir = os.path.join(real_home, "Documents", "GitHub", "field-notes")
+    skills_dir = os.path.join(real_home, "Documents", "GitHub", "agentic", "skills")
 
     start_t = time.time()
     env = dict(
@@ -148,7 +141,12 @@ def run_kb_maintenance(
             "-p", prompt,
             "--model", model,
             "--disable-slash-commands",
+            "--dangerously-skip-permissions",
         ]
+        if os.path.isdir(field_notes_dir):
+            cmd.extend(["--add-dir", field_notes_dir])
+        if os.path.isdir(skills_dir):
+            cmd.extend(["--add-dir", skills_dir])
 
         run_cwd = cwd if (cwd and os.path.isdir(cwd)) else None
         try:
