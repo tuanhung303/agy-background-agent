@@ -82,7 +82,11 @@ Assume the agent's response may contain fabricated assertions, hallucinations, o
 Assume the implementation contains hidden flaws until proven otherwise.
 - Actively search for race conditions, visual layout bugs, unhandled exceptions, or invalid assumptions.
 - Binary Gate: If any flaw is unmitigated OR proof relies on disqualified items (unit tests, build logs, typechecks, git push) OR mandatory domain channel (e.g. screenshot for UI/SVG/charts) is missing OR visual layout contradicts claims -> Output: {{"verdict": "FAIL", "action": "<Imperative command to fix defect or provide missing empirical proof>", "comment": "", "proof": []}}
-- Pass Condition: If and only if all checks pass with verifiable empirical evidence from an authorized channel and visual inspection confirms correctness -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>", "proof": ["<exact screenshot path / curl output / DB query result / live execution output>"], "update_knowledge": false}}
+- Pass Condition: If and only if all checks pass with verifiable empirical evidence from an authorized channel and visual inspection confirms correctness -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>", "proof": ["<exact screenshot path / curl output / DB query result / live execution output>"], "update_knowledge": false | true}}
+
+[KNOWLEDGE UPDATE CRITERIA]
+- Set "update_knowledge": true ONLY if this verified turn established a novel, reusable cross-repo agent workflow, authored/modified central skills in the skill registry, or documented durable lessons that must be preserved in global memory/skills.
+- Set "update_knowledge": false for standard feature work, local bug fixes, domain application logic, questions, or repo-specific tasks.
 
 Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
 {{
@@ -92,7 +96,7 @@ Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
   "proof": [
     "Array of strings citing recent concrete empirical evidence from the current turn (e.g. screenshot path, browser session, or live runtime execution output; NEVER static unit tests, tsc, git push, or build logs). Empty array if FAIL."
   ],
-  "update_knowledge": false
+  "update_knowledge": false | true
 }}
 </active_turn_scope>
 """
@@ -155,7 +159,7 @@ def build_lite_verifier_prompt(
     return base_prompt
 
 
-KB_MAINTAINER_PROMPT = """You are the Knowledge Base & Skill Registry Maintainer for ~/Documents/GitHub/agentic/skills/ and its .okf catalog. Your primary directive is high signal, zero bloat.
+KB_MAINTAINER_TEMPLATE = """You are the Knowledge Base & Skill Registry Maintainer for {skills_dir} and its .okf catalog. Your primary directive is high signal, zero bloat.
 
 Refer to the conversation context above to determine if any central skills need maintenance.
 
@@ -170,10 +174,10 @@ Strict rules against bloat:
 
 Deterministic Maintenance Sequencing:
 When maintenance is strictly necessary, execute this exact sequence:
-1. Edit or add the target SKILL.md under ~/Documents/GitHub/agentic/skills/<name>/SKILL.md.
+1. Edit or add the target SKILL.md under {skills_dir}/<name>/SKILL.md.
 2. If obsolete, deprecate with `uv run scripts/gen_catalog.py remove <name>`.
-3. Regenerate: cd ~/Documents/GitHub/agentic/skills && uv run scripts/gen_catalog.py
-4. Validate: uv run ~/.hermes/skills/validate/scripts/okf_validate.py .okf --strict
+3. Regenerate: cd {skills_dir} && uv run scripts/gen_catalog.py
+4. Validate: uv run {validate_script} .okf --strict
 5. Verify 0 errors, 0 warnings.
 
 Output a one-line factual note of changes made, or state: "No knowledge base maintenance required."
@@ -182,4 +186,13 @@ Output a one-line factual note of changes made, or state: "No knowledge base mai
 
 def build_kb_maintainer_prompt() -> str:
     """Returns the prompt for the Knowledge Base Persona Maintainer forked session."""
-    return KB_MAINTAINER_PROMPT
+    from sage.config import get_real_user_home
+    import os
+    real_home = get_real_user_home()
+    skills_dir = os.path.join(real_home, "Documents", "GitHub", "agentic", "skills")
+    validate_script = os.path.join(real_home, ".hermes", "skills", "validate", "scripts", "okf_validate.py")
+    return KB_MAINTAINER_TEMPLATE.format(
+        skills_dir=skills_dir,
+        validate_script=validate_script,
+    )
+

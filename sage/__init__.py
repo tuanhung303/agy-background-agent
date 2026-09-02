@@ -7,10 +7,12 @@ __version__ = "0.3.0"
 from sage.config import (
     DEFAULT_MODEL_FALLBACKS,
     FILE_EDITING_TOOLS,
+    KB_MAINTENANCE_TIMEOUT,
     LITE_MAX_RETRIES,
     LITE_MODE_ENABLED,
     LITE_MODE_TIMEOUT,
     LOG_FILE,
+    get_real_user_home,
     get_tool_weight,
 )
 from sage.executor import (
@@ -72,10 +74,12 @@ from sage.lite.runner import run_lite_stop_audit
 __all__ = [
     "DEFAULT_MODEL_FALLBACKS",
     "FILE_EDITING_TOOLS",
+    "KB_MAINTENANCE_TIMEOUT",
     "LITE_MAX_RETRIES",
     "LITE_MODE_ENABLED",
     "LITE_MODE_TIMEOUT",
     "LOG_FILE",
+    "get_real_user_home",
     "get_tool_weight",
     "CONV_DB_DIR",
     "SAGE_CLI_DIR",

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-scripts.verify_stop_verifier - Live end-to-end verification runner for generalized Stop Verifier.
+scripts.verify.stop_verifier.verify_stop_verifier - Live end-to-end verification runner for generalized Stop Verifier.
 """
 import os
 import sys
 import tempfile
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 
 from sage.lite.gating import is_plan_or_qa_intent
 from sage.lite.proof_validator import validate_empirical_proof

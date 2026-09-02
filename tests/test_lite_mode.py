@@ -102,8 +102,10 @@ class TestLitePrompt(unittest.TestCase):
         self.assertIn("Data & SQL", prompt)
         self.assertIn("STRICT DISQUALIFICATION", prompt)
         self.assertIn("PRE-FLIGHT ADVERSARIAL PROTOCOL", prompt)
+        self.assertIn("KNOWLEDGE UPDATE CRITERIA", prompt)
         self.assertIn('"verdict": "PASS" | "FAIL"', prompt)
         self.assertIn('"proof": [', prompt)
+        self.assertIn('"update_knowledge": false | true', prompt)
 
     def test_kb_maintainer_prompt(self):
         prompt = build_kb_maintainer_prompt()
@@ -111,6 +113,9 @@ class TestLitePrompt(unittest.TestCase):
         self.assertIn("Default to no-op", prompt)
         self.assertIn("Strict rules against bloat", prompt)
         self.assertIn("okf_validate.py", prompt)
+        self.assertIn("/Documents/GitHub/agentic/skills", prompt)
+        self.assertNotIn("~/", prompt)
+
 
 
 class TestLiteFork(unittest.TestCase):
@@ -392,5 +397,26 @@ class TestLiteStatusline(unittest.TestCase):
                     os.remove(tf)
 
 
+class TestRunKbMaintenance(unittest.TestCase):
+    @patch("sage.lite.verifier.subprocess.run")
+    @patch("sage.lite.verifier.ensure_isolated_home", return_value="/tmp/test_iso_home")
+    def test_run_kb_maintenance_success(self, mock_iso, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="Updated skills/.okf catalog cleanly.\n", stderr="")
+        out = run_kb_maintenance(parent_conv_id="parent_123", fork_conv_id="fork_456")
+        self.assertEqual(out, "Updated skills/.okf catalog cleanly.")
+        self.assertTrue(mock_run.called)
+        call_env = mock_run.call_args[1]["env"]
+        self.assertIn("AGY_REAL_HOME", call_env)
+        self.assertEqual(call_env["HOME"], "/tmp/test_iso_home")
+
+    @patch("sage.lite.verifier.subprocess.run")
+    @patch("sage.lite.verifier.ensure_isolated_home", return_value="/tmp/test_iso_home")
+    def test_run_kb_maintenance_failure_fallback(self, mock_iso, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="command failed")
+        out = run_kb_maintenance(parent_conv_id="parent_123", fork_conv_id="fork_456", timeout=2.0)
+        self.assertEqual(out, "")
+
+
 if __name__ == "__main__":
     unittest.main()
+

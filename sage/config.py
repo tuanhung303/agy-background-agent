@@ -123,7 +123,19 @@ DIFF_SPIKE_THRESHOLD = _safe_int_multi(("AGY_SAGE_DIFF_SPIKE_THRESHOLD", "AGY_AD
 
 LITE_MODE_ENABLED = _safe_bool_multi(("AGY_LITE_MODE_ENABLED", "AGY_LITE_MODE"), True)
 LITE_MODE_TIMEOUT = _safe_float_multi(("AGY_LITE_MODE_TIMEOUT",), 20.0)
+KB_MAINTENANCE_TIMEOUT = _safe_float_multi(("AGY_KB_MAINTENANCE_TIMEOUT", "AGY_LITE_KB_TIMEOUT"), 45.0)
 LITE_MAX_RETRIES = _safe_int_multi(("AGY_LITE_MAX_RETRIES",), 3)
+
+
+def get_real_user_home() -> str:
+    """Returns the real user home directory, escaping isolated home if present."""
+    home = os.environ.get("AGY_REAL_HOME") or os.environ.get("HOME") or os.path.expanduser("~")
+    if "sage_isolated_home" in home:
+        idx = home.find("/.gemini/antigravity-cli/sage_isolated_home")
+        if idx != -1:
+            return home[:idx]
+    return os.path.realpath(os.path.expanduser(home))
+
 
 SENSITIVE_TRIGGER_ENABLED = _safe_bool_multi(("AGY_SAGE_SENSITIVE_TRIGGER", "AGY_ADVISOR_SENSITIVE_TRIGGER", "AGY_STOP_AUDIT_SENSITIVE_TRIGGER"), True)
 DEFAULT_SENSITIVE_KEYWORDS = (

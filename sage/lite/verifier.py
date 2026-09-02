@@ -6,7 +6,7 @@ import subprocess
 import time
 from typing import Optional
 
-from sage.config import LITE_MODE_TIMEOUT
+from sage.config import KB_MAINTENANCE_TIMEOUT, LITE_MODE_TIMEOUT, get_real_user_home
 from sage.executor import ensure_isolated_home, extract_json_from_llm_output
 from sage.lite.prompt import build_kb_maintainer_prompt, build_lite_verifier_prompt
 from sage.lite.schemas import LiteVerdict
@@ -111,20 +111,22 @@ def run_lite_verification(
 def run_kb_maintenance(
     parent_conv_id: str,
     fork_conv_id: str,
-    timeout: float = LITE_MODE_TIMEOUT,
+    timeout: float = KB_MAINTENANCE_TIMEOUT,
     cwd: Optional[str] = None,
 ) -> str:
     """Executes the Knowledge Base Persona Maintainer on a forked conversation."""
     prompt = build_kb_maintainer_prompt()
-    agy_bin = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
+    real_home = get_real_user_home()
+    agy_bin = shutil.which("agy") or os.path.join(real_home, ".local", "bin", "agy") or os.path.expanduser("~/.local/bin/agy")
     iso_home = ensure_isolated_home()
 
     start_t = time.time()
     env = dict(
         os.environ,
         AGY_STOP_AUDIT_ACTIVE="1",
+        AGY_REAL_HOME=real_home,
         HOME=iso_home,
-        PATH=f"{os.path.expanduser('~/.local/bin')}:{os.environ.get('PATH', '')}",
+        PATH=f"{os.path.join(real_home, '.local', 'bin')}:{os.environ.get('PATH', '')}",
     )
 
     for idx, model in enumerate(LITE_MODEL_CANDIDATES):
@@ -155,8 +157,11 @@ def run_kb_maintenance(
             )
             if res.returncode == 0 and res.stdout.strip():
                 dur = round(time.time() - start_t, 2)
-                log_audit(f"KB Maintainer finished in {dur}s with {model}")
+                log_audit(f"KB Maintainer finished in {dur}s with {model}: {res.stdout.strip()[:160]}")
                 return res.stdout.strip()
+            else:
+                err_preview = (res.stderr or res.stdout or "").strip()[:160]
+                log_audit(f"KB Maintainer candidate '{model}' returned code {res.returncode}: {err_preview}")
         except subprocess.TimeoutExpired:
             log_audit(f"KB Maintainer candidate '{model}' timed out after {cand_timeout}s")
             continue

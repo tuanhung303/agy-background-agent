@@ -166,11 +166,17 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             kb_fork_id = fork_conversation_session(conv_id)
             if kb_fork_id:
                 try:
-                    run_kb_maintenance(
+                    kb_summary = run_kb_maintenance(
                         parent_conv_id=conv_id,
                         fork_conv_id=kb_fork_id,
                         cwd=workspace_root,
                     )
+                    if kb_summary:
+                        log_audit(f"KB Maintainer summary: {kb_summary}")
+                    else:
+                        log_audit("KB Maintainer finished with no-op or empty response")
+                except Exception as e:
+                    log_audit(f"KB Maintainer failed with exception: {e}")
                 finally:
                     cleanup_fork_session(kb_fork_id)
         else:
