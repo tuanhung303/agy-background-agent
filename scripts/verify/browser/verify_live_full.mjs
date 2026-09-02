@@ -10,7 +10,7 @@ if (hardTimer && typeof hardTimer.unref === "function") {
 }
 
 async function main() {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
   try {
     const context = await browser.newContext({
       viewport: { width: 1560, height: 1080 },

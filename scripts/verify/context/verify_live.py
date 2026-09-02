@@ -112,9 +112,8 @@ def run_live_user_context_verification():
             "workspacePaths": [repo_root],
         }
         sage_env = os.environ.copy()
-        sage_env["AGY_STOP_AUDIT_TEST"] = "1"
         res3 = subprocess.run(
-            [sys.executable, "-m", "sage.runner", "post_invocation"],
+            [sys.executable, os.path.join(repo_root, "hooks", "session-sage.py"), "post_invocation"],
             input=json.dumps(payload),
             capture_output=True,
             text=True,
