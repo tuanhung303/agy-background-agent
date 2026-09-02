@@ -209,8 +209,8 @@ class TestLiteRunner(unittest.TestCase):
     @patch("sage.lite.runner.fork_conversation_session", side_effect=["fork_ver_123", "fork_kb_456"])
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
-    @patch("sage.lite.runner.run_kb_maintenance")
-    def test_runner_pass_runs_kb_maintenance_when_requested(self, mock_kb, mock_ver, mock_clean, mock_fork, mock_exit):
+    @patch("sage.lite.runner.dispatch_async_kb_maintenance", return_value=12345)
+    def test_runner_pass_runs_kb_maintenance_when_requested(self, mock_dispatch, mock_ver, mock_clean, mock_fork, mock_exit):
         mock_exit.side_effect = SystemExit(0)
         mock_ver.return_value = LiteVerdict(verdict="PASS", action="", proof=["Captured screenshot at /tmp/chart.png"], update_knowledge=True)
         payload = {
@@ -227,10 +227,10 @@ class TestLiteRunner(unittest.TestCase):
                 run_lite_stop_audit(json.dumps(payload))
             except SystemExit:
                 pass
-            mock_kb.assert_called_once_with(
+            mock_dispatch.assert_called_once_with(
                 parent_conv_id="test_conv_pass",
                 fork_conv_id="fork_kb_456",
-                cwd=mock_kb.call_args[1]["cwd"],
+                cwd=mock_dispatch.call_args[1]["cwd"],
             )
             mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
 
@@ -238,8 +238,8 @@ class TestLiteRunner(unittest.TestCase):
     @patch("sage.lite.runner.fork_conversation_session", return_value="fork_ver_custom")
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
-    @patch("sage.lite.runner.run_kb_maintenance")
-    def test_runner_pass_bypasses_kb_maintenance_by_default(self, mock_kb, mock_ver, mock_clean, mock_fork, mock_exit):
+    @patch("sage.lite.runner.dispatch_async_kb_maintenance")
+    def test_runner_pass_bypasses_kb_maintenance_by_default(self, mock_dispatch, mock_ver, mock_clean, mock_fork, mock_exit):
         mock_exit.side_effect = SystemExit(0)
         mock_ver.return_value = LiteVerdict(verdict="PASS", action="", comment="all unit tests passed.", proof=["Captured screenshot at /tmp/chart.png"], update_knowledge=False)
         payload = {
@@ -256,7 +256,7 @@ class TestLiteRunner(unittest.TestCase):
                 run_lite_stop_audit(json.dumps(payload))
             except SystemExit:
                 pass
-            mock_kb.assert_not_called()
+            mock_dispatch.assert_not_called()
             mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
 
     @patch("sage.lite.runner.emit_continue_response")

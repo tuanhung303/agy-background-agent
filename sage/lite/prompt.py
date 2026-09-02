@@ -37,9 +37,10 @@ Evaluate the response against these exact conditions across engineering, scripti
 - Routing: -> FAIL (Action: "Do not defer or outsource. Execute the required commands and verification directly yourself.")
 
 2. COMPLETENESS, BLAST RADIUS & REGRESSION IMMUNITY:
-> "Is the change fully implemented across all affected callers and contracts without narrowing scope or introducing regressions?"
-- Deterministic Check: Prohibit narrowing scope across multi-file changes without regression verification. Prohibit modifying shared models, APIs, CSS layouts, spreadsheet templates, or infra definitions without proving all downstream consumers and sibling modules remain unbroken.
-- Routing: -> FAIL (Action: "Complete all unfinished scope and verify regression across all affected callers and modules.")
+> "Is the change fully implemented across all affected callers, sibling entities, and contracts without narrowing scope or introducing regressions?"
+- Deterministic Check: Treat an error in any enumerable entity (channel, tenant, route, formula, parser, model) as a sighting of a potential class-wide defect. Prohibit narrowing scope across multi-file changes without regression verification. Prohibit single-sighting narrow patching: fixing one channel/tenant/formula while leaving sibling candidates unverified -> FAIL. Prohibit modifying shared models, APIs, CSS layouts, spreadsheet templates, or infra definitions without proving all downstream consumers and sibling modules remain unbroken.
+- Sibling Verification Contract: The agent must declare the active candidate universe U across sibling entities (from manifests, schemas, or config registry), execute verification across U, and return empirical proof covering all members.
+- Routing: -> FAIL (Action: "Do not narrow to an isolated sighting. Enumerate universe U across sibling channels/tenants/formulas and verify regression across all members of U.")
 
 3. ESCALATION & SAFETY FAILURE:
 > "Were critical architectural flaws, unmitigated production risks, or destructive state operations escalated immediately?"
@@ -85,8 +86,12 @@ Assume the implementation contains hidden flaws until proven otherwise.
 - Pass Condition: If and only if all checks pass with verifiable empirical evidence from an authorized channel and visual inspection confirms correctness -> Output: {{"verdict": "PASS", "action": "", "comment": "<Concise 1-sentence natural comment on what was verified>", "proof": ["<exact screenshot path / curl output / DB query result / live execution output>"], "update_knowledge": false | true}}
 
 [KNOWLEDGE UPDATE CRITERIA]
-- Set "update_knowledge": true ONLY if this verified turn established a novel, reusable cross-repo agent workflow, authored/modified central skills in the skill registry, or documented durable lessons that must be preserved in global memory/skills.
-- Set "update_knowledge": false for standard feature work, local bug fixes, domain application logic, questions, or repo-specific tasks.
+- Set "update_knowledge": true if this verified turn satisfies ANY of the following:
+  1. Tenant or Domain Operational Rules: Encountered, fixed, or verified tenant-specific constraints, schema quirks, dataset oddities, currency rules, or business logic (e.g. seeda, datum, cbc, gr, tcc, kleva, sbc).
+  2. Data, Cloud & Pipeline Gotchas: Handled BigQuery partition pruning, SQL query quirks, Airflow DAG latency, PyMC parameters, API timeouts, or media parser reconciliations.
+  3. Tool & Platform Quirks: Identified CLI limitations, sandbox file restrictions, tool permission constraints, or environment workarounds.
+  4. Central Skills & Durable Lessons: Authored/modified central skills in the skill registry, or learned reusable patterns worth preserving in field notes or global memory.
+- Set "update_knowledge": false ONLY for purely conversational turns, trivial typographical/formatting tweaks, or basic read-only queries with zero new operational discoveries.
 
 Output ONLY valid JSON. No markdown blocks, no preamble, no trailing text.
 {{
@@ -186,18 +191,21 @@ Execute this pre-scan before touching disk:
 
 [DETERMINISTIC MAINTENANCE PIPELINE]
 When maintenance is strictly justified, execute this exact sequence:
-1. Source of Truth Boundary: Ensure all edits target {skills_dir}/<name>/SKILL.md directly (never edit harness symlink copies).
+1. Source of Truth Boundary: Ensure all skill edits target {skills_dir}/<name>/SKILL.md directly and all field-notes edits target {field_notes_dir}/ directly (never edit harness symlink copies).
 2. Apply Mutation:
-   - Surgical edit: update target lines using replace_file_content while preserving frontmatter.
+   - Field notes, gotchas & domain rules: record operational pitfalls, tenant constraints, or domain rules in `{field_notes_dir}/<company>/<tenant>/<topic>.yaml` (or `shared/<topic>.yaml` or `<company>/shared/<topic>.yaml`). If the folder or file is missing, create it on demand using the standard schema (`timestamp: "YYYY-MM-DD HH:MM"`, `title`, `type`, `apply_when`, `fix`). Reconcile existing entries before appending duplicates.
+   - Surgical edit: update target lines in existing SKILL.md using replace_file_content while preserving frontmatter.
    - New skill: create {skills_dir}/<name>/SKILL.md with complete okf frontmatter.
    - Deprecation: run `uv run scripts/gen_catalog.py remove <old_name> --superseded-by <new_name>`.
-3. Catalog Regeneration:
+3. Field Notes Daily Git Sync:
+   - If any field notes were added or modified: execute `bash {field_notes_dir}/scripts/sync.sh` to stage and commit the changes.
+4. Catalog Regeneration (if skills modified):
    - Command: `cd {skills_dir} && uv run scripts/gen_catalog.py`
-4. Strict Validation Gate:
+5. Strict Validation Gate (if skills modified):
    - Command: `uv run {validate_script} .okf --strict`
-5. Rollback on Failure:
+6. Rollback on Failure:
    - If validation reports any error or warning: run `git checkout -- .` immediately and exit with the error log.
-6. Verification: Confirm 0 errors and 0 warnings.
+7. Verification: Confirm 0 errors and 0 warnings.
 
 Output a single-line factual summary of changes made, or state: "No knowledge base maintenance required."
 </active_maintainer_scope>
@@ -210,10 +218,12 @@ def build_kb_maintainer_prompt() -> str:
     import os
     real_home = get_real_user_home()
     skills_dir = os.path.join(real_home, "Documents", "GitHub", "agentic", "skills")
+    field_notes_dir = os.path.join(real_home, "Documents", "GitHub", "field-notes")
     config_dir = os.path.join(real_home, ".gemini", "config")
     validate_script = os.path.join(real_home, ".hermes", "skills", "validate", "scripts", "okf_validate.py")
     return KB_MAINTAINER_TEMPLATE.format(
         skills_dir=skills_dir,
+        field_notes_dir=field_notes_dir,
         config_dir=config_dir,
         validate_script=validate_script,
     )

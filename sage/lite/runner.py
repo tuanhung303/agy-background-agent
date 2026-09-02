@@ -13,7 +13,12 @@ from sage.lite.fork import cleanup_fork_session, fork_conversation_session
 from sage.lite.gating import extract_turn_execution_provenance, extract_turn_mutations_and_context
 from sage.lite.proof_validator import validate_empirical_proof
 from sage.lite.schemas import LiteVerdict
-from sage.lite.verifier import generate_contextual_reject_action, run_kb_maintenance, run_lite_verification
+from sage.lite.verifier import (
+    dispatch_async_kb_maintenance,
+    generate_contextual_reject_action,
+    run_kb_maintenance,
+    run_lite_verification,
+)
 from sage.locking import acquire_conversation_lock, log_audit, release_lock
 from sage.session_state import load_and_sync_session_state, save_session_state
 from sage.transcript import (
@@ -153,8 +158,8 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
         if verdict.proof:
             log_audit(f"Lite Mode verifier PASS proofs: {verdict.proof}")
         if verdict.update_knowledge:
-            log_audit("Lite Mode verifier PASS (knowledge update requested); running knowledge base maintainer")
-            # 8. Update statusline to 'updating knowledge/memory' and run KB maintainer
+            log_audit("Lite Mode verifier PASS (knowledge update requested); dispatching background knowledge base maintainer")
+            # 8. Update statusline to 'updating knowledge/memory' and dispatch async KB maintainer
             save_session_state(
                 state_file,
                 state,
@@ -165,19 +170,15 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             )
             kb_fork_id = fork_conversation_session(conv_id)
             if kb_fork_id:
-                try:
-                    kb_summary = run_kb_maintenance(
-                        parent_conv_id=conv_id,
-                        fork_conv_id=kb_fork_id,
-                        cwd=workspace_root,
-                    )
-                    if kb_summary:
-                        log_audit(f"KB Maintainer summary: {kb_summary}")
-                    else:
-                        log_audit("KB Maintainer finished with no-op or empty response")
-                except Exception as e:
-                    log_audit(f"KB Maintainer failed with exception: {e}")
-                finally:
+                pid = dispatch_async_kb_maintenance(
+                    parent_conv_id=conv_id,
+                    fork_conv_id=kb_fork_id,
+                    cwd=workspace_root,
+                )
+                if pid:
+                    log_audit(f"Background KB Maintainer dispatched with PID {pid} for {kb_fork_id}")
+                else:
+                    log_audit("Failed to dispatch async KB maintainer; cleaning fork session")
                     cleanup_fork_session(kb_fork_id)
         else:
             log_audit("Lite Mode verifier PASS (no knowledge update requested); bypassing knowledge base maintainer")

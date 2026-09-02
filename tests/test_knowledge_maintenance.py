@@ -30,10 +30,12 @@ from sage.lite.prompt import (
     build_kb_maintainer_prompt,
     build_lite_verifier_prompt,
 )
+from sage.lite.kb_worker import run_async_kb_worker
 from sage.lite.runner import run_lite_stop_audit
 from sage.lite.schemas import LiteVerdict
 from sage.lite.verifier import (
     LITE_MODEL_CANDIDATES,
+    dispatch_async_kb_maintenance,
     run_kb_maintenance,
     run_lite_verification,
 )
@@ -46,8 +48,10 @@ class TestStage1ContractAndPromptInvariants(unittest.TestCase):
     def test_s1_01_verifier_prompt_includes_knowledge_criteria(self):
         prompt = build_lite_verifier_prompt("Implement feature", "Code done")
         self.assertIn("[KNOWLEDGE UPDATE CRITERIA]", prompt)
-        self.assertIn("Set \"update_knowledge\": true ONLY if", prompt)
-        self.assertIn("Set \"update_knowledge\": false for standard feature work", prompt)
+        self.assertIn('Set "update_knowledge": true if', prompt)
+        self.assertIn("Tenant or Domain Operational Rules", prompt)
+        self.assertIn("Data, Cloud & Pipeline Gotchas", prompt)
+        self.assertIn('Set "update_knowledge": false ONLY for purely conversational turns', prompt)
 
     def test_s1_02_verifier_prompt_schema_allows_boolean_options(self):
         prompt = build_lite_verifier_prompt("Implement feature", "Code done")
@@ -63,6 +67,10 @@ class TestStage1ContractAndPromptInvariants(unittest.TestCase):
         self.assertIn("[CONFLICT & NOVELTY AUDIT]", prompt)
         self.assertIn("[DETERMINISTIC MAINTENANCE PIPELINE]", prompt)
         self.assertIn("Rollback on Failure", prompt)
+        self.assertIn("field-notes", prompt)
+        self.assertIn("Field Notes Daily Git Sync", prompt)
+        self.assertIn("scripts/sync.sh", prompt)
+        self.assertIn("YYYY-MM-DD HH:MM", prompt)
         self.assertIn("Knowledge Base & Skill Registry Maintainer", prompt)
         self.assertIn("/Documents/GitHub/agentic/skills", prompt)
         self.assertIn("/.hermes/skills/validate/scripts/okf_validate.py", prompt)
@@ -233,6 +241,44 @@ class TestStage3KbMaintainerExecution(unittest.TestCase):
         self.assertLessEqual(cand_timeout, 50.0)
         self.assertGreaterEqual(cand_timeout, 2.0)
 
+    @patch("sage.lite.verifier.subprocess.Popen")
+    def test_s3_04_dispatch_async_kb_maintenance_spawns_process(self, mock_popen):
+        mock_proc = MagicMock(pid=12345)
+        mock_popen.return_value = mock_proc
+        pid = dispatch_async_kb_maintenance(
+            parent_conv_id="parent_conv_abc",
+            fork_conv_id="fork_conv_xyz",
+            cwd="/test/workspace",
+            timeout=40.0,
+        )
+        self.assertEqual(pid, 12345)
+        self.assertTrue(mock_popen.called)
+        call_kwargs = mock_popen.call_args[1]
+        self.assertTrue(call_kwargs.get("start_new_session"))
+        cmd = mock_popen.call_args[0][0]
+        self.assertIn("sage.lite.kb_worker", cmd)
+        self.assertIn("--parent-conv-id", cmd)
+        self.assertIn("parent_conv_abc", cmd)
+
+    @patch("sage.lite.kb_worker.cleanup_fork_session")
+    @patch("sage.lite.kb_worker.execute_field_notes_sync")
+    @patch("sage.lite.kb_worker.run_kb_maintenance", return_value="Updated notes")
+    def test_s3_05_kb_worker_execution_and_cleanup(self, mock_run, mock_sync, mock_cleanup):
+        run_async_kb_worker(
+            parent_conv_id="parent_123",
+            fork_conv_id="fork_456",
+            cwd="/test/cwd",
+            timeout=30.0,
+        )
+        mock_run.assert_called_once_with(
+            parent_conv_id="parent_123",
+            fork_conv_id="fork_456",
+            timeout=30.0,
+            cwd="/test/cwd",
+        )
+        mock_sync.assert_called_once()
+        mock_cleanup.assert_called_once_with("fork_456")
+
 
 class TestStage4EndToEndStopHookLifecycle(unittest.TestCase):
     """Stage 4: End-to-End Stop Hook Lifecycle & Statusline States."""
@@ -252,9 +298,9 @@ class TestStage4EndToEndStopHookLifecycle(unittest.TestCase):
     @patch("sage.lite.runner.fork_conversation_session", side_effect=["fork_ver_s4_1", "fork_kb_s4_2"])
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
-    @patch("sage.lite.runner.run_kb_maintenance", return_value="Knowledge update complete: created skills/new-tool/SKILL.md")
+    @patch("sage.lite.runner.dispatch_async_kb_maintenance", return_value=12345)
     @patch("sage.lite.runner.load_and_sync_session_state")
-    def test_s4_01_full_lifecycle_with_knowledge_update(self, mock_load, mock_kb, mock_ver, mock_clean, mock_fork, mock_exit):
+    def test_s4_01_full_lifecycle_with_knowledge_update(self, mock_load, mock_dispatch, mock_ver, mock_clean, mock_fork, mock_exit):
         mock_exit.side_effect = SystemExit(0)
         mock_load.return_value = ("prompt", "/tmp/mock_state.json", {}, False)
         mock_ver.return_value = LiteVerdict(
@@ -279,21 +325,22 @@ class TestStage4EndToEndStopHookLifecycle(unittest.TestCase):
             except SystemExit:
                 pass
 
-            mock_kb.assert_called_once_with(
+            mock_dispatch.assert_called_once_with(
                 parent_conv_id="test_e2e_kb_unique_1",
                 fork_conv_id="fork_kb_s4_2",
-                cwd=mock_kb.call_args[1]["cwd"],
+                cwd=mock_dispatch.call_args[1]["cwd"],
             )
-            self.assertEqual(mock_clean.call_count, 2)
+            # Only the verification fork is synchronously cleaned up; the KB fork is preserved for async worker
+            self.assertEqual(mock_clean.call_count, 1)
             mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
 
     @patch("sage.lite.runner.fail_safe_exit")
     @patch("sage.lite.runner.fork_conversation_session", return_value="fork_ver_s4_only")
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
-    @patch("sage.lite.runner.run_kb_maintenance")
+    @patch("sage.lite.runner.dispatch_async_kb_maintenance")
     @patch("sage.lite.runner.load_and_sync_session_state")
-    def test_s4_02_lifecycle_bypasses_kb_when_not_requested(self, mock_load, mock_kb, mock_ver, mock_clean, mock_fork, mock_exit):
+    def test_s4_02_lifecycle_bypasses_kb_when_not_requested(self, mock_load, mock_dispatch, mock_ver, mock_clean, mock_fork, mock_exit):
         mock_exit.side_effect = SystemExit(0)
         mock_load.return_value = ("prompt", "/tmp/mock_state.json", {}, False)
         mock_ver.return_value = LiteVerdict(
@@ -318,7 +365,7 @@ class TestStage4EndToEndStopHookLifecycle(unittest.TestCase):
             except SystemExit:
                 pass
 
-            mock_kb.assert_not_called()
+            mock_dispatch.assert_not_called()
             self.assertEqual(mock_clean.call_count, 1)
             mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
 
@@ -342,9 +389,9 @@ class TestStage5AdversarialAndFaultTolerance(unittest.TestCase):
     @patch("sage.lite.runner.fork_conversation_session", side_effect=["fork_ver_adv", "fork_kb_adv"])
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
-    @patch("sage.lite.runner.run_kb_maintenance", side_effect=Exception("Subprocess crashed unexpected"))
+    @patch("sage.lite.runner.dispatch_async_kb_maintenance", return_value=None)
     @patch("sage.lite.runner.load_and_sync_session_state")
-    def test_s5_01_maintainer_exception_fails_safe_without_crashing(self, mock_load, mock_kb, mock_ver, mock_clean, mock_fork, mock_exit):
+    def test_s5_01_maintainer_dispatch_failure_fails_safe_and_cleans_fork(self, mock_load, mock_dispatch, mock_ver, mock_clean, mock_fork, mock_exit):
         mock_exit.side_effect = SystemExit(0)
         mock_load.return_value = ("prompt", "/tmp/mock_state.json", {}, False)
         mock_ver.return_value = LiteVerdict(
@@ -362,15 +409,17 @@ class TestStage5AdversarialAndFaultTolerance(unittest.TestCase):
                 run_lite_stop_audit(json.dumps(payload))
             except SystemExit:
                 pass
+            # If dispatch fails, cleanup_fork_session is called for kb_fork_id as well
+            self.assertEqual(mock_clean.call_count, 2)
             mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
 
     @patch("sage.lite.runner.fail_safe_exit")
     @patch("sage.lite.runner.fork_conversation_session", side_effect=["fork_ver_adv", None])
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
-    @patch("sage.lite.runner.run_kb_maintenance")
+    @patch("sage.lite.runner.dispatch_async_kb_maintenance")
     @patch("sage.lite.runner.load_and_sync_session_state")
-    def test_s5_02_fork_failure_bypasses_maintainer_safely(self, mock_load, mock_kb, mock_ver, mock_clean, mock_fork, mock_exit):
+    def test_s5_02_fork_failure_bypasses_maintainer_safely(self, mock_load, mock_dispatch, mock_ver, mock_clean, mock_fork, mock_exit):
         mock_exit.side_effect = SystemExit(0)
         mock_load.return_value = ("prompt", "/tmp/mock_state.json", {}, False)
         mock_ver.return_value = LiteVerdict(
@@ -388,17 +437,17 @@ class TestStage5AdversarialAndFaultTolerance(unittest.TestCase):
                 run_lite_stop_audit(json.dumps(payload))
             except SystemExit:
                 pass
-            mock_kb.assert_not_called()
+            mock_dispatch.assert_not_called()
             mock_exit.assert_called_once_with("Work verified cleanly by Lite Mode.")
 
     @patch("sage.lite.runner.emit_continue_response")
     @patch("sage.lite.runner.fork_conversation_session", return_value="fork_ver_disq")
     @patch("sage.lite.runner.cleanup_fork_session")
     @patch("sage.lite.runner.run_lite_verification")
-    @patch("sage.lite.runner.run_kb_maintenance")
+    @patch("sage.lite.runner.dispatch_async_kb_maintenance")
     @patch("sage.lite.runner.generate_contextual_reject_action", return_value="Run live pytest test execution with stdout before stopping.")
     @patch("sage.lite.runner.load_and_sync_session_state")
-    def test_s5_03_disqualified_proof_prevents_kb_maintenance(self, mock_load, mock_gen, mock_kb, mock_ver, mock_clean, mock_fork, mock_cont):
+    def test_s5_03_disqualified_proof_prevents_kb_maintenance(self, mock_load, mock_gen, mock_dispatch, mock_ver, mock_clean, mock_fork, mock_cont):
         mock_cont.side_effect = SystemExit(0)
         mock_load.return_value = ("prompt", "/tmp/mock_state.json", {}, False)
         mock_ver.return_value = LiteVerdict(
@@ -416,10 +465,10 @@ class TestStage5AdversarialAndFaultTolerance(unittest.TestCase):
                 run_lite_stop_audit(json.dumps(payload))
             except SystemExit:
                 pass
-            mock_kb.assert_not_called()
+            mock_dispatch.assert_not_called()
             mock_cont.assert_called_once()
-
 
 
 if __name__ == "__main__":
     unittest.main()
+

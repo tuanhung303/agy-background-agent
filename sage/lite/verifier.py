@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 from typing import Optional
 
@@ -177,6 +178,55 @@ def run_kb_maintenance(
     return ""
 
 
+def dispatch_async_kb_maintenance(
+    parent_conv_id: str,
+    fork_conv_id: str,
+    timeout: float = KB_MAINTENANCE_TIMEOUT,
+    cwd: Optional[str] = None,
+) -> Optional[int]:
+    """Spawns a detached background worker process to execute KB maintenance asynchronously."""
+    mock_val = os.environ.get("AGY_LITE_MOCK_VERDICT", "").strip()
+    if mock_val:
+        log_audit(f"Mock async KB worker dispatched for {fork_conv_id}")
+        return 99999
+
+    repo_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    python_bin = sys.executable or shutil.which("python3") or "python3"
+
+    cmd = [
+        python_bin,
+        "-m", "sage.lite.kb_worker",
+        "--parent-conv-id", str(parent_conv_id),
+        "--fork-conv-id", str(fork_conv_id),
+        "--timeout", str(float(timeout)),
+    ]
+    if cwd and os.path.isdir(cwd):
+        cmd.extend(["--cwd", str(cwd)])
+
+    log_file_path = f"/tmp/agy_kb_worker_{fork_conv_id}.log"
+    env = dict(
+        os.environ,
+        PYTHONPATH=f"{repo_dir}:{os.environ.get('PYTHONPATH', '')}",
+    )
+
+    try:
+        log_fp = open(log_file_path, "w", encoding="utf-8")
+        proc = subprocess.Popen(
+            cmd,
+            stdout=log_fp,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            cwd=repo_dir,
+            env=env,
+            start_new_session=True,
+        )
+        log_audit(f"Dispatched async KB worker [PID={proc.pid}, fork={fork_conv_id}, log={log_file_path}]")
+        return proc.pid
+    except Exception as e:
+        log_audit(f"Failed to dispatch async KB worker: {e}")
+        return None
+
+
 def generate_contextual_reject_action(
     fork_conv_id: str,
     user_prompt: str,
@@ -198,8 +248,9 @@ def generate_contextual_reject_action(
         f"<last_agent_response>\n{clean_agent}\n</last_agent_response>\n\n"
         f"Empirical proof validation failed: {reject_reason}\n\n"
         "State in 1-2 direct imperative sentences the exact, concrete verification action or proof the agent must perform for this specific task and codebase before stopping.\n"
+        "If the defect touches an enumerable entity (e.g. channel, tenant, route, formula, parser, model), treat this as a sighting: instruct the agent to declare universe U across all active sibling candidates and verify the entire class rather than patching an isolated sighting.\n"
         "Recommend adding or updating the matching topic module under scripts/verify/<topic>/ (orchestrated by scripts/verify/all.py or npm run verify) so the check is repeatable across future turns.\n"
-        "Never use generic boilerplate (e.g. 'execute and document at least one empirical verification channel'). Focus on the actual files, endpoints, or features touched."
+        "Never use generic boilerplate (e.g. 'execute and document at least one empirical verification channel'). Focus on the affected universe and concrete execution commands."
     )
     agy_bin = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
     iso_home = ensure_isolated_home()
@@ -242,5 +293,5 @@ def generate_contextual_reject_action(
         except Exception:
             continue
 
-    return f"Verification rejected: {reject_reason}. Verify the specific changes in this turn before completing."
+    return f"Verification rejected: {reject_reason}. Verify the specific changes and sibling blast radius before completing."
 
