@@ -86,6 +86,11 @@ Assume the agent's response may contain fabricated assertions, hallucinations, o
   * When image files (*.png, *.jpg, *.jpeg, *.webp, *.svg) are generated, modified, or viewed in the turn (listed in <current_turn_images_to_inspect>), you MUST inspect the image files using `view_file`.
   * Visually check that bar lengths, scales, layouts, alignments, colors, and elements directly reflect the user request and mathematical values.
   * If an image reveals visual defects, inverted scales (e.g. 0.83x bar rendered longer than 1.17x bar), overlapping text, clipped elements, or any discrepancy with the agent's claims -> Output FAIL immediately with a concrete explanation of the visual mismatch.
+  * Negative Visual Defect Audit (MANDATORY FOR SCREENSHOTS & UI):
+    1. Error Toasts & Alerts: Scan for floating toasts, alerts, or notification badges displaying failures (e.g. "Failed to Load Saturation Parameters", "Failed to fetch", "NetworkError", "500 Internal Server Error", "Error", "Exception").
+    2. Empty / Placeholder / Broken Data States: Scan for KPI cards, metric tiles, or table cells displaying "N/A", "NaN", "null", "undefined", "No performance data for this period", or completely blank/broken chart canvases where metrics were requested.
+    3. Serving / Diagnostic Fallback Warnings: Scan for banners or indicators stating "Selected period is unavailable", "Not confirmed", "fallback", or indicating live backend data failed to load.
+    If ANY of these negative indicators appear on an image presented as proof of a working feature, the audit is an IMMEDIATE FAIL. The agent MUST NOT claim success when the dashboard displays error toasts or empty N/A cards. Action must state: "Visual verification failed: screenshot displays [exact error/toast/empty state]. Resolve the underlying runtime/API error and verify that all KPI cards and charts render valid data before completing."
 
 [PRE-FLIGHT ADVERSARIAL PROTOCOL]
 > "Have all edge cases, race conditions, visual bugs, and unhandled exceptions been tested and eliminated?"

@@ -143,8 +143,15 @@ def get_active_subagents(steps, conv_id=None, parse_ts_func=None):
     return [info for sid, info in spawned.items() if sid not in completed and (not conv_id or sid != conv_id)]
 
 
-def get_active_background_tasks(steps, conv_id=None, parse_ts_func=None):
+def get_active_background_tasks(steps, conv_id=None, parse_ts_func=None, max_age=None):
     """Tracks active and completed background tasks from transcript step logs."""
+    if max_age is None:
+        try:
+            from sage.config import MAX_BACKGROUND_TASK_AGE
+            max_age = MAX_BACKGROUND_TASK_AGE
+        except Exception:
+            max_age = 1800.0
+    parse_ts = parse_ts_func or _parse_iso_ts
     tasks, completed_ids, now_dt = {}, set(), datetime.now(timezone.utc)
     for s in steps:
         stype, content, ts_str = s.get("type"), str(s.get("content") or ""), s.get("created_at")
@@ -162,8 +169,9 @@ def get_active_background_tasks(steps, conv_id=None, parse_ts_func=None):
                 if desc.lower().startswith("timer:"):
                     continue
                 raw_tid = m_id.group(1).strip()
-                dt = parse_ts_func(ts_str) if parse_ts_func else None
-                tid, age = raw_tid if (not conv_id or "/" in raw_tid) else f"{conv_id}/{raw_tid}", max(0.0, (now_dt - dt).total_seconds()) if dt else 0.0
+                dt = parse_ts(ts_str) if ts_str else None
+                tid = raw_tid if (not conv_id or "/" in raw_tid) else f"{conv_id}/{raw_tid}"
+                age = max(0.0, (now_dt - dt).total_seconds()) if dt else 0.0
                 if not tasks.get(tid) or age > tasks[tid].get("age_seconds", 0.0):
                     tasks[tid] = {"task_id": tid, "description": desc, "age_seconds": age}
         if stype in ("GENERIC", "SYSTEM_MESSAGE") or (stype == "USER_INPUT" and ("sender=" in content or "[Message]" in content)):
@@ -190,4 +198,9 @@ def get_active_background_tasks(steps, conv_id=None, parse_ts_func=None):
                           + (re.findall(r"[Tt]ask(?:\s+id)?\s*['\"]?([a-zA-Z0-9_-]+/task-[0-9]+|task-[0-9]+)['\"]?\s+(?:was\s+)?completed", content) if quoted_done else [])
                           + (re.findall(r"(?:Background\s+)?task(?:\s+id|:)?\s*['\"]?([a-zA-Z0-9_-]+/task-[0-9]+|task-[0-9]+)['\"]?", content, re.I) if explicit_done else [])):
                 completed_ids.update([cid_m.strip(), cid_m.strip().split("/")[-1]])
-    return [t for tid, t in tasks.items() if tid not in completed_ids and tid.split("/")[-1] not in completed_ids]
+    return [
+        t for tid, t in tasks.items()
+        if tid not in completed_ids
+        and tid.split("/")[-1] not in completed_ids
+        and (not max_age or t.get("age_seconds", 0.0) <= max_age)
+    ]

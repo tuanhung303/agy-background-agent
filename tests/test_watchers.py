@@ -273,6 +273,18 @@ class TestWatchers(unittest.TestCase):
         tasks = get_active_background_tasks(steps, conv_id="conv1")
         self.assertEqual(len(tasks), 0)
 
+    def test_background_task_expiration_after_max_age(self):
+        now_dt = datetime.now(timezone.utc)
+        steps = [
+            {
+                "type": "GENERIC",
+                "created_at": (now_dt - timedelta(seconds=2500)).isoformat(),
+                "content": "Tool is running as a background task with task id: conv1/task-stale\nTask Description: stale build",
+            }
+        ]
+        tasks = get_active_background_tasks(steps, conv_id="conv1", max_age=1800.0)
+        self.assertEqual(len(tasks), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

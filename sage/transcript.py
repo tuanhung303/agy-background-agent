@@ -209,12 +209,12 @@ def has_active_subagents(transcript_path, conv_id=None):
     return bool(get_active_subagents(transcript_path, conv_id))
 
 
-def get_active_background_tasks(transcript_path, conv_id=None):
-    return _get_tasks(_read_transcript_steps(transcript_path), conv_id, _parse_ts)
+def get_active_background_tasks(transcript_path, conv_id=None, max_age=None):
+    return _get_tasks(_read_transcript_steps(transcript_path), conv_id, _parse_ts, max_age=max_age)
 
 
-def has_active_background_tasks(transcript_path, conv_id=None):
-    return bool(get_active_background_tasks(transcript_path, conv_id))
+def has_active_background_tasks(transcript_path, conv_id=None, max_age=None):
+    return bool(get_active_background_tasks(transcript_path, conv_id, max_age=max_age))
 
 
 def is_post_invocation_completion_candidate(transcript_path, conv_id=None):

@@ -137,7 +137,7 @@ def generate_contextual_reject_action(
     elif turn_execution_summary:
         exec_parts.append(f"Turn tool executions:\n{turn_execution_summary.strip()}")
 
-    exec_block = f"<recent_tool_executions>\n" + "\n\n".join(exec_parts) + "\n</recent_tool_executions>\n\n" if exec_parts else ""
+    exec_block = "<recent_tool_executions>\n" + "\n\n".join(exec_parts) + "\n</recent_tool_executions>\n\n" if exec_parts else ""
 
     prompt = (
         "You are the Quality Gate Verifier. The agent attempted to stop on this request:\n"
