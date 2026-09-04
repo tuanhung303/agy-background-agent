@@ -543,6 +543,14 @@ class TestStopVerifierDomainCases(unittest.TestCase):
             self.assertIn("Most recent terminal command: `python3 -c", prompt_sent)
             self.assertIn("Order Amount", prompt_sent)
 
+    def test_verifier_prompt_includes_negative_visual_and_test_script_rigor_gates(self):
+        prompt = build_lite_verifier_prompt("verify multi-tenant dashboard", "Dashboard verified.")
+        self.assertIn("Negative Visual Defect Audit (MANDATORY FOR SCREENSHOTS & UI)", prompt)
+        self.assertIn("Failed to Load Saturation Parameters", prompt)
+        self.assertIn("Test Script Rigor & Anti-Superficial Audit", prompt)
+        self.assertIn("assertPageIntegrity", prompt)
+        self.assertIn("Prohibit Superficial Assertions", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
