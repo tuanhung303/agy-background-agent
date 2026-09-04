@@ -1,126 +1,26 @@
 #!/usr/bin/env python3
 """
-sage-enforce.py - Zero-delay PreToolUse delegate enforcement (no LLM).
+sage-enforce.py - Zero-delay PreToolUse pass-through hook for Antigravity (AGY).
 
-When a delegate command has been issued (delegate_cmd_turn / facilitation_cmd_turn
-in the session state) and the agent attempts an inline EXEC/FILE tool call, this
-hook injects a one-line violation message into the turn immediately — without
-waiting for the PostInvocation sage evaluation. Read-only research tools are
-allowed (the orchestrator needs them to distill payloads).
-
-Hot unplug: AGY_SAGE_DISABLED=1 (per-spawn env) makes this hook a passthrough.
+Returns an immediate allow decision on PreToolUse events with zero blocking.
 """
 
 import json
-import os
 import sys
-
-_HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
-_REPO_DIR = os.path.abspath(os.path.join(_HOOK_DIR, ".."))
-if _REPO_DIR not in sys.path:
-    sys.path.insert(0, _REPO_DIR)
-
-
-def _passthrough():
-    return {"decision": "allow"}
-
-
-def _counter_path(conv_id):
-    return f"/tmp/agy_sage_enforce_{conv_id}.json" if conv_id else ""
-
-
-def _injections_used(conv_id):
-    try:
-        with open(_counter_path(conv_id), "r", encoding="utf-8") as f:
-            return int(json.load(f).get("count", 0))
-    except Exception:
-        return 0
-
-
-def _record_injection(conv_id):
-    try:
-        with open(_counter_path(conv_id), "w", encoding="utf-8") as f:
-            json.dump({"count": _injections_used(conv_id) + 1}, f)
-    except Exception:
-        pass
-
-
-def evaluate(payload):
-    """Pure decision logic: returns dict for the PreToolUse output contract. Fail-safe."""
-    try:
-        if os.environ.get("AGY_SAGE_DISABLED") == "1":
-            return _passthrough()
-        try:
-            from sage.config import LITE_MODE_ENABLED
-            if LITE_MODE_ENABLED:
-                return _passthrough()
-        except Exception:
-            pass
-        try:
-            from sage.guards import is_subagent_payload
-            from sage.session_state import get_state_file_path
-            from sage.task_structure import EXEC_TOOLS, FILE_TOOLS
-            blocked_tools = EXEC_TOOLS | FILE_TOOLS
-        except Exception:
-            blocked_tools = {
-                "run_command", "bash", "exec", "terminal", "write_to_file",
-                "replace_file_content", "multi_replace_file_content", "edit_file",
-                "create_file", "apply_diff", "patch", "modify_file", "write_file",
-            }
-            is_subagent_payload = lambda p: False
-            get_state_file_path = lambda c: f"/tmp/agy_sage_{c}.json"
-
-        if is_subagent_payload(payload):
-            return _passthrough()
-        tool_call = payload.get("toolCall") if isinstance(payload.get("toolCall"), dict) else {}
-        tool_name = str(tool_call.get("name") or "")
-        if tool_name not in blocked_tools:
-            return _passthrough()
-        conv_id = payload.get("conversationId", "default")
-        try:
-            with open(get_state_file_path(conv_id), "r", encoding="utf-8") as f:
-                state = json.load(f)
-        except Exception:
-            return _passthrough()
-        if not isinstance(state, dict):
-            return _passthrough()
-        if not (state.get("delegate_cmd_turn") or state.get("facilitation_cmd_turn") or state.get("goal_settled")):
-            return _passthrough()
-        comp = str(state.get("task_complexity") or "").strip().lower()
-        if comp in ("simple_qa", "qa"):
-            return _passthrough()
-        try:
-            from sage.journal import write as journal_write
-        except Exception:
-            journal_write = lambda *args, **kwargs: None
-        used = _injections_used(conv_id)
-        if used >= 1:
-            journal_write("violation_suppressed", conv_id=conv_id, tool=tool_name, count=used)
-            return _passthrough()
-        _record_injection(conv_id)
-        journal_write("violation_inject", conv_id=conv_id, tool=tool_name, count=used + 1)
-        return {"decision": "allow"}
-    except Exception:
-        return _passthrough()
 
 
 def main() -> None:
     try:
-        raw = sys.stdin.read() if not sys.stdin.isatty() else "{}"
-        payload = json.loads(raw) if raw.strip() else {}
-        if not isinstance(payload, dict):
-            payload = {}
+        if not sys.stdin.isatty():
+            _ = sys.stdin.read()
     except Exception:
-        payload = {}
+        pass
     try:
-        out = evaluate(payload)
+        sys.stdout.write(json.dumps({"decision": "allow"}))
     except Exception:
-        out = _passthrough()
-    try:
-        sys.stdout.write(json.dumps(out))
-    except Exception:
-        sys.stdout.write('{"decision":"allow"}')
+        pass
 
 
 if __name__ == "__main__":
     main()
+

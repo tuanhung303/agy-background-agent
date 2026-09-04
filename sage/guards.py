@@ -221,19 +221,3 @@ def evaluate_turn_triggers(total_tool_calls, user_ts, sensitive_matches=None):
         fail_safe_exit(f"Conditions not met: turn_dur={turn_duration:.1f}s (<{TURN_DURATION_THRESHOLD}s), tool_calls={total_tool_calls} (<{TOOL_CALL_THRESHOLD})")
     return turn_duration
 
-
-def handle_background_watch_action(bgp, state, state_file, initial_lines, record_steer_fn, record_grace_fn=None):
-    act = bgp["action"]
-    if act == "steer":
-        tid, desc, age = bgp["task_id"], bgp["description"], bgp["age_seconds"]
-        msg = format_hook_message("steering", f"Background task '{desc}' ({tid}) has run for {int(age)}s (>300s). Check status and keep watching it; terminate only if confirmed hung.")
-        record_steer_fn(state_file, state, tid, initial_lines)
-        log_audit(f"Active background task: {tid} ({desc}, age={age:.1f}s) -> Steering agent to watch")
-        emit_continue_response(msg)
-    elif act == "grace":
-        fail_safe_exit("Background task in 300s grace period; waiting")
-    elif act == "already_steered":
-        if not is_post_invocation():
-            log_audit("All stale background tasks already steered; proceeding to stop audit")
-        else:
-            fail_safe_exit("All stale background tasks already received steering")

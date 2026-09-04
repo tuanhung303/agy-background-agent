@@ -1,7 +1,6 @@
 # Ruff configuration for agy-background-agent
 line-length = 120
 target-version = "py312"
-exclude = ["benchmark"]
 
 [lint]
 select = ["E", "F", "W"]

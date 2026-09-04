@@ -14,15 +14,15 @@
 - `sage/locking.py`: Conversation locking and structured audit logging.
 - `sage/session_state.py`: Atomic session state persistence and strike tracking.
 - `sage/transcript.py`: Transcript parsing, turn provenance extraction, background task tracking.
-- `tests/`: 58 test modules asserting unit, integration, static analysis, and adversarial invariants (950+ tests).
+- `tests/`: 17 test modules asserting unit, integration, static analysis, and adversarial invariants (234 tests).
 
 ## Code Layout
 - `sage/lite/*.py`: Lite Mode Stop Verifier implementation modules.
 - `sage/*.py`: Core library, execution isolation, and session utilities. Strictly <= 300 lines per file and zero semicolon statement packing.
 - `hooks/*.py`: Antigravity hook scripts.
 - `statusline/*.py`: Session statusline integration.
-- `tests/test_*.py`: Unittest test cases (950+ tests).
-- `scripts/`: Benchmark, hermetic test, telemetry, and verification harnesses.
+- `tests/test_*.py`: Test suite (234 tests).
+- `scripts/`: Verification topic suites (`scripts/verify/<topic>/`).
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Status |
