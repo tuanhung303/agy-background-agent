@@ -1,86 +1,115 @@
-"""scripts.verify.prompt.verify_live - Live empirical evaluation for prompt and context isolation."""
+"""Run real model judgments on controlled fixtures; retain raw evidence and exact verdict scores."""
+import argparse
+import hashlib
+import importlib.util
+import json
 import os
+from pathlib import Path
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 
-repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from sage.lite.verifier import run_lite_verification, generate_contextual_reject_action
+from sage.config import LITE_MODEL_CANDIDATES, LITE_MODE_TIMEOUT
+from sage.executor import ensure_isolated_home
+from sage.lite.prompt import build_lite_verifier_prompt
+from scripts.verify.prompt.verify_adversarial import load_cases, score_output
 
 
-def run_live_prompt_eval():
-    print("=== LIVE EMPIRICAL PROMPT & CONTEXT SEAL EVALUATION ===")
+def load_builder(path):
+    """Optionally load a saved trusted baseline prompt for a paired comparison."""
+    if not path:
+        return build_lite_verifier_prompt
+    spec = importlib.util.spec_from_file_location("baseline_prompt", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.build_lite_verifier_prompt
 
-    # Test 1: Context Bleed & Historical Inertia Isolation
-    user_p1 = "Fix the MNTN CTV allocation drop at $500k budget in solver.py"
-    agent_out1 = "I adjusted the decay weight in solver.py. As shown in our previous conversation, all unit tests are passing."
-    turn_exec1 = "- replace_file_content: `solver.py`\n- run_command: `pytest tests/test_solver.py` (3 passed)"
 
-    t0 = time.time()
-    os.environ["AGY_LITE_MOCK_VERDICT"] = "FAIL: Unit tests are disqualified as empirical proof."
-    try:
-        v1 = run_lite_verification(
-            parent_conv_id="test_live_eval",
-            fork_conv_id="test_live_eval",
-            user_prompt=user_p1,
-            last_agent_output=agent_out1,
-            turn_execution_summary=turn_exec1,
-            timeout=20.0,
-        )
-    finally:
-        os.environ.pop("AGY_LITE_MOCK_VERDICT", None)
-
-    dur1 = round(time.time() - t0, 2)
-    print(f"  [1/3] Context Bleed Test ({dur1}s): verdict={v1.verdict}")
-    assert v1.verdict == "FAIL", f"Expected FAIL but got {v1.verdict}"
-    assert len(v1.action) > 10, "Expected non-empty actionable instruction"
-
-    # Test 2: Dynamic Action Steering with scripts/verify/ recommendation
-    user_p2 = "Implement the 6-month business plan halo multiplier solver"
-    agent_out2 = "Implemented halo calculation in lib/solver.ts. Unit tests pass with 100% coverage."
-    reject_reason2 = "Proof contains only disqualified items (unit tests, typecheck, build logs, git push) or lacks concrete empirical evidence"
-
-    t0 = time.time()
-    action2 = generate_contextual_reject_action(
-        fork_conv_id="test_live_eval",
-        user_prompt=user_p2,
-        last_agent_output=agent_out2,
-        reject_reason=reject_reason2,
-        timeout=20.0,
+def evaluate_case(case, builder, model, timeout, env, cwd):
+    """Call the actual CLI directly so timeout/cascade fallback cannot fabricate PASS."""
+    prompt = builder(case["request"], case["response"], turn_execution_summary=case["evidence"])
+    prompt = (
+        "Controlled evaluation: assess the supplied synthetic transcript as the complete recorded evidence. "
+        "Paths and endpoints refer to this fixture, not this machine. Do not execute or modify them. "
+        "Judge the supplied record using the verifier policy below.\n\n" + prompt
     )
-    dur2 = round(time.time() - t0, 2)
-    print(f"  [2/3] Action Steering Test ({dur2}s): length={len(action2)}")
-    assert len(action2) > 20, "Expected detailed action steering"
-
-    # Test 3: Multi-Tier Cloud Deploy Invariant
-    user_p3 = "Deploy updated ad analytics API to GCP Cloud Run and verify staging endpoint"
-    agent_out3 = "Ran deploy-simple.sh and git push origin staging. Build finished with 0 errors."
-    turn_exec3 = "- run_command: `git push origin staging` (exit code 0)\n- run_command: `npm run build` (exit code 0)"
-
-    t0 = time.time()
-    os.environ["AGY_LITE_MOCK_VERDICT"] = "FAIL: Remote CI/CD and endpoint verification required for deployment."
+    command = [
+        shutil.which("agy") or str(Path.home() / ".local/bin/agy"),
+        "-p", prompt, "--model", model, "--disable-slash-commands",
+    ]
+    start = time.monotonic()
+    record = {
+        "case": case["id"], "expected": case["expected"], "model": model,
+        "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+        "fixture_sha256": hashlib.sha256(json.dumps(case, sort_keys=True).encode()).hexdigest(),
+    }
     try:
-        v3 = run_lite_verification(
-            parent_conv_id="test_live_eval",
-            fork_conv_id="test_live_eval",
-            user_prompt=user_p3,
-            last_agent_output=agent_out3,
-            turn_execution_summary=turn_exec3,
-            timeout=20.0,
-        )
-    finally:
-        os.environ.pop("AGY_LITE_MOCK_VERDICT", None)
+        result = subprocess.run(command, input="", capture_output=True, text=True, timeout=timeout, env=env, cwd=cwd)
+        record.update(returncode=result.returncode, stdout=result.stdout, stderr=result.stderr)
+        verdict, status = score_output(result.stdout, case["expected"])
+        record.update(verdict=verdict, status=status if result.returncode == 0 else "execution_error")
+    except subprocess.TimeoutExpired as exc:
+        record.update(status="timeout", stdout=_text(exc.stdout), stderr=_text(exc.stderr))
+    except OSError as exc:
+        record.update(status="execution_error", error=str(exc))
+    record["duration_seconds"] = round(time.monotonic() - start, 3)
+    return record
 
-    dur3 = round(time.time() - t0, 2)
-    print(f"  [3/3] Cloud Deploy Invariant Test ({dur3}s): verdict={v3.verdict}")
-    assert v3.verdict == "FAIL", f"Expected FAIL on unverified deploy but got {v3.verdict}"
 
-    print("✓ All 3 live empirical prompt evaluations passed cleanly!")
-    return True
+def _text(value):
+    """Normalize partial subprocess output from a timeout."""
+    return value.decode(errors="replace") if isinstance(value, bytes) else value or ""
+
+
+def main():
+    """Execute the fixture matrix and fail on every mismatch or unavailable evaluation."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--baseline-prompt", type=Path)
+    parser.add_argument("--model", default=LITE_MODEL_CANDIDATES[0])
+    parser.add_argument("--timeout", type=float, default=LITE_MODE_TIMEOUT)
+    parser.add_argument("--repeats", type=int, default=1)
+    parser.add_argument("--case", action="append", dest="case_ids")
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    if args.repeats < 1 or args.timeout <= 0:
+        parser.error("repeats and timeout must be positive")
+    if os.environ.get("AGY_LITE_MOCK_VERDICT", "").strip():
+        parser.error("AGY_LITE_MOCK_VERDICT must be unset for a live evaluation")
+    cases = load_cases()
+    if args.case_ids:
+        unknown = set(args.case_ids) - {case["id"] for case in cases}
+        if unknown:
+            parser.error(f"Unknown cases: {sorted(unknown)}")
+        cases = [case for case in cases if case["id"] in args.case_ids]
+    builder = load_builder(args.baseline_prompt)
+    output = args.output or ROOT / "tmp" / f"prompt-eval-{time.time_ns()}.jsonl"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ, HOME=ensure_isolated_home(), AGY_STOP_AUDIT_ACTIVE="1")
+    counts = {}
+    # Fresh CLI sessions, isolated home, empty cwd, no real parent conversation.
+    with tempfile.TemporaryDirectory(prefix="stop-prompt-eval-") as cwd, output.open("x") as log:
+        for repeat in range(args.repeats):
+            for case in cases:
+                record = evaluate_case(case, builder, args.model, args.timeout, env, cwd)
+                record["repeat"] = repeat + 1
+                log.write(json.dumps(record) + "\n")
+                log.flush()
+                status = record["status"]
+                counts[status] = counts.get(status, 0) + 1
+                print(f"{repeat + 1}: {case['id']}: {status} ({record['duration_seconds']}s)", flush=True)
+                # Do not repeat authentication/infrastructure failures across the matrix.
+                if status in ("timeout", "execution_error"):
+                    print(f"Evaluation stopped; remaining cases were not evaluated. Evidence: {output}", flush=True)
+                    return 1
+    print(json.dumps({"counts": counts, "evidence": str(output)}), flush=True)
+    return 0 if counts.get("matched", 0) == len(cases) * args.repeats else 1
 
 
 if __name__ == "__main__":
-    success = run_live_prompt_eval()
-    sys.exit(0 if success else 1)
+    sys.exit(main())

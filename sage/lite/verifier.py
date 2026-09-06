@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 from sage.config import LITE_MODE_TIMEOUT, LITE_MODEL_CANDIDATES, get_real_user_home
 from sage.executor import ensure_isolated_home, extract_json_from_llm_output
-from sage.lite.prompt import build_lite_verifier_prompt
+from sage.lite.prompt import JUDGMENT_GUIDANCE, build_lite_verifier_prompt
 from sage.lite.schemas import LiteVerdict
 from sage.locking import log_audit
 
@@ -134,21 +134,23 @@ def generate_contextual_reject_action(
         cmd_text = str(most_recent_terminal_cmd.get("command") or "").strip()
         cmd_out = str(most_recent_terminal_cmd.get("output") or "").strip()
         exec_parts.append(f"Most recent terminal command: `{cmd_text}`\nOutput:\n{cmd_out}")
-    elif turn_execution_summary:
+    if turn_execution_summary:
         exec_parts.append(f"Turn tool executions:\n{turn_execution_summary.strip()}")
 
     exec_block = "<recent_tool_executions>\n" + "\n\n".join(exec_parts) + "\n</recent_tool_executions>\n\n" if exec_parts else ""
 
     prompt = (
-        "You are the Quality Gate Verifier. The agent attempted to stop on this request:\n"
+        "You are the Quality Gate Verifier. Apply this judgment policy when selecting a corrective action:\n"
+        + JUDGMENT_GUIDANCE + "\nThe agent attempted to stop on this request:\n"
         f"<user_request>\n{clean_user}\n</user_request>\n\n"
         f"<last_agent_response>\n{clean_agent}\n</last_agent_response>\n\n"
         + exec_block +
-        f"Empirical proof validation failed: {reject_reason}\n\n"
+        f"Proof validator diagnostic: {reject_reason}\n\n"
         "State in 1-2 direct imperative sentences the exact, concrete verification action or proof the agent must perform for this specific task and codebase before stopping.\n"
-        "For implementation tasks, bug fixes, or schema alterations touching an enumerable collection or sibling entity (e.g. data feeds, tenant configs, calculation formulas, API routes, parser schemas), instruct the agent to declare universe U from authoritative manifests or registries and verify the entire class under scripts/verify/<topic>/ (orchestrated by scripts/verify/all.py or npm run verify).\n"
+        "If required sibling coverage is missing for implementation work on an enumerable collection, instruct the agent to declare universe U from authoritative manifests or registries and verify all members under scripts/verify/<topic>/ (orchestrated by scripts/verify/all.py or npm run verify). Do not repeat coverage already established by sufficient current evidence.\n"
         "Do NOT prescribe creating test scripts under scripts/verify/ if the user merely asked an informational, conversational, or data reconciliation question; instead instruct the agent to provide factual, field-level quantitative citations in the response.\n"
-        "If <recent_tool_executions> shows the agent already executed a relevant query or command, do NOT prescribe re-running that exact check; instruct them on the specific unverified assertion or factual discrepancy.\n"
+        "Assess the diagnostic against the task and recorded results. If an expected or recovered failure is already supported by sufficient current evidence, request a precise proof citation explaining that result, not a redundant repair. Do not waive an applicable requirement or invent evidence.\n"
+        "Reuse sufficient checks, but request a rerun when a failed result, incomplete evidence, or intervening changes leave a material assertion unverified.\n"
         "If the agent encountered an external blocker (MFA, corporate SSO/ADFS, in-use RDP lock), instruct the agent to satisfy the escalation contract with technical details and the exact user action needed rather than re-running blocked commands.\n"
         "Never use generic boilerplate (e.g. 'execute and document at least one empirical verification channel'). Focus on the affected universe and concrete execution commands."
     )
@@ -193,5 +195,4 @@ def generate_contextual_reject_action(
         except Exception:
             continue
 
-    return f"Verification rejected: {reject_reason}. Verify the specific changes and sibling blast radius before completing."
-
+    return f"Verification rejected: {reject_reason}. Provide current evidence resolving this gap for the requested outcome."

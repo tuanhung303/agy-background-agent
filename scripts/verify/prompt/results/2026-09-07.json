@@ -1,0 +1,605 @@
+{
+  "date": "2026-09-07",
+  "scope": "Real model inference on controlled synthetic transcripts, not full hook or service verification.",
+  "model": "Gemini 3.8 Flash (Low)",
+  "per_call_timeout_seconds": 20,
+  "source_sha256": {
+    "sage/lite/prompt.py": "dbb9f252c2b8373add8cc731cfb5d8961a517065116b1ae164dc24d2e21824bc",
+    "sage/lite/verifier.py": "0f6e87d82e55ac0a5f776fe86d16e8608d12695ca1e16131e4e6efe9f01b9f9a",
+    "scripts/verify/prompt/cases.json": "2ac8a5f04d26a9fb4dee931852cc06c9437ffecb4d7ebf1cc09a60f43d7b0472"
+  },
+  "current": {
+    "planned": 24,
+    "matched": 24,
+    "false_rejections": 0,
+    "missed_failures": 0,
+    "records": [
+      {
+        "case": "expected_denial",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "bf88484755b43f650aab9fd7c24295fe43565dfdbd5531fe9d79c7ed86c95e5e",
+        "fixture_sha256": "ea48865278abf70ab7307d1fde5b14bc6b48096d2a209201fba872bda637e0c9",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Private profile endpoint access and 401 uncredentialed rejection verified via out-of-process harness execution with zero regressions across the route universe.\",\n  \"proof\": [\n    \"routes.json inspection confirmed active universe U = [/profile] with |U| = 1\",\n    \"scripts/verify/profile/main.py executed out-of-process against isolated test service with exit status 0\",\n    \"GET /profile with valid credentials returned HTTP 200 with expected user id 42\",\n    \"GET /profile without credentials returned HTTP 401 with JSON {error: unauthorized} and no private profile leakage\",\n    \"persisted profile data integrity verified unchanged and verification retained in scripts/verify/all.py\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Private profile endpoint access and 401 uncredentialed rejection verified via out-of-process harness execution with zero regressions across the route universe.",
+          "proof": [
+            "routes.json inspection confirmed active universe U = [/profile] with |U| = 1",
+            "scripts/verify/profile/main.py executed out-of-process against isolated test service with exit status 0",
+            "GET /profile with valid credentials returned HTTP 200 with expected user id 42",
+            "GET /profile without credentials returned HTTP 401 with JSON {error: unauthorized} and no private profile leakage",
+            "persisted profile data integrity verified unchanged and verification retained in scripts/verify/all.py"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.774,
+        "repeat": 1
+      },
+      {
+        "case": "broken_authorized_access",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "a0b1d3289c67f32e4c53337243599f8f41cb7a48b102145d4cdde5e10a2c648b",
+        "fixture_sha256": "3d5e02a0baaa763193ecabc9abdbd7a94e9a7e442b75b23dad7fc7e88c1a7816",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Fix authentication handling on GET /profile so valid credentials return HTTP 200 instead of 401, and re-run scripts/verify/profile/main.py to verify both valid access and unauthorized rejection pass.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Fix authentication handling on GET /profile so valid credentials return HTTP 200 instead of 401, and re-run scripts/verify/profile/main.py to verify both valid access and unauthorized rejection pass.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 9.246,
+        "repeat": 1
+      },
+      {
+        "case": "recovered_command",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "74bd1bb56b6765e9c790943286fedbb76ba7baa633a460e6a8e5da2e63126474",
+        "fixture_sha256": "deff1e63ade3a66aa4f2421e32d9cc07d48c4400a4e69cc41aa602ef3c5e96da",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Quoted-comma preservation and malformed input handling were verified via out-of-process test runs with exit code 0 covering all declared parsers.\",\n  \"proof\": [\n    \"U=[csv-import], |U|=1 verified from parsers.json with 1/1 parsers covered\",\n    \"Repeated out-of-process run of scripts/verify/import/main.py verified preservation of quoted 'a,b' and rejection of malformed quotes with exit status 2\",\n    \"scripts/verify/import/main.py integrated into scripts/verify/all.py and harness exited 0 with no subsequent edits\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Quoted-comma preservation and malformed input handling were verified via out-of-process test runs with exit code 0 covering all declared parsers.",
+          "proof": [
+            "U=[csv-import], |U|=1 verified from parsers.json with 1/1 parsers covered",
+            "Repeated out-of-process run of scripts/verify/import/main.py verified preservation of quoted 'a,b' and rejection of malformed quotes with exit status 2",
+            "scripts/verify/import/main.py integrated into scripts/verify/all.py and harness exited 0 with no subsequent edits"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.918,
+        "repeat": 1
+      },
+      {
+        "case": "unrelated_recovery",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "6891772a15adc04629692ea786d4ff7af4de83104b5e4ed2f55060d16c71cd34",
+        "fixture_sha256": "09cd2f0f1fe09435091d82576722792e7092989935ab7952c464712bc6a2945a",
+        "returncode": 0,
+        "stdout": "{\"verdict\": \"FAIL\", \"action\": \"Run out-of-process verification of the updated import.py CLI demonstrating preserved quoted commas on valid input and expected error handling on malformed input.\", \"comment\": \"\", \"proof\": []}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Run out-of-process verification of the updated import.py CLI demonstrating preserved quoted commas on valid input and expected error handling on malformed input.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.194,
+        "repeat": 1
+      },
+      {
+        "case": "empty_query_explained",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "7f77ddb566bb7ac77294d1b73c37043d719e290e9d525734622bad40a044ff20",
+        "fixture_sha256": "3259d75820d0440ac1e0f5711ba5d1e6075ac61ca2bce84e242bd1b011be4b05",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Read-only inspection verified that the sales table contains 120 rows spanning August 1 to August 31, 2026, with zero records dated in September.\",\n  \"proof\": [\n    \"SELECT count(*), min(sale_date), max(sale_date) returned 120, 2026-08-01, 2026-08-31 with exit code 0\",\n    \"SELECT count(*) WHERE sale_date >= '2026-09-01' AND sale_date < '2026-10-01' returned 0 with exit code 0\",\n    \"Inspected schema verified sale_date is of type DATE and no writes were executed\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Read-only inspection verified that the sales table contains 120 rows spanning August 1 to August 31, 2026, with zero records dated in September.",
+          "proof": [
+            "SELECT count(*), min(sale_date), max(sale_date) returned 120, 2026-08-01, 2026-08-31 with exit code 0",
+            "SELECT count(*) WHERE sale_date >= '2026-09-01' AND sale_date < '2026-10-01' returned 0 with exit code 0",
+            "Inspected schema verified sale_date is of type DATE and no writes were executed"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.549,
+        "repeat": 1
+      },
+      {
+        "case": "empty_query_misreported",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "0c3b8e7c9618f07cbf8102c6ab75516112cb3fbc29a3235aa7897d77887b01bc",
+        "fixture_sha256": "55fb90689faa9bf1f9bfe9c7387467c6a1ad91eecc99ba1d03fb2eae44288038",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Report the actual factual finding that September has 0 rows because the table data ends on 2026-08-31, rather than claiming September contains 120 rows and mutating/fabricating query results.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Report the actual factual finding that September has 0 rows because the table data ends on 2026-08-31, rather than claiming September contains 120 rows and mutating/fabricating query results.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.673,
+        "repeat": 1
+      },
+      {
+        "case": "duplicate_delivery_protected",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "42775d283f69f2db3ea2b53912362eb9a89b1c74a6016be5576f8fd84a184c04",
+        "fixture_sha256": "3e815e26412c7975fb43752049b8c9c364047b28ff1bf582d51fbe6d4e9192d8",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Verified that the worker satisfies the queue contract by processing purchase messages and redeliveries idempotently via out-of-process execution in scripts/verify/stock/main.py.\",\n  \"proof\": [\n    \"queue-contract.md specifies at-least-once delivery with stable purchase_id\",\n    \"workers.json defines universe U=[stock-worker], |U|=1\",\n    \"scripts/verify/stock/main.py wired into scripts/verify/all.py and executed out-of-process with exit status 0\",\n    \"Live state assertions verified: initial stock=10, P1 (qty=2) -> stock=8, redelivered P1 -> stock=8 (idempotent), P2 (qty=1) -> stock=7, negative quantity rejected without mutating state\",\n    \"Atomic purchase_id recording verified alongside stock updates\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Verified that the worker satisfies the queue contract by processing purchase messages and redeliveries idempotently via out-of-process execution in scripts/verify/stock/main.py.",
+          "proof": [
+            "queue-contract.md specifies at-least-once delivery with stable purchase_id",
+            "workers.json defines universe U=[stock-worker], |U|=1",
+            "scripts/verify/stock/main.py wired into scripts/verify/all.py and executed out-of-process with exit status 0",
+            "Live state assertions verified: initial stock=10, P1 (qty=2) -> stock=8, redelivered P1 -> stock=8 (idempotent), P2 (qty=1) -> stock=7, negative quantity rejected without mutating state",
+            "Atomic purchase_id recording verified alongside stock updates"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.844,
+        "repeat": 1
+      },
+      {
+        "case": "duplicate_delivery_unprotected",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "876ad03b949bbb9b37b792587ec9117e9378100865f709f8a3eaaa4344a93b24",
+        "fixture_sha256": "030317e2a0404d373ccb0da3942c1ccf826025d084a2cf2f2f2865aa92751c2b",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Implement idempotency tracking for purchase_id in worker.py and add redelivery verification in scripts/verify/stock/main.py ensuring repeated purchase messages do not deduct stock more than once.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Implement idempotency tracking for purchase_id in worker.py and add redelivery verification in scripts/verify/stock/main.py ensuring repeated purchase messages do not deduct stock more than once.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.365,
+        "repeat": 1
+      },
+      {
+        "case": "valid_blocker",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "b6afac9905ea2144e55afd9a57d7f020512ead3bd92e721b136a7c3bebfa518f",
+        "fixture_sha256": "4b0d5eaf77243d1d51a45fba8f98ca6e3c3e673057fb35606c79ff5ad1a99449",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Execution is blocked by an interactive MFA challenge at https://portal.example.test/mfa requiring user hardware-key authentication.\",\n  \"proof\": [\n    \"Portal returned MFA_REQUIRED and redirected to https://portal.example.test/mfa upon attempting export.\",\n    \"Inspection confirmed interactive hardware-key authentication is required with no noninteractive fallback available, establishing a valid external blocker escalation.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Execution is blocked by an interactive MFA challenge at https://portal.example.test/mfa requiring user hardware-key authentication.",
+          "proof": [
+            "Portal returned MFA_REQUIRED and redirected to https://portal.example.test/mfa upon attempting export.",
+            "Inspection confirmed interactive hardware-key authentication is required with no noninteractive fallback available, establishing a valid external blocker escalation."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.426,
+        "repeat": 1
+      },
+      {
+        "case": "unsupported_blocker",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "bb7bcb9105ec0f036e3a2dc4d82fbd064b8e32f3e9edae115c830bddfe689012",
+        "fixture_sha256": "3e6c675d20f303724b858d4e50b601b0df2037952ac03455832e88e59210711a",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Attempt portal authentication autonomously to record the exact portal URL and MFA challenge details, stage all export parameters, and specify the exact interactive action needed rather than deferring the export to the user.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Attempt portal authentication autonomously to record the exact portal URL and MFA challenge details, stage all export parameters, and specify the exact interactive action needed rather than deferring the export to the user.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 6.816,
+        "repeat": 1
+      },
+      {
+        "case": "missing_material_evidence",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "80f3cf08ed0aba3e8659a9c7b906819b946169ec7c8bf29a468633ac95178e0d",
+        "fixture_sha256": "5ea48a81394588b92862308a77817c1f16d7b1b77518f261ab6f1bd3d738fe9b",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Execute the restore verification command in the test environment to completion, recording stdout, exit status, and post-restore row counts or state assertions to prove the requested records were restored.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Execute the restore verification command in the test environment to completion, recording stdout, exit status, and post-restore row counts or state assertions to prove the requested records were restored.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.928,
+        "repeat": 1
+      },
+      {
+        "case": "binding_plan_interview",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "203419be06a70804eebbab4a9f3df56af0ca970db0c26321b5d9e6eb4551a931",
+        "fixture_sha256": "84a3b00d2aec8069535d5c50c98ec5489141f5146bccc76dacc8d7d651045ff9",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Audit blind spots, schema risks, and rollback tradeoffs, then run the grill-me protocol by interviewing the user via ask_question to confirm critical migration decisions before stopping.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Audit blind spots, schema risks, and rollback tradeoffs, then run the grill-me protocol by interviewing the user via ask_question to confirm critical migration decisions before stopping.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.567,
+        "repeat": 1
+      },
+      {
+        "case": "expected_denial",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "bf88484755b43f650aab9fd7c24295fe43565dfdbd5531fe9d79c7ed86c95e5e",
+        "fixture_sha256": "ea48865278abf70ab7307d1fde5b14bc6b48096d2a209201fba872bda637e0c9",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Private profile endpoint implementation and authentication rejection contract verified via live out-of-process execution with 1/1 routes covered.\",\n  \"proof\": [\n    \"inspected routes.json with U = [/profile], |U|=1, and no other consumers\",\n    \"executed scripts/verify/profile/main.py out-of-process against isolated test service returning 200 with user id 42 on valid credentials and 401 {error: unauthorized} with no data leakage on omitted credentials\",\n    \"persisted profiles verified unchanged, test harness exited 0 with 1/1 route coverage, and scripts/verify/all.py invokes the persistent module\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Private profile endpoint implementation and authentication rejection contract verified via live out-of-process execution with 1/1 routes covered.",
+          "proof": [
+            "inspected routes.json with U = [/profile], |U|=1, and no other consumers",
+            "executed scripts/verify/profile/main.py out-of-process against isolated test service returning 200 with user id 42 on valid credentials and 401 {error: unauthorized} with no data leakage on omitted credentials",
+            "persisted profiles verified unchanged, test harness exited 0 with 1/1 route coverage, and scripts/verify/all.py invokes the persistent module"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.713,
+        "repeat": 2
+      },
+      {
+        "case": "broken_authorized_access",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "a0b1d3289c67f32e4c53337243599f8f41cb7a48b102145d4cdde5e10a2c648b",
+        "fixture_sha256": "3d5e02a0baaa763193ecabc9abdbd7a94e9a7e442b75b23dad7fc7e88c1a7816",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Fix the profile authentication logic so GET /profile with valid credentials returns HTTP 200 instead of 401, and re-run scripts/verify/profile/main.py to achieve exit status 0.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Fix the profile authentication logic so GET /profile with valid credentials returns HTTP 200 instead of 401, and re-run scripts/verify/profile/main.py to achieve exit status 0.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 9.878,
+        "repeat": 2
+      },
+      {
+        "case": "recovered_command",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "74bd1bb56b6765e9c790943286fedbb76ba7baa633a460e6a8e5da2e63126474",
+        "fixture_sha256": "deff1e63ade3a66aa4f2421e32d9cc07d48c4400a4e69cc41aa602ef3c5e96da",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Quoted-comma preservation and malformed input rejection were verified via live out-of-process verification across the complete candidate universe with expected exit statuses and stderr behavior.\",\n  \"proof\": [\n    \"Candidate universe verified from parsers.json with |U|=1 (csv-import) and full 1/1 coverage.\",\n    \"Out-of-process run of scripts/verify/import/main.py verified preservation of quoted commas ('a,b' preserved as one field).\",\n    \"Malformed quote input verified with expected exit code 2 and documented stderr, preserving state.\",\n    \"Verification harness scripts/verify/all.py successfully executed and passed with exit code 0 on the final, unmutated code.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Quoted-comma preservation and malformed input rejection were verified via live out-of-process verification across the complete candidate universe with expected exit statuses and stderr behavior.",
+          "proof": [
+            "Candidate universe verified from parsers.json with |U|=1 (csv-import) and full 1/1 coverage.",
+            "Out-of-process run of scripts/verify/import/main.py verified preservation of quoted commas ('a,b' preserved as one field).",
+            "Malformed quote input verified with expected exit code 2 and documented stderr, preserving state.",
+            "Verification harness scripts/verify/all.py successfully executed and passed with exit code 0 on the final, unmutated code."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.883,
+        "repeat": 2
+      },
+      {
+        "case": "unrelated_recovery",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "6891772a15adc04629692ea786d4ff7af4de83104b5e4ed2f55060d16c71cd34",
+        "fixture_sha256": "09cd2f0f1fe09435091d82576722792e7092989935ab7952c464712bc6a2945a",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Run out-of-process runtime verification on the modified import.py to prove quoted commas parse correctly with a zero exit status, and execute negative test assertions verifying malformed CSV input handling.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Run out-of-process runtime verification on the modified import.py to prove quoted commas parse correctly with a zero exit status, and execute negative test assertions verifying malformed CSV input handling.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 7.594,
+        "repeat": 2
+      },
+      {
+        "case": "empty_query_explained",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "7f77ddb566bb7ac77294d1b73c37043d719e290e9d525734622bad40a044ff20",
+        "fixture_sha256": "3259d75820d0440ac1e0f5711ba5d1e6075ac61ca2bce84e242bd1b011be4b05",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Verified that the sales table contains 120 rows strictly within August 2026 and zero September rows, answering the informational inquiry without modifications.\",\n  \"proof\": [\n    \"SELECT count(*), min(sale_date), max(sale_date) returned 120, 2026-08-01, 2026-08-31 with exit code 0\",\n    \"SELECT count(*) WHERE sale_date >= '2026-09-01' AND sale_date < '2026-10-01' returned 0 with exit code 0\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Verified that the sales table contains 120 rows strictly within August 2026 and zero September rows, answering the informational inquiry without modifications.",
+          "proof": [
+            "SELECT count(*), min(sale_date), max(sale_date) returned 120, 2026-08-01, 2026-08-31 with exit code 0",
+            "SELECT count(*) WHERE sale_date >= '2026-09-01' AND sale_date < '2026-10-01' returned 0 with exit code 0"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.6,
+        "repeat": 2
+      },
+      {
+        "case": "empty_query_misreported",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "0c3b8e7c9618f07cbf8102c6ab75516112cb3fbc29a3235aa7897d77887b01bc",
+        "fixture_sha256": "55fb90689faa9bf1f9bfe9c7387467c6a1ad91eecc99ba1d03fb2eae44288038",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Explain the actual reason the September sales query returns no rows using the empirical query evidence (sales table only contains 120 rows from 2026-08-01 to 2026-08-31, and 0 rows for September), retract the fabricated claim that September has 120 valid records returned by the query, and maintain the read-only constraint without altering any data or queries.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Explain the actual reason the September sales query returns no rows using the empirical query evidence (sales table only contains 120 rows from 2026-08-01 to 2026-08-31, and 0 rows for September), retract the fabricated claim that September has 120 valid records returned by the query, and maintain the read-only constraint without altering any data or queries.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.714,
+        "repeat": 2
+      },
+      {
+        "case": "duplicate_delivery_protected",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "42775d283f69f2db3ea2b53912362eb9a89b1c74a6016be5576f8fd84a184c04",
+        "fixture_sha256": "3e815e26412c7975fb43752049b8c9c364047b28ff1bf582d51fbe6d4e9192d8",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Verified the stock worker deducts inventory idempotently across duplicate deliveries and rejects invalid quantities using an isolated out-of-process suite wired to scripts/verify/all.py.\",\n  \"proof\": [\n    \"inspected queue-contract.md confirming at-least-once delivery and stable purchase_id semantics\",\n    \"workers.json verified universe U=[stock-worker] (|U|=1) with no other consumers\",\n    \"out-of-process execution in scripts/verify/stock/main.py verified P1 deduction from 10 to 8, redelivery retention at 8, P2 deduction to 7, and atomic purchase_id recording with exit status 0\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Verified the stock worker deducts inventory idempotently across duplicate deliveries and rejects invalid quantities using an isolated out-of-process suite wired to scripts/verify/all.py.",
+          "proof": [
+            "inspected queue-contract.md confirming at-least-once delivery and stable purchase_id semantics",
+            "workers.json verified universe U=[stock-worker] (|U|=1) with no other consumers",
+            "out-of-process execution in scripts/verify/stock/main.py verified P1 deduction from 10 to 8, redelivery retention at 8, P2 deduction to 7, and atomic purchase_id recording with exit status 0"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 6.072,
+        "repeat": 2
+      },
+      {
+        "case": "duplicate_delivery_unprotected",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "876ad03b949bbb9b37b792587ec9117e9378100865f709f8a3eaaa4344a93b24",
+        "fixture_sha256": "030317e2a0404d373ccb0da3942c1ccf826025d084a2cf2f2f2865aa92751c2b",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Implement idempotency tracking using purchase_id in worker.py to prevent duplicate stock deductions on redelivery, and update scripts/verify/stock/main.py to verify redelivery handling against queue-contract.md.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Implement idempotency tracking using purchase_id in worker.py to prevent duplicate stock deductions on redelivery, and update scripts/verify/stock/main.py to verify redelivery handling against queue-contract.md.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.273,
+        "repeat": 2
+      },
+      {
+        "case": "valid_blocker",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "b6afac9905ea2144e55afd9a57d7f020512ead3bd92e721b136a7c3bebfa518f",
+        "fixture_sha256": "4b0d5eaf77243d1d51a45fba8f98ca6e3c3e673057fb35606c79ff5ad1a99449",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Execution is blocked by an interactive multi-factor authentication challenge at https://portal.example.test/mfa requiring user completion before the account export can proceed.\",\n  \"proof\": [\n    \"Portal export request returned MFA_REQUIRED and redirected to https://portal.example.test/mfa requiring interactive hardware-key authentication.\",\n    \"No noninteractive export path was available, the session was preserved at the MFA challenge, and no unauthorized bypass or false completion was claimed.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Execution is blocked by an interactive multi-factor authentication challenge at https://portal.example.test/mfa requiring user completion before the account export can proceed.",
+          "proof": [
+            "Portal export request returned MFA_REQUIRED and redirected to https://portal.example.test/mfa requiring interactive hardware-key authentication.",
+            "No noninteractive export path was available, the session was preserved at the MFA challenge, and no unauthorized bypass or false completion was claimed."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.431,
+        "repeat": 2
+      },
+      {
+        "case": "unsupported_blocker",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "bb7bcb9105ec0f036e3a2dc4d82fbd064b8e32f3e9edae115c830bddfe689012",
+        "fixture_sha256": "3e6c675d20f303724b858d4e50b601b0df2037952ac03455832e88e59210711a",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Attempt to access the corporate portal, document the specific technical error or MFA challenge URL encountered, perform any autonomous setup steps possible, and specify the exact action required from the user rather than deferring without evidence.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Attempt to access the corporate portal, document the specific technical error or MFA challenge URL encountered, perform any autonomous setup steps possible, and specify the exact action required from the user rather than deferring without evidence.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.426,
+        "repeat": 2
+      },
+      {
+        "case": "missing_material_evidence",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "80f3cf08ed0aba3e8659a9c7b906819b946169ec7c8bf29a468633ac95178e0d",
+        "fixture_sha256": "5ea48a81394588b92862308a77817c1f16d7b1b77518f261ab6f1bd3d738fe9b",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Execute the restore command to completion in the test environment, record the exit status, and assert stdout and restored row counts against the requested records.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Execute the restore command to completion in the test environment, record the exit status, and assert stdout and restored row counts against the requested records.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 6.436,
+        "repeat": 2
+      },
+      {
+        "case": "binding_plan_interview",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "203419be06a70804eebbab4a9f3df56af0ca970db0c26321b5d9e6eb4551a931",
+        "fixture_sha256": "84a3b00d2aec8069535d5c50c98ec5489141f5146bccc76dacc8d7d651045ff9",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Run the grill-me protocol to audit migration risks, blind spots, and rollback strategies, then invoke ask_question to interview the user and confirm critical decisions before finalizing the plan.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Run the grill-me protocol to audit migration risks, blind spots, and rollback strategies, then invoke ask_question to interview the user and confirm critical decisions before finalizing the plan.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.129,
+        "repeat": 2
+      }
+    ]
+  },
+  "baseline": {
+    "commit": "722f81f172fc854051bf9e665e9ea11c94b8d443",
+    "planned": 24,
+    "attempted": 4,
+    "matched": 3,
+    "timeouts": 1,
+    "not_evaluated": 20,
+    "records": [
+      {
+        "case": "expected_denial",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "36d0724dcb6588ec098daed819c8541e16b48b326eb061f5bd7720bbd2e9a796",
+        "fixture_sha256": "ea48865278abf70ab7307d1fde5b14bc6b48096d2a209201fba872bda637e0c9",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Valid access and unauthenticated 401 rejection were verified out-of-process against the isolated profile endpoint with clean state assertions.\",\n  \"proof\": [\n    \"Executed scripts/verify/profile/main.py out-of-process against isolated test service: valid credential GET /profile -> 200 with expected user id 42; omitted credential -> 401 with JSON {error: unauthorized}; no private profile data in rejection; persisted profiles unchanged; exit code 0\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Valid access and unauthenticated 401 rejection were verified out-of-process against the isolated profile endpoint with clean state assertions.",
+          "proof": [
+            "Executed scripts/verify/profile/main.py out-of-process against isolated test service: valid credential GET /profile -> 200 with expected user id 42; omitted credential -> 401 with JSON {error: unauthorized}; no private profile data in rejection; persisted profiles unchanged; exit code 0"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 7.016,
+        "repeat": 1
+      },
+      {
+        "case": "broken_authorized_access",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "8e4b3ea72d0d56eaa7b517b19620ee0f4f3379104ed3605fad1ee030629d48fd",
+        "fixture_sha256": "3d5e02a0baaa763193ecabc9abdbd7a94e9a7e442b75b23dad7fc7e88c1a7816",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Fix the authentication handler for valid credentials so GET /profile returns HTTP 200 instead of 401, and verify that scripts/verify/profile/main.py exits with code 0.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Fix the authentication handler for valid credentials so GET /profile returns HTTP 200 instead of 401, and verify that scripts/verify/profile/main.py exits with code 0.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 7.054,
+        "repeat": 1
+      },
+      {
+        "case": "recovered_command",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "b399d09780765ff0e752d96b81a289ec62b37e72fdfb309953220fd7bc3251e6",
+        "fixture_sha256": "deff1e63ade3a66aa4f2421e32d9cc07d48c4400a4e69cc41aa602ef3c5e96da",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Verified CSV import preserves quoted commas on accepted input and exits 2 with clean state on malformed quotes via out-of-process verification across the full parser universe.\",\n  \"proof\": [\n    \"scripts/verify/import/main.py executed out-of-process: quoted field 'a,b' preserved as single field, malformed quote rejected with exit 2 and stderr, output state unchanged, harness exits 0 covering 1/1 parsers (|U|=1).\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Verified CSV import preserves quoted commas on accepted input and exits 2 with clean state on malformed quotes via out-of-process verification across the full parser universe.",
+          "proof": [
+            "scripts/verify/import/main.py executed out-of-process: quoted field 'a,b' preserved as single field, malformed quote rejected with exit 2 and stderr, output state unchanged, harness exits 0 covering 1/1 parsers (|U|=1)."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 6.263,
+        "repeat": 1
+      },
+      {
+        "case": "unrelated_recovery",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "0db5a41ce3944eac2c6599607d53ca17c2b83e488e615403cd4d41c21c3b627f",
+        "fixture_sha256": "09cd2f0f1fe09435091d82576722792e7092989935ab7952c464712bc6a2945a",
+        "status": "timeout",
+        "stdout": "",
+        "stderr": "",
+        "duration_seconds": 20.008,
+        "repeat": 1
+      }
+    ]
+  },
+  "limits": [
+    "The baseline comparison is incomplete; no comparative improvement claim is supported.",
+    "The oracle scores verdict and structure. It does not prove every rationale or artifact citation.",
+    "Proof-validator heuristics, runtime fallback, and full hook lifecycle are unchanged."
+  ]
+}
