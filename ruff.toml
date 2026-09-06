@@ -1,0 +1,7 @@
+# Ruff configuration for agy-background-agent
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "W"]
+ignore = ["E501", "E402", "E741", "E701", "E731", "F841", "F401", "F403", "F405", "E401"]

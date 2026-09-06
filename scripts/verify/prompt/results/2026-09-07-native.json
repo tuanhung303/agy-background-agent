@@ -1,0 +1,185 @@
+{
+  "date": "2026-09-07",
+  "verifier_commit": "79d4ed13369de4d45009d73572cf2a17b4d373d5",
+  "source_sha256": {
+    "sage/lite/prompt.py": "dbb9f252c2b8373add8cc731cfb5d8961a517065116b1ae164dc24d2e21824bc",
+    "sage/lite/verifier.py": "0f6e87d82e55ac0a5f776fe86d16e8608d12695ca1e16131e4e6efe9f01b9f9a",
+    "scripts/verify/prompt/verify_hook.py": "3a6920b8d82ab437c5a0e85ba90534b3c0040a403f8e766ecfbcc8b47445f9d5"
+  },
+  "native_hook": {
+    "passed": 3,
+    "total": 3,
+    "model": "Gemini 3.8 Flash (Low)",
+    "records": [
+      {
+        "case": "failed_stop",
+        "conversation_id": "92ba5b10-5b8a-4d56-bd9e-56181f9b2d8f",
+        "executions": [
+          {
+            "command": [
+              "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+              "scripts/verify/all.py"
+            ],
+            "returncode": 1,
+            "stdout": "",
+            "stderr": "Traceback (most recent call last):\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/empirical-merge/hook-merge-candidate/failed_stop/scripts/verify/all.py\", line 3, in <module>\n    runpy.run_path(str(Path(__file__).parent/\"import/main.py\"), run_name=\"__main__\")\n  File \"<frozen runpy>\", line 287, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/empirical-merge/hook-merge-candidate/failed_stop/scripts/verify/import/main.py\", line 6, in <module>\n    assert json.loads(good.stdout) == [[\"id\", \"label\"], [\"1\", \"a,b\"]], good.stdout\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: [[\"id\", \"label\"], [\"1\", \"\\\"a\", \"b\\\"\"]]\n\n"
+          }
+        ],
+        "hook": {
+          "command": [
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/hooks/session-sage.py"
+          ],
+          "returncode": 0,
+          "stdout": "{\"decision\": \"continue\", \"reason\": \"Fix csv_import.py to properly parse quoted commas so quoted fields like 'a,b' are preserved instead of split, and rerun scripts/verify/all.py until all verification assertions pass.\"}\n",
+          "stderr": ""
+        },
+        "audit": "[2026-09-07 00:47:38] New turn detected [92ba5b10-5b8a-4d56-bd9e-56181f9b_0c8487ca]; sage session cleared (fresh context)\n[2026-09-07 00:47:45] Lite verifier finished in 7.0s with Gemini 3.8 Flash (Low): FAIL\n[2026-09-07 00:47:45] Lite Mode verifier FAIL (strike 1/3): Fix csv_import.py to properly parse quoted commas so quoted fields like 'a,b' are preserved instead of split, and rerun scripts/verify/all.py until all verification assertions pass.\n",
+        "state": {
+          "turn_key": "dbd41e1c6ab5360cb2fa52c091feafb7ad4563d0a2a527d24911048b63e8655e",
+          "prompt_hash": "05e62be331e6fe2a4a1752957a1dbd86",
+          "recap_emitted": false,
+          "last_audited_line_count": 8,
+          "sage_status": "injecting",
+          "advisor_status": "injecting",
+          "lite_status": "auto-continue (x1)",
+          "lite_fail_count": 1
+        },
+        "duration_seconds": 7.049,
+        "parent_unchanged": true
+      },
+      {
+        "case": "recovered_stop",
+        "conversation_id": "5685f0a7-09bf-4924-8a55-fdbee33c0bc9",
+        "executions": [
+          {
+            "command": [
+              "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+              "scripts/verify/all.py"
+            ],
+            "returncode": 1,
+            "stdout": "",
+            "stderr": "Traceback (most recent call last):\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/empirical-merge/hook-merge-candidate/recovered_stop/scripts/verify/all.py\", line 3, in <module>\n    runpy.run_path(str(Path(__file__).parent/\"import/main.py\"), run_name=\"__main__\")\n  File \"<frozen runpy>\", line 287, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/empirical-merge/hook-merge-candidate/recovered_stop/scripts/verify/import/main.py\", line 6, in <module>\n    assert json.loads(good.stdout) == [[\"id\", \"label\"], [\"1\", \"a,b\"]], good.stdout\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: [[\"id\", \"label\"], [\"1\", \"\\\"a\", \"b\\\"\"]]\n\n"
+          },
+          {
+            "command": [
+              "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+              "-m",
+              "py_compile",
+              "csv_import.py"
+            ],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": ""
+          },
+          {
+            "command": [
+              "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+              "scripts/verify/all.py"
+            ],
+            "returncode": 0,
+            "stdout": "U=[csv_import], 1/1: quoted comma preserved; malformed input exit=2; source files unchanged; harness exit=0\n",
+            "stderr": ""
+          }
+        ],
+        "hook": {
+          "command": [
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/hooks/session-sage.py"
+          ],
+          "returncode": 0,
+          "stdout": "{\"decision\": \"stop\"}\n",
+          "stderr": ""
+        },
+        "audit": "[2026-09-07 00:47:45] New turn detected [5685f0a7-09bf-4924-8a55-fdbee33c_196f93ee]; sage session cleared (fresh context)\n[2026-09-07 00:47:53] Lite verifier finished in 8.11s with Gemini 3.8 Flash (Low): PASS\n[2026-09-07 00:47:53] Lite Mode verifier PASS proofs: ['/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python scripts/verify/all.py -> U=[csv_import], 1/1: quoted comma preserved; malformed input exit=2; source files unchanged; harness exit=0', '/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python -m py_compile csv_import.py -> exit=0', 'view_file: parsers.json confirms universe U=[csv_import] with zero downstream consumers']\n[2026-09-07 00:47:53] Exit (pass/skip): Work verified cleanly by Lite Mode.\n",
+        "state": {
+          "turn_key": "dbd41e1c6ab5360cb2fa52c091feafb7ad4563d0a2a527d24911048b63e8655e",
+          "prompt_hash": "05e62be331e6fe2a4a1752957a1dbd86",
+          "recap_emitted": true,
+          "last_audited_line_count": 14,
+          "sage_status": "idle",
+          "advisor_status": "idle",
+          "lite_status": "verified",
+          "lite_fail_count": 0
+        },
+        "duration_seconds": 8.165,
+        "parent_unchanged": true
+      },
+      {
+        "case": "failed_post",
+        "conversation_id": "9e34bb30-a6d7-4017-ba4f-560f079814fe",
+        "executions": [
+          {
+            "command": [
+              "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+              "scripts/verify/all.py"
+            ],
+            "returncode": 1,
+            "stdout": "",
+            "stderr": "Traceback (most recent call last):\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/empirical-merge/hook-merge-candidate/failed_post/scripts/verify/all.py\", line 3, in <module>\n    runpy.run_path(str(Path(__file__).parent/\"import/main.py\"), run_name=\"__main__\")\n  File \"<frozen runpy>\", line 287, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/empirical-merge/hook-merge-candidate/failed_post/scripts/verify/import/main.py\", line 6, in <module>\n    assert json.loads(good.stdout) == [[\"id\", \"label\"], [\"1\", \"a,b\"]], good.stdout\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: [[\"id\", \"label\"], [\"1\", \"\\\"a\", \"b\\\"\"]]\n\n"
+          }
+        ],
+        "hook": {
+          "command": [
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/hooks/session-sage.py",
+            "post_invocation"
+          ],
+          "returncode": 0,
+          "stdout": "{\"injectSteps\": [{\"userMessage\": \"Fix csv_import.py to properly preserve quoted commas rather than splitting them into separate tokens, and ensure scripts/verify/all.py runs and passes with exit 0.\"}], \"terminationBehavior\": \"force_continue\"}\n",
+          "stderr": ""
+        },
+        "audit": "[2026-09-07 00:47:54] New turn detected [9e34bb30-a6d7-4017-ba4f-560f0798_0ca897af]; sage session cleared (fresh context)\n[2026-09-07 00:48:01] Lite verifier finished in 7.92s with Gemini 3.8 Flash (Low): FAIL\n[2026-09-07 00:48:01] Lite Mode verifier FAIL (strike 1/3): Fix csv_import.py to properly preserve quoted commas rather than splitting them into separate tokens, and ensure scripts/verify/all.py runs and passes with exit 0.\n",
+        "state": {
+          "turn_key": "dbd41e1c6ab5360cb2fa52c091feafb7ad4563d0a2a527d24911048b63e8655e",
+          "prompt_hash": "05e62be331e6fe2a4a1752957a1dbd86",
+          "recap_emitted": false,
+          "last_audited_line_count": 8,
+          "sage_status": "injecting",
+          "advisor_status": "injecting",
+          "lite_status": "auto-continue (x1)",
+          "lite_fail_count": 1
+        },
+        "duration_seconds": 7.974,
+        "parent_unchanged": true
+      }
+    ]
+  },
+  "rejection_synthesis": {
+    "reviewed": 2,
+    "records": [
+      {
+        "case": "recovered",
+        "summary": "Initial restore check exit=1. Fixed restore.py. Ran saved scripts/verify/restore/main.py in isolated sandbox: restored 12/12 required records, row values match original, invalid input rejected without state changes, harness exit=0. U=[restore], 1/1 covered; all.py invokes the module. No subsequent edits.",
+        "latest": {
+          "command": "python scripts/verify/restore/main.py",
+          "output": "12 restored rows match; invalid input rejected; exit=0"
+        },
+        "diagnostic": "Proof cites only the initial failed run, not the completed restore verification.",
+        "action": "update your proof summary to cite the passing `python scripts/verify/restore/main.py` run that verified all 12 restored rows matched and invalid inputs were rejected with exit=0, rather than referencing only the initial failure. provide this concrete passing execution evidence and final state in your response before stopping.",
+        "duration_seconds": 5.703
+      },
+      {
+        "case": "unresolved",
+        "summary": "Restore command exited 1: checksum mismatch. Edited restore.py. Ran linter exit=0. No restore run after edit and no restored row counts.",
+        "latest": {
+          "command": "ruff check restore.py",
+          "output": "exit=0"
+        },
+        "diagnostic": "Restored records have no current execution or state evidence.",
+        "action": "run `python restore.py` to execute the restore process after your edits and verify it completes with exit status 0 without checksum errors. confirm the final restored state by reporting the exact count of restored records and validating that the output matches the expected target records.",
+        "duration_seconds": 6.841
+      }
+    ]
+  },
+  "validation": {
+    "tests_passed": 245,
+    "subtests_passed": 360,
+    "ruff": "passed"
+  },
+  "limits": [
+    "CSV processes and native hook calls were executed; transcript event envelopes and agent completion claims are controlled test inputs.",
+    "Restore rejection diagnostics are synthetic; no restore service was executed.",
+    "These checks do not eliminate all possible false positives or override the incomplete baseline comparison."
+  ]
+}
