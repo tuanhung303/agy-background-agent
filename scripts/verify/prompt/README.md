@@ -43,3 +43,15 @@ Inspect rationales against the fixture evidence in addition to the automatic sco
 ## Recorded evaluation
 
 [The 2026-09-07 record](results/2026-09-07.json) retains 24/24 expected verdict matches for the revised prompt, covering all 12 cases twice with Gemini 3.8 Flash (Low) and a 20-second per-call budget. The baseline at `722f81f172fc854051bf9e665e9ea11c94b8d443` matched its first three cases, then timed out on the fourth. Its remaining 20 planned evaluations were not run. This incomplete comparison does not establish an improvement rate over the old prompt.
+
+## Native hook verification
+
+```sh
+.venv/bin/python scripts/verify/prompt/main.py --native-hook --output tmp/native-hook-check
+```
+
+The output directory must be new. This runner creates a fresh READY-only native session, clones its database into isolated parent and child homes, executes a broken CSV parser and a corrected parser, and builds tool-shaped transcripts from those actual file operations and process outputs. It then invokes `hooks/session-sage.py` with the real model and no mocked verdicts.
+
+The three cases assert a rejection on Stop for an unresolved parser failure, a verified stop after correcting and rerunning the same path, and a rejection injection on PostInvocation. Each checks the actual model completion in the audit log, the lifecycle response, persisted hook state, and an unchanged parent database hash. Fail-open paths, timeouts, exceptions, and missing model completion cannot count as passes. Authentication links and isolated session homes are removed afterward; process outputs, transcripts, audit logs, and state snapshots remain in the output directory.
+
+[The native follow-up record](results/2026-09-07-native.json) records 3/3 passing cases. Two additional real-model rejection-synthesis checks used controlled restore diagnostics: a resolved failure requested the passing evidence citation, while an unresolved failure requested renewed execution and record checks. These action checks were reviewed against their supplied diagnostics; they did not execute a restore service.
