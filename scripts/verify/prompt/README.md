@@ -1,57 +1,54 @@
-# Stop verifier judgment evaluation
+# Stop verifier evaluation
 
-The verifier uses domain knowledge to interpret evidence, investigate material risks beyond listed examples, and distinguish real defects from expected, recovered, or unrelated failures. Binding requirements retain their scope and exceptions. Speculative improvements alone do not justify rejection; material unknowns cannot be dismissed without evidence.
+The prompt asks the model to judge the active request, authorization, actual results, and remaining feasible work. It applies domain knowledge to consequential gaps without prescribing a workflow for every task. Corrective actions come directly from the verdict model. A definite contradiction in cited local media triggers one reconsideration with the original evidence and the contradiction, within the same deadline.
 
-The verdict prompt and rejection guidance share `JUDGMENT_GUIDANCE` in `sage/lite/prompt.py`. Rejection synthesis receives both the full turn summary and the latest command so a single result does not hide recovery or unresolved earlier failures.
+Planning interviews, new test directories, sibling enumeration, and new screenshots are required only when the task or relevant failure mechanism requires them. A planning label and artifact age alone create no requirement. Existing authorization, explicit interviews, external boundaries, and checks invalidated by relevant changes still matter.
 
-## Policy changes
-
-This revision replaces the universal executive-presentation standard with the requested purpose and audience. It scopes HTTP errors to HTTP interfaces, data repeatability checks to repeatable operations, and performance checks to relevant query behavior. Visual and browser checks distinguish unexpected errors from explicitly tested error or empty states. It permits rerunning a failed or invalidated check and replaces an impossible guarantee about every hidden flaw with evidence about applicable obligations and consequential risks.
-
-The current-turn-only freshness rule, `/plan` interview, sibling universe coverage, persistent topic verification paths, environment boundaries, and JSON verdict interface remain. The deterministic proof validator and runtime circuit-breaker behavior are unchanged. Their permissive string heuristics are a separate limitation; model evaluation results do not establish end-to-end evidence provenance enforcement.
-
-## Run
-
-Use the repository Python environment with the installed `agy` CLI and its configured authentication:
+## Run model cases
 
 ```sh
-.venv/bin/python scripts/verify/all.py --topic prompt
-.venv/bin/python scripts/verify/prompt/main.py --repeats 2
+.venv/bin/python scripts/verify/prompt/main.py
+.venv/bin/python scripts/verify/prompt/main.py --cases scripts/verify/prompt/steering_cases.json --model 'Gemini 3.8 Flash (Medium)' --repeats 2
 ```
 
-The topic runs 12 controlled synthetic cases against the configured verifier model, with the runtime's configured per-call timeout. These include expected HTTP denial versus broken authorized access, recovered execution versus an unrelated later check, factual versus contradicted empty-data findings, duplicate-delivery behavior inferred from an inspected queue contract, valid versus unsupported blockers, missing evidence, and the retained planning interview.
+The default matrix has 28 regression cases. The independent steering matrix has 15 cases covering supplied planning decisions versus a required interview, authorized execution versus preparation-only scope, discoverable input, credentials blockers, uncertain versus confirmed side effects, causally invalidated versus still-valid evidence, optional work, invalid numeric output, injected log instructions, prose delivery, and unfinished independent work around a blocker.
 
-Each case uses a fresh CLI session in an isolated home and an empty temporary working directory. The model sees the fixture request, agent response, and recorded evidence; it does not see the case id or expected verdict. Fixtures are synthetic records, not actual service operations or image-inspection tests. The model is told to assess the record rather than execute fixture paths.
+These are synthetic records, including fictional operational scenarios. No fixture commands or endpoints are executed. Each evaluation uses a fresh CLI session, isolated home, empty temporary working directory, and the installed authenticated `agy` CLI. The model sees the request, response, and recorded evidence, without expected labels or acceptance criteria.
 
-To compare with a saved trusted baseline prompt module:
+Flags: `--cases PATH`, repeatable `--case ID`, `--model`, `--timeout`, `--repeats`, and `--output NEW_JSONL_PATH`. A trusted saved Python prompt module can be supplied with `--baseline-prompt PATH`. Output paths must be new to preserve prior evidence. Mock-verdict configuration is rejected.
+
+Each JSONL row retains the exact model, prompt and fixture hashes, raw output, duration, verdict, and score. The scorer uses runtime JSON extraction, including fenced JSON, then checks decision structure, expected verdict, and expected completion when supplied. False rejections and missed failures are distinct. Timeout or execution failure stops the matrix, leaving remaining cases unevaluated. None can count as a pass.
+
+The automatic score does not judge action meaning or factual accuracy. Review actions and proofs against the original request and evidence. User scope controls when a fixture criterion is ambiguous. Do not infer general accuracy from a small synthetic matrix.
+
+## Run the real hook
 
 ```sh
-git show <baseline-commit>:sage/lite/prompt.py > tmp/baseline-prompt.py
-.venv/bin/python scripts/verify/prompt/main.py --baseline-prompt tmp/baseline-prompt.py --repeats 2
+AGY_LITE_VERIFIER_MODEL='Gemini 3.8 Flash (Medium)' .venv/bin/python scripts/verify/prompt/main.py --native-hook --output tmp/native-hook-check
 ```
 
-Optional flags include `--case <id>` (repeatable), `--model`, `--timeout`, and `--output <new-jsonl-path>`. Baseline modules are imported as Python code and must be trusted. An explicit output path must not already exist, preserving earlier evidence.
+This creates a READY-only CLI session and isolated parent and child homes. It executes broken and corrected CSV parsers, builds tool-shaped transcripts from actual operations, and invokes the real hook with no mocked verdict. Three cases check unresolved Stop rejection, recovered Stop acceptance, and unresolved PostInvocation injection. Assertions cover actual model completion, emitted response, persisted state, and unchanged parent database hash. Fail-open, timeout, and unavailable paths cannot pass. Authentication links and temporary homes are cleaned up; receipts remain.
 
-## Interpret evidence
-
-Each JSONL row retains the model, fixture and prompt hashes, repetition number, duration, raw stdout/stderr, parsed verdict, and score. The runner rejects mocked verdict configuration. It calls the CLI directly so runtime fail-open defaults cannot create a successful evaluation.
-
-A match requires the expected verdict and valid nonempty PASS proof or a nonempty FAIL action. Invalid JSON, malformed verdicts, missing fields, empty PASS proof, false rejections, and missed failures fail the suite. Timeout or execution failure stops evaluation and leaves remaining cases unevaluated. Never report this as a completed matrix or treat unavailable cases as passes.
-
-Inspect rationales against the fixture evidence in addition to the automatic score. The oracle checks verdict and output structure, not whether every cited fact or corrective action is sound. Report false rejections and missed failures separately, and use repeated runs and new domains before claiming general reduction in false positives. These fixtures cover judgment on supplied records; they do not verify tool access, screenshot interpretation, real service behavior, or the complete hook lifecycle.
-
-## Recorded evaluation
-
-[The 2026-09-07 record](results/2026-09-07.json) retains 24/24 expected verdict matches for the revised prompt, covering all 12 cases twice with Gemini 3.8 Flash (Low) and a 20-second per-call budget. The baseline at `722f81f172fc854051bf9e665e9ea11c94b8d443` matched its first three cases, then timed out on the fourth. Its remaining 20 planned evaluations were not run. This incomplete comparison does not establish an improvement rate over the old prompt.
-
-## Native hook verification
+To verify actual worker repair bytes:
 
 ```sh
-.venv/bin/python scripts/verify/prompt/main.py --native-hook --output tmp/native-hook-check
+AGY_LITE_VERIFIER_MODEL='Gemini 3.8 Flash (Medium)' .venv/bin/python scripts/verify/prompt/main.py --native-hook --repair-source /absolute/path/to/csv_import.py --output tmp/worker-repair-check
 ```
 
-The output directory must be new. This runner creates a fresh READY-only native session, clones its database into isolated parent and child homes, executes a broken CSV parser and a corrected parser, and builds tool-shaped transcripts from those actual file operations and process outputs. It then invokes `hooks/session-sage.py` with the real model and no mocked verdicts.
+This runs only the recovered Stop case. The repair must implement the CSV fixture contract. Its bytes are copied into a fresh workspace without modifying the supplied file; the receipt includes the parser hash for comparison with the worker output.
 
-The three cases assert a rejection on Stop for an unresolved parser failure, a verified stop after correcting and rerunning the same path, and a rejection injection on PostInvocation. Each checks the actual model completion in the audit log, the lifecycle response, persisted hook state, and an unchanged parent database hash. Fail-open paths, timeouts, exceptions, and missing model completion cannot count as passes. Authentication links and isolated session homes are removed afterward; process outputs, transcripts, audit logs, and state snapshots remain in the output directory.
+## Current record, 2026-09-12
 
-[The native follow-up record](results/2026-09-07-native.json) records 3/3 passing cases. Two additional real-model rejection-synthesis checks used controlled restore diagnostics: a resolved failure requested the passing evidence citation, while an unresolved failure requested renewed execution and record checks. These action checks were reviewed against their supplied diagnostics; they did not execute a restore service.
+[The steering record](results/2026-09-12-steering.json) retains raw evidence:
+
+- Medium, 20 seconds: baseline matched 13/15 cases, falsely rejecting a fully specified plan and an authorized local-mock deliverable. The candidate's first pass matched 15/15 with the same fixtures and budget. Its second pass matched three cases, then timed out on the fourth; 11 remaining cases were not run.
+- Candidate, Medium, 40-second evaluation budget: 30/30 verdict and completion matches across two complete passes. Calls took 6.170 to 11.850 seconds. The larger diagnostic budget does not change the runtime's default 20-second limit or erase the earlier timeout.
+- An independent Medium reviewer accepted all 18 completed outputs from the 20-second candidate run. Codex inspected the 30 later outputs against the fixtures. This is review evidence, not a statistical action-quality benchmark.
+- Original 28-case matrix, Low, 20 seconds: all stored outputs match under runtime parsing. The initial scorer recorded 27 matches and rejected one fenced JSON object. The raw failure is retained alongside rescoring; no new model call is claimed.
+- Native Medium checks passed 3/3. A separately dispatched Medium worker followed the actual emitted steering to repair the failed CSV fixture. Codex verified unchanged protected tests and inputs, the original harness, and four additional parser cases. A fresh native hook accepted the identical repaired source hash and preserved parent history.
+
+The prompt module shrank from 163 to 120 lines, and the verifier from 203 to 92, removing duplicated action synthesis and scripted fallback policy. No latency improvement or universal correctness is claimed.
+
+Historical records [2026-09-07](results/2026-09-07.json), [native follow-up](results/2026-09-07-native.json), and [earlier 2026-09-12 phase](results/2026-09-12.json) describe earlier implementations. Current policy above supersedes their mandatory interview and timestamp rules.
+
+Limits: model judgments remain probabilistic. Synthetic evidence does not establish external-service behavior or image interpretation. Relative media citations rely on model inspection; absolute-path checks do not prove image content. The fork isolates conversation state, not filesystem permissions. Bounded evidence summaries and unsupported transcript formats can leave uncertainty. The review did not install hooks, commit, or deploy changes.

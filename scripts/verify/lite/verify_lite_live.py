@@ -55,10 +55,10 @@ class TestLiveLiteStopVerifier(unittest.TestCase):
         except Exception as e:
             self.fail(f"Failed to parse hook stdout as JSON: '{res.stdout}'. Error: {e}")
 
-    def test_scenario_1_zero_mutation_qa_fast_bypass(self):
-        """Pure Q&A turn with no mutations exits instantly (< 500ms) with decision: stop."""
+    def test_scenario_1_no_request_fast_bypass(self):
+        """A transcript with no user request exits without invoking verification."""
         tpath = self._create_transcript([
-            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": "Explain how RSA encryption works."},
+            {"type": "USER_INPUT", "source": "USER_EXPLICIT", "content": ""},
             {"type": "PLANNER_RESPONSE", "content": "RSA is an asymmetric cryptographic algorithm based on prime factorization.", "tool_calls": []},
         ])
         t0 = time.time()
@@ -67,7 +67,7 @@ class TestLiveLiteStopVerifier(unittest.TestCase):
 
         self.assertEqual(res.get("decision"), "stop")
         self.assertLess(elapsed, 1.0, f"Q&A bypass took too long: {elapsed:.3f}s")
-        print(f"✓ Scenario 1 (Q&A Fast Path): PASS in {elapsed*1000:.1f}ms")
+        print(f"✓ Scenario 1 (No Request Fast Path): PASS in {elapsed*1000:.1f}ms")
 
     def test_scenario_2_mutation_without_proof_intercepted(self):
         """Code edits without test execution trigger interception and contextual guidance."""

@@ -2,6 +2,8 @@
 import json
 from pathlib import Path
 
+from sage.executor import extract_json_from_llm_output
+
 
 def load_cases(path=None):
     """Load cases, keeping expected decisions out of the model's input."""
@@ -22,11 +24,17 @@ def load_cases(path=None):
 def score_output(stdout, expected):
     """Reject malformed, empty, or wrong decisions without fail-open coercion."""
     try:
-        result = json.loads(stdout)
+        result = extract_json_from_llm_output(stdout, schema_keys=("verdict",))
     except (ValueError, TypeError):
+        return None, "invalid_json"
+    if result is None:
         return None, "invalid_json"
     if not isinstance(result, dict) or result.get("verdict") not in ("PASS", "FAIL"):
         return result, "invalid_verdict"
+    completion = result.get("completion")
+    allowed = ("complete", "blocked") if result["verdict"] == "PASS" else ("incomplete",)
+    if completion is not None and completion not in allowed:
+        return result, "invalid_completion"
     if not all(isinstance(result.get(key), str) for key in ("action", "comment")):
         return result, "invalid_fields"
     proof = result.get("proof")

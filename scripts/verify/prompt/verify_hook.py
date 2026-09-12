@@ -80,7 +80,7 @@ def prepare_home(source_home, parent_home):
     return cli
 
 
-def exercise(case, root, source_db, parent_cli, parent_home):
+def exercise(case, root, source_db, parent_cli, parent_home, repair_source=None):
     """Assert actual model verdict, emitted lifecycle response, and persisted state agree."""
     workspace = root / case
     workspace.mkdir()
@@ -100,7 +100,7 @@ def exercise(case, root, source_db, parent_cli, parent_home):
     executions = [verification]
     event(steps, "run_command", {"CommandLine": f"{sys.executable} scripts/verify/all.py"}, f"exit={verification['returncode']}\n{verification['stderr']}")
     if case == "recovered_stop":
-        (workspace / "csv_import.py").write_text(GOOD_PARSER)
+        (workspace / "csv_import.py").write_bytes(repair_source.read_bytes() if repair_source else GOOD_PARSER.encode())
         event(steps, "replace_file_content", {"TargetFile": str(workspace / "csv_import.py")}, "Corrected parsing using strict CSV reader.")
         compile_result = run([sys.executable, "-m", "py_compile", "csv_import.py"], workspace)
         assert compile_result["returncode"] == 0
@@ -133,7 +133,7 @@ def exercise(case, root, source_db, parent_cli, parent_home):
     state_path = Path(f"/tmp/agy_sage_{safe_id(conv_id)}.json")
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     log = audit.read_text() if audit.exists() else ""
-    record = {"case": case, "conversation_id": conv_id, "executions": executions, "hook": hook, "audit": log, "state": state, "duration_seconds": duration, "parent_unchanged": before == hashlib.sha256(parent_db.read_bytes()).hexdigest()}
+    record = {"case": case, "conversation_id": conv_id, "executions": executions, "hook": hook, "audit": log, "state": state, "duration_seconds": duration, "parent_unchanged": before == hashlib.sha256(parent_db.read_bytes()).hexdigest(), "parser_sha256": hashlib.sha256((workspace / "csv_import.py").read_bytes()).hexdigest()}
     (workspace / "result.json").write_text(json.dumps(record, indent=2) + "\n")
     state_path.unlink(missing_ok=True)
     expected = "PASS" if case == "recovered_stop" else "FAIL"
@@ -155,7 +155,12 @@ def main():
     """Run the native-model hook scenarios and preserve all evidence under tmp/."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--repair-source", type=Path, help="Verify an actual worker repair using only the recovered Stop case")
     args = parser.parse_args()
+    if args.repair_source:
+        args.repair_source = args.repair_source.resolve()
+        if not args.repair_source.is_file():
+            parser.error("repair-source must be an existing Python parser")
     if os.environ.get("AGY_LITE_MOCK_VERDICT"):
         parser.error("Mock verdict must be unset")
     root = args.output.resolve()
@@ -177,13 +182,14 @@ def main():
     parent_home = root / "parent-home"
     try:
         parent_cli = prepare_home(source_home, parent_home)
-        records = [exercise(case, root, source_db, parent_cli, parent_home) for case in ("failed_stop", "recovered_stop", "failed_post")]
+        cases = ("recovered_stop",) if args.repair_source else ("failed_stop", "recovered_stop", "failed_post")
+        records = [exercise(case, root, source_db, parent_cli, parent_home, args.repair_source) for case in cases]
     finally:
         clean_resume_history(seed_id)
         shutil.rmtree(parent_home, ignore_errors=True)
         shutil.rmtree(root / "child-home", ignore_errors=True)
     (root / "results.json").write_text(json.dumps(records, indent=2) + "\n")
-    print(f"3/3 native hook cases passed. Evidence: {root / 'results.json'}")
+    print(f"{len(records)}/{len(cases)} native hook cases passed. Evidence: {root / 'results.json'}")
     return 0
 
 

@@ -1,5 +1,6 @@
 """sage.user_context - Substantive multi-turn user context distillation and compaction handling."""
-import os, re
+import os
+import re
 from typing import Any, Dict, List, Optional, Set
 
 from sage.config import MAX_PRIOR_REQUESTS
@@ -20,6 +21,14 @@ _TRIVIAL_RE = re.compile(
     re.I,
 )
 _INTER_AGENT_RE = re.compile(r"(?:^|\n)\s*(?:\[Message\]|sender=)|has gone idle", re.I)
+
+_COMPACTION_TYPES: Set[str] = {
+    "COMPACTION",
+    "SUMMARY",
+    "CONVERSATION_SUMMARY",
+    "CHECKPOINT",
+    "SYSTEM_SUMMARY",
+}
 
 
 def is_trivial_acknowledgment(text: Optional[str]) -> bool:
@@ -45,57 +54,100 @@ def _parse_step_timestamp(ts_str: Any) -> float:
     try:
         from datetime import datetime, timezone
         dt = datetime.fromisoformat(str(ts_str).replace("Z", "+00:00"))
-        return float((dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).timestamp())
+        if dt.tzinfo:
+            return float(dt.timestamp())
+        return float(dt.replace(tzinfo=timezone.utc).timestamp())
     except Exception:
         return 0.0
 
 
-def _is_compaction_step(step: Dict[str, Any]) -> bool:
+def is_compaction_step(step: Dict[str, Any]) -> bool:
+    """Distinguishes genuine harness compaction events from literal summary tags in user/tool steps."""
+    if not isinstance(step, dict):
+        return False
     stype = str(step.get("type") or "").upper()
-    if stype in ("COMPACTION", "SUMMARY", "CONVERSATION_SUMMARY", "CHECKPOINT", "SYSTEM_SUMMARY"):
+    if stype in _COMPACTION_TYPES:
         return True
-    return "<summary>" in str(step.get("content") or "").lower() or "summary_text" in step
+    if stype in ("SYSTEM", "SYSTEM_MESSAGE", "METADATA"):
+        if any(k in step for k in ("compacted_summary", "summary_text", "summary")):
+            return True
+        content = str(step.get("content") or "").strip()
+        if content.startswith("<summary>") and content.endswith("</summary>"):
+            return True
+    return False
+
+
+_is_compaction_step = is_compaction_step
 
 
 def _extract_compaction_summary(step: Dict[str, Any]) -> str:
-    content = str(step.get("summary") or step.get("summary_text") or step.get("compacted_summary") or step.get("content") or "").strip()
+    content = str(
+        step.get("compacted_summary")
+        or step.get("summary_text")
+        or step.get("summary")
+        or step.get("content")
+        or ""
+    ).strip()
     m = re.search(r"<summary>(.*?)</summary>", content, re.DOTALL | re.I)
-    return m.group(1).strip() if m else content
+    if m:
+        return m.group(1).strip()
+    return content
 
 
-def _is_real_user_step(step: Dict[str, Any]) -> bool:
+def is_real_user_step(step: Dict[str, Any]) -> bool:
+    """True when step is a genuine user turn boundary, filtering subagents and steering."""
     if not isinstance(step, dict) or step.get("type") != "USER_INPUT":
         return False
-    src, content = str(step.get("source") or "").upper(), str(step.get("content") or "")
-    if _INTER_AGENT_RE.search(content) or (src and src not in ("USER_EXPLICIT", "USER")) or is_steering_message(content):
+    src = str(step.get("source") or "").upper()
+    content = str(step.get("content") or "")
+    if _INTER_AGENT_RE.search(content):
+        return False
+    if src and src not in ("USER_EXPLICIT", "USER"):
+        return False
+    if is_steering_message(content) or is_steering_message(clean_user_prompt(content)):
         return False
     return True
 
 
-def extract_substantive_user_context(steps: List[Dict[str, Any]], conv_id: Optional[str] = None, max_chars: int = 3000) -> Dict[str, Any]:
+_is_real_user_step = is_real_user_step
+
+
+def extract_substantive_user_context(
+    steps: List[Dict[str, Any]],
+    conv_id: Optional[str] = None,
+    max_chars: int = 3000,
+) -> Dict[str, Any]:
     """Distills substantive user context across multiple turns, accounting for short acks and compaction."""
     empty_result = {
-        "true_user_prompt": "", "latest_user_prompt": "", "primary_goal": "",
-        "has_compaction": False, "compaction_summary": "", "is_latest_trivial": False,
-        "user_turn_count": 0, "turn_start_time": 0.0,
+        "true_user_prompt": "",
+        "latest_user_prompt": "",
+        "primary_goal": "",
+        "has_compaction": False,
+        "compaction_summary": "",
+        "is_latest_trivial": False,
+        "user_turn_count": 0,
+        "turn_start_time": 0.0,
     }
     if not steps or not isinstance(steps, list):
         return empty_result
 
-    user_entries, compaction_summaries = [], []
+    user_entries = []
+    compaction_summaries = []
     for idx, s in enumerate(steps):
         if not isinstance(s, dict):
             continue
-        if _is_compaction_step(s):
+        if is_compaction_step(s):
             sum_text = _extract_compaction_summary(s)
             if sum_text:
                 compaction_summaries.append(sum_text)
-        elif _is_real_user_step(s):
+        elif is_real_user_step(s):
             raw_c = str(s.get("content") or "")
             cleaned = clean_user_prompt(raw_c)
             if cleaned:
                 user_entries.append({
-                    "index": idx, "raw": raw_c, "clean": cleaned,
+                    "index": idx,
+                    "raw": raw_c,
+                    "clean": cleaned,
                     "is_trivial": is_trivial_acknowledgment(cleaned),
                     "timestamp": _parse_step_timestamp(s.get("created_at")),
                     "step_index": s.get("step_index"),
@@ -116,34 +168,63 @@ def extract_substantive_user_context(steps: List[Dict[str, Any]], conv_id: Optio
     if not user_entries:
         formatted_prompt = f"[COMPACTED CONVERSATION SUMMARY]:\n{latest_compaction}"
     elif len(user_entries) == 1:
-        formatted_prompt = f"[COMPACTED CONVERSATION SUMMARY]:\n{latest_compaction}\n\n[ACTIVE USER REQUEST]:\n{user_entries[0]['clean']}" if has_compaction else user_entries[0]["clean"]
+        if has_compaction:
+            formatted_prompt = (
+                f"[COMPACTED CONVERSATION SUMMARY]:\n{latest_compaction}\n\n"
+                f"[ACTIVE USER REQUEST]:\n{user_entries[0]['clean']}"
+            )
+        else:
+            formatted_prompt = user_entries[0]["clean"]
     else:
         if not is_latest_trivial and substantive_entries and latest_entry == substantive_entries[-1] and not has_compaction:
             prior = [e["clean"] for e in user_entries[:-1]]
             max_priors = max(1, MAX_PRIOR_REQUESTS)
-            hist_lines = [f"- Prior request {idx+1}: {p[:200]}" for idx, p in enumerate(prior)] if len(prior) <= max_priors else [f"- Prior request 1: {prior[0][:200]}", f"- (…{len(prior) - max_priors} earlier requests omitted)"] + [f"- Prior request {idx+1}: {prior[idx][:200]}" for idx in range(len(prior) - (max_priors - 1), len(prior))]
-            formatted_prompt = f"SESSION HISTORY:\n{chr(10).join(hist_lines)}\n\n[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\n{latest_clean}"
+            if len(prior) <= max_priors:
+                hist_lines = [f"- Prior request {idx + 1}: {p[:200]}" for idx, p in enumerate(prior)]
+            else:
+                hist_lines = [
+                    f"- Prior request 1: {prior[0][:200]}",
+                    f"- (…{len(prior) - max_priors} earlier requests omitted)",
+                ]
+                for idx in range(len(prior) - (max_priors - 1), len(prior)):
+                    hist_lines.append(f"- Prior request {idx + 1}: {prior[idx][:200]}")
+            formatted_prompt = (
+                f"SESSION HISTORY:\n{chr(10).join(hist_lines)}\n\n"
+                f"[LATEST ACTIVE USER REQUEST (CURRENT GOAL)]:\n{latest_clean}"
+            )
         else:
             blocks = []
             if has_compaction:
                 blocks.append(f"[COMPACTED CONVERSATION SUMMARY]:\n{latest_compaction}")
+            if len(substantive_entries) > 1:
+                priors = [f"- Prior request {i + 1}: {e['clean']}" for i, e in enumerate(substantive_entries[:-1])]
+                blocks.append("[PRIOR USER REQUESTS & CONSTRAINTS]:\n" + "\n".join(priors))
             if primary_goal:
                 prim_idx = user_entries.index(substantive_entries[-1])
                 blocks.append(f"[PRIMARY USER GOAL]:\n{primary_goal}")
                 followups = user_entries[prim_idx + 1:]
                 if followups:
-                    blocks.append("[FOLLOW-UP INSTRUCTIONS & REFINEMENTS]:\n" + "\n".join(f"- User follow-up ({i+1}): {f['clean']}" for i, f in enumerate(followups)))
+                    f_lines = [f"- User follow-up ({i + 1}): {f['clean']}" for i, f in enumerate(followups)]
+                    blocks.append("[FOLLOW-UP INSTRUCTIONS & REFINEMENTS]:\n" + "\n".join(f_lines))
             else:
-                blocks.append("[RECENT USER MESSAGES]:\n" + "\n".join(f"- Turn {i+1}: {e['clean']}" for i, e in enumerate(user_entries[-5:])))
+                r_lines = [f"- Turn {i + 1}: {e['clean']}" for i, e in enumerate(user_entries[-5:])]
+                blocks.append("[RECENT USER MESSAGES]:\n" + "\n".join(r_lines))
             formatted_prompt = "\n\n".join(blocks)
 
     if len(formatted_prompt) > max_chars:
-        h_half, t_half = max(50, int(max_chars * 0.6)), max(50, int(max_chars * 0.35))
-        formatted_prompt = f"{formatted_prompt[:h_half]}\n\n... [intermediate context omitted] ...\n\n{formatted_prompt[-t_half:]}"
+        h_half = max(50, int(max_chars * 0.6))
+        t_half = max(50, int(max_chars * 0.35))
+        formatted_prompt = (
+            f"{formatted_prompt[:h_half]}\n\n... [intermediate context omitted] ...\n\n{formatted_prompt[-t_half:]}"
+        )
 
     return {
-        "true_user_prompt": formatted_prompt.strip(), "latest_user_prompt": latest_clean,
-        "primary_goal": primary_goal, "has_compaction": has_compaction,
-        "compaction_summary": latest_compaction, "is_latest_trivial": is_latest_trivial,
-        "user_turn_count": len(user_entries), "turn_start_time": latest_ts,
+        "true_user_prompt": formatted_prompt.strip(),
+        "latest_user_prompt": latest_clean,
+        "primary_goal": primary_goal,
+        "has_compaction": has_compaction,
+        "compaction_summary": latest_compaction,
+        "is_latest_trivial": is_latest_trivial,
+        "user_turn_count": len(user_entries),
+        "turn_start_time": latest_ts,
     }

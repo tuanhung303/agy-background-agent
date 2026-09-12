@@ -119,8 +119,6 @@ LITE_MODEL_CANDIDATES = tuple(
         LITE_VERIFIER_MODEL_SPEC,
         "Gemini 3.8 Flash (Low)",
         "Gemini 3.8 Flash (Medium)",
-        "Gemini 3.7 Flash (Low)",
-        "Gemini 3.7 Flash (Medium)",
     ])
 )
 

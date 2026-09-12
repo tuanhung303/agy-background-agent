@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
-"""Topic: slash_plan - Verification of Slash Plan Grill-Me gating and steering."""
-import os
+"""Compatibility topic for evaluating an explicitly required planning interview."""
+from pathlib import Path
 import subprocess
 import sys
 
-root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-
-tests = [
-    'tests/test_lite_mode.py',
-]
-
-res = subprocess.run([sys.executable, '-m', 'unittest'] + tests, cwd=root)
-sys.exit(res.returncode)
+root = Path(__file__).resolve().parents[3]
+result = subprocess.run([sys.executable, "scripts/verify/prompt/main.py", "--case", "binding_plan_interview"], cwd=root)
+sys.exit(result.returncode)

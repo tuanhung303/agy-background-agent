@@ -10,6 +10,7 @@ class LiteVerdict:
     comment: str = ""
     proof: List[str] = field(default_factory=list)
     update_knowledge: bool = False
+    completion: Literal["complete", "blocked", "incomplete", "unavailable"] = "complete"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -18,23 +19,34 @@ class LiteVerdict:
             "comment": self.comment,
             "proof": self.proof,
             "update_knowledge": self.update_knowledge,
+            "completion": self.completion,
         }
 
     @classmethod
     def from_dict(cls, data: Optional[Dict[str, Any]]) -> "LiteVerdict":
-        if not data or not isinstance(data, dict):
-            return cls(verdict="PASS", action="", comment="", proof=[], update_knowledge=False)
-        raw_v = str(data.get("verdict") or "").strip().upper()
-        verdict: Literal["PASS", "FAIL"] = "FAIL" if raw_v == "FAIL" else "PASS"
-        action = str(data.get("action") or "").strip()
-        comment = str(data.get("comment") or data.get("recap") or "").strip()
-        raw_proof = data.get("proof") or []
-        if isinstance(raw_proof, str):
-            proof = [raw_proof.strip()] if raw_proof.strip() else []
-        elif isinstance(raw_proof, list):
-            proof = [str(p).strip() for p in raw_proof if str(p).strip()]
-        else:
-            proof = []
+        """Parse model output without coercing malformed decisions into completion."""
+        if not isinstance(data, dict) or data.get("verdict") not in ("PASS", "FAIL"):
+            raise ValueError("Expected a PASS or FAIL verdict object")
+        verdict = data["verdict"]
+        if verdict == "FAIL":
+            action = data.get("action")
+            if not isinstance(action, str) or not action.strip() or data.get("completion", "incomplete") != "incomplete":
+                raise ValueError("FAIL requires a corrective action and incomplete completion")
+            # Preserve an explicit rejection even if the model adds explanatory
+            # fields contrary to the requested output format.
+            return cls(verdict="FAIL", action=action.strip(), completion="incomplete")
+        if not all(isinstance(data.get(key, ""), str) for key in ("action", "comment")):
+            raise ValueError("Verdict action and comment must be strings")
+        action = data.get("action", "").strip()
+        comment = data.get("comment", "").strip()
+        raw_proof = data.get("proof", [])
+        if not isinstance(raw_proof, list) or not all(isinstance(p, str) and p.strip() for p in raw_proof):
+            raise ValueError("Verdict proof must be an array of nonempty strings")
+        proof = [p.strip() for p in raw_proof]
+        completion = data.get("completion", "complete" if verdict == "PASS" else "incomplete")
+        if verdict == "PASS":
+            if action or not comment or not proof or completion not in ("complete", "blocked"):
+                raise ValueError("PASS requires comment, proof, and complete or blocked completion")
         raw_kb = data.get("update_knowledge")
         if raw_kb is None:
             raw_kb = data.get("requires_knowledge_update")
@@ -54,4 +66,5 @@ class LiteVerdict:
             comment=comment,
             proof=proof,
             update_knowledge=update_knowledge,
+            completion=completion,
         )

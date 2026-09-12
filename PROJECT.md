@@ -1,52 +1,30 @@
-# Project: AGY Background Agent (Lite Mode Stop Verifier)
+# AGY Background Agent
 
-## Architecture
-- `hooks/session-sage.py`: Hook entry point for Antigravity session-stop verification events.
-- `sage/lite/runner.py`: Main lifecycle runner for Stop Hook Lite Mode. Manages mutation gating, session forking, quality verification, empirical proof validation, 3-strike circuit breaker, and knowledge base maintenance.
-- `sage/lite/verifier.py`: Model executor and JSON verdict parser for Lite Mode with contextual action synthesis on rejection.
-- `sage/lite/prompt.py`: Verifier and persona maintainer prompt builders with few-shot calibration examples.
-- `sage/lite/gating.py`: Turn provenance analysis and mutation detection (file edits, bash execution, generated images).
-- `sage/lite/fork.py`: Hermetic session forking, cloning SQLite DBs and brain logs into isolated environment (`SAGE_ISOLATED_HOME`).
-- `sage/lite/proof_validator.py`: Empirical proof validation rules (rejects ungrounded self-report claims, requires executed commands or artifacts).
-- `sage/lite/schemas.py`: Data models for `LiteVerdict` and turn provenance data.
-- `sage/executor.py`: Subprocess execution of `agy` CLI in `SAGE_ISOLATED_HOME` with safe session discovery and zero MCP setup.
-- `sage/guards.py`: Fast-path exits (subagent sessions, background work, destructive action filters).
-- `sage/locking.py`: Conversation locking and structured audit logging.
-- `sage/session_state.py`: Atomic session state persistence and strike tracking.
-- `sage/transcript.py`: Transcript parsing, turn provenance extraction, background task tracking.
-- `tests/`: 17 test modules asserting unit, integration, static analysis, and adversarial invariants (234 tests).
+The active entry point is `hooks/session-sage.py`, which runs the Lite stop audit on Stop or a completed PostInvocation. The lifecycle runner owns the conversation lock, isolated fork, bounded retries, state transitions, and response emission. Child sessions, empty conversations, and active background work bypass the audit. An active request is audited even when it contains no mutations.
 
-## Code Layout
-- `sage/lite/*.py`: Lite Mode Stop Verifier implementation modules.
-- `sage/*.py`: Core library, execution isolation, and session utilities. Strictly <= 300 lines per file and zero semicolon statement packing.
-- `hooks/*.py`: Antigravity hook scripts.
-- `statusline/*.py`: Session statusline integration.
-- `tests/test_*.py`: Test suite (234 tests).
-- `scripts/`: Verification topic suites (`scripts/verify/<topic>/`).
+## Responsibility boundaries
 
-## Feature Inventory
-| # | Feature | Description | Milestone | Status |
-|---|---------|-------------|-----------|--------|
-| F1 | Semicolon Elimination & Modular Refactoring | Remove all semicolons, extracting helpers to ensure clean AST without compression | M1 | DONE |
-| F2 | Static Analysis & AST Gate | Enforce syntax, line caps, docstrings, and no bare prints across all modules | M1 | DONE |
-| F3 | Forked Conversation Isolation | Clone SQLite databases and brain logs into `SAGE_ISOLATED_HOME` without parent pollution | Lite Verifier | DONE |
-| F4 | Mutation Gating & Zero-Delay Fast Path | Skip LLM evaluation on purely conversational turns with zero file mutations | Lite Verifier | DONE |
-| F5 | Empirical Proof Validation | Enforce live artifact proofs and test command traces; reject ungrounded self-report claims | Lite Verifier | DONE |
-| F6 | Contextual Rejection Directives | Synthesize domain-specific actionable instructions for the worker rather than boilerplate | Lite Verifier | DONE |
-| F7 | 3-Strike Circuit Breaker | Limit consecutive rejections (`LITE_MAX_RETRIES=3`), failing open gracefully | Lite Verifier | DONE |
-| F8 | Knowledge Base Maintenance | Update durable persona and memory upon verified PASS when requested | Lite Verifier | DONE |
-| F9 | Subprocess Isolation & Parent Protection | Execute child `agy` CLI safely in isolated home with keychain and auth safety | Hardening | DONE |
-| F10 | Zero MCP Dependency | Eliminate MCP bridge overhead and hermetically audit with native CLI and models | Refactor | DONE |
+- `sage/user_context.py`, `sage/lite/gating.py`, and `sage/lite/evidence.py` preserve the user's request and extract relevant events. Results match by call ID or unambiguous position; unknown attribution remains unknown. Structured process status and bounded output tails survive long output.
+- `sage/lite/prompt.py` supplies one contextual review contract. Scope, deferral, evidence sufficiency, causal freshness, and corrective wording are model judgments.
+- `sage/lite/verifier.py` executes configured models and parses verdicts. One reconsideration can address a definite proof contradiction using the same context, fork, and total deadline. Failed execution produces an unavailable result with no action.
+- `sage/lite/proof_validator.py` checks proof structure and missing or empty absolute local media. It does not classify tasks, demand interviews, or impose timestamp freshness.
+- `sage/lite/runner.py` distinguishes incomplete, blocked, unavailable, complete, and retry-exhausted states. It cleans the fork after execution. Unexpected execution exceptions and fork failures are recorded as unavailable.
+- `sage/guards.py` emits Stop or PostInvocation responses and tags injected steering so it does not become a new user goal.
 
-## Interface Contracts
-### `sage.lite.verifier.run_lite_verification`
-- Input: `parent_conv_id: str, fork_conv_id: str, user_prompt: str, last_agent_output: str, timeout: float, cwd: Optional[str], turn_execution_summary: Optional[str], image_manifest: Optional[list], turn_provenance: Optional[dict]`
-- Output: `LiteVerdict(verdict="PASS"|"FAIL", action=str, comment=str, proof=list, update_knowledge=bool)`
+Old knowledge-update fields remain in the schema for compatibility. The Lite runner does not run automatic knowledge maintenance.
 
-### `sage.lite.gating.extract_turn_execution_provenance`
-- Input: `steps: List[dict]`
-- Output: `dict` containing `has_mutation: bool, mutation_reason: str, true_user_prompt: str, last_agent_output: str, tool_executions_summary: str, generated_images: list`
+## Interfaces
 
-### `sage.lite.proof_validator.validate_empirical_proof`
-- Input: `proof: List[str], turn_provenance: dict, user_prompt: str`
-- Output: `Tuple[bool, str]` indicating validity and optional rejection reason.
+`run_lite_verification(parent_conv_id, fork_conv_id, user_prompt, last_agent_output, timeout, cwd, turn_execution_summary, image_manifest, turn_provenance)` returns `LiteVerdict`.
+
+Model results use `verdict=PASS` with `completion=complete|blocked`, a comment and nonempty proof; or `verdict=FAIL` with `completion=incomplete` and a nonempty action. Malformed decisions do not become verified completion. The internal unavailable result uses `PASS` for fail-open transport compatibility; the runner explicitly records `completion=unavailable` and emits no steering.
+
+`extract_turn_execution_provenance(steps)` returns the active request, last response, mutation metadata, execution summary, latest terminal output, and separately tracked read, written, and image paths.
+
+`validate_empirical_proof(proof)` returns `(valid, diagnostic)`. A valid result means no deterministic contradiction was found, not that the claim is true.
+
+## Verification
+
+Source modules under `sage/` remain at most 300 lines with no semicolon statement packing. Local checks cover schema integrity, context boundaries, output attribution, fork isolation, unavailable states, retries, and exact propagation of model actions. Mocked model tests establish wiring only.
+
+The `prompt` topic separately evaluates actual model judgments on synthetic records, with an independent 15-case steering matrix and a native hook runner that executes real CSV fixtures. See [commands and limits](scripts/verify/prompt/README.md).

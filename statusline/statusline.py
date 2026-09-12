@@ -297,6 +297,8 @@ def render_statusline(data):
                         left_segments.append("\033[3;34mupdating knowledge/memory...\033[0m")
                     elif l_stat in ("verified", "delivered"):
                         left_segments.append("\033[90mverified\033[0m")
+                    elif l_stat in ("blocked", "unavailable", "unverified"):
+                        left_segments.append(f"\033[33m{l_stat}\033[0m")
                     elif l_stat.startswith("auto-continue"):
                         left_segments.append(f"\033[3;34m{l_stat}\033[0m")
             except Exception:

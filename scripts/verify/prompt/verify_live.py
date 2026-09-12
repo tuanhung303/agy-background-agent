@@ -54,6 +54,10 @@ def evaluate_case(case, builder, model, timeout, env, cwd):
         record.update(returncode=result.returncode, stdout=result.stdout, stderr=result.stderr)
         verdict, status = score_output(result.stdout, case["expected"])
         record.update(verdict=verdict, status=status if result.returncode == 0 else "execution_error")
+        if case.get("expected_completion"):
+            record["completion_matches"] = isinstance(verdict, dict) and verdict.get("completion") == case["expected_completion"]
+            if record["status"] == "matched" and not record["completion_matches"]:
+                record["status"] = "completion_mismatch"
     except subprocess.TimeoutExpired as exc:
         record.update(status="timeout", stdout=_text(exc.stdout), stderr=_text(exc.stderr))
     except OSError as exc:
@@ -71,6 +75,7 @@ def main():
     """Execute the fixture matrix and fail on every mismatch or unavailable evaluation."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline-prompt", type=Path)
+    parser.add_argument("--cases", type=Path, help="Optional independent fixture file")
     parser.add_argument("--model", default=LITE_MODEL_CANDIDATES[0])
     parser.add_argument("--timeout", type=float, default=LITE_MODE_TIMEOUT)
     parser.add_argument("--repeats", type=int, default=1)
@@ -81,7 +86,7 @@ def main():
         parser.error("repeats and timeout must be positive")
     if os.environ.get("AGY_LITE_MOCK_VERDICT", "").strip():
         parser.error("AGY_LITE_MOCK_VERDICT must be unset for a live evaluation")
-    cases = load_cases()
+    cases = load_cases(args.cases)
     if args.case_ids:
         unknown = set(args.case_ids) - {case["id"] for case in cases}
         if unknown:

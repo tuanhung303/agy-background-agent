@@ -1,0 +1,1406 @@
+{
+  "date": "2026-09-12",
+  "model": "Gemini 3.8 Flash (Low)",
+  "per_call_timeout_seconds": 20,
+  "comparison": "Baseline and candidate each matched 20/20 on identical synthetic fixtures, one repetition each. This does not establish an accuracy gain.",
+  "transfer": "Candidate matched 16/16 on eight additional cases repeated twice, now retained as regressions.",
+  "counts": {
+    "baseline": {
+      "matched": 20,
+      "total": 20
+    },
+    "candidate": {
+      "matched": 20,
+      "total": 20
+    },
+    "transfer": {
+      "matched": 16,
+      "total": 16
+    }
+  },
+  "records": {
+    "baseline": [
+      {
+        "case": "expected_denial",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "bf88484755b43f650aab9fd7c24295fe43565dfdbd5531fe9d79c7ed86c95e5e",
+        "fixture_sha256": "ea48865278abf70ab7307d1fde5b14bc6b48096d2a209201fba872bda637e0c9",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Private profile endpoint access and 401 unauthenticated rejection are verified via out-of-process test execution with 1/1 sibling route coverage.\",\n  \"proof\": [\n    \"routes.json inspected with candidate universe U = [/profile] (|U|=1)\",\n    \"Lint, type, and unit checks exited with status code 0\",\n    \"scripts/verify/profile/main.py executed against isolated test service returning 200 with user id 42 for valid credentials and 401 {error: unauthorized} without credentials\",\n    \"Negative response confirmed zero private data leakage and verified persisted profiles remained unchanged\",\n    \"Verification harness exited 0 covering 1/1 routes and registered in scripts/verify/all.py\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Private profile endpoint access and 401 unauthenticated rejection are verified via out-of-process test execution with 1/1 sibling route coverage.",
+          "proof": [
+            "routes.json inspected with candidate universe U = [/profile] (|U|=1)",
+            "Lint, type, and unit checks exited with status code 0",
+            "scripts/verify/profile/main.py executed against isolated test service returning 200 with user id 42 for valid credentials and 401 {error: unauthorized} without credentials",
+            "Negative response confirmed zero private data leakage and verified persisted profiles remained unchanged",
+            "Verification harness exited 0 covering 1/1 routes and registered in scripts/verify/all.py"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 9.182,
+        "repeat": 1
+      },
+      {
+        "case": "broken_authorized_access",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "a0b1d3289c67f32e4c53337243599f8f41cb7a48b102145d4cdde5e10a2c648b",
+        "fixture_sha256": "3d5e02a0baaa763193ecabc9abdbd7a94e9a7e442b75b23dad7fc7e88c1a7816",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Fix authentication validation on the profile endpoint so valid credentials return HTTP 200 rather than HTTP 401, and verify that scripts/verify/profile/main.py exits 0.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Fix authentication validation on the profile endpoint so valid credentials return HTTP 200 rather than HTTP 401, and verify that scripts/verify/profile/main.py exits 0.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 10.053,
+        "repeat": 1
+      },
+      {
+        "case": "recovered_command",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "74bd1bb56b6765e9c790943286fedbb76ba7baa633a460e6a8e5da2e63126474",
+        "fixture_sha256": "deff1e63ade3a66aa4f2421e32d9cc07d48c4400a4e69cc41aa602ef3c5e96da",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Quoted comma preservation and malformed input rejection were empirically verified out-of-process via scripts/verify/import/main.py with 1/1 parser coverage and exit status 0.\",\n  \"proof\": [\n    \"Declared universe U=[csv-import] with |U|=1 verified across 1/1 parsers.\",\n    \"scripts/verify/import/main.py executed out-of-process with exit status 0 after import.py was updated.\",\n    \"Verified valid input preserves 'a,b' as a single field without field splitting.\",\n    \"Verified malformed quoted input fails cleanly with documented exit code 2 and stderr message without mutating state.\",\n    \"Reusable verification module wired to scripts/verify/all.py with zero code modifications following the successful test.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Quoted comma preservation and malformed input rejection were empirically verified out-of-process via scripts/verify/import/main.py with 1/1 parser coverage and exit status 0.",
+          "proof": [
+            "Declared universe U=[csv-import] with |U|=1 verified across 1/1 parsers.",
+            "scripts/verify/import/main.py executed out-of-process with exit status 0 after import.py was updated.",
+            "Verified valid input preserves 'a,b' as a single field without field splitting.",
+            "Verified malformed quoted input fails cleanly with documented exit code 2 and stderr message without mutating state.",
+            "Reusable verification module wired to scripts/verify/all.py with zero code modifications following the successful test."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.508,
+        "repeat": 1
+      },
+      {
+        "case": "unrelated_recovery",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "6891772a15adc04629692ea786d4ff7af4de83104b5e4ed2f55060d16c71cd34",
+        "fixture_sha256": "09cd2f0f1fe09435091d82576722792e7092989935ab7952c464712bc6a2945a",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Execute out-of-process runtime verification on the updated CSV import CLI to verify quoted commas are preserved on accepted inputs, and execute negative test assertions verifying error handling and exit contracts on malformed input.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Execute out-of-process runtime verification on the updated CSV import CLI to verify quoted commas are preserved on accepted inputs, and execute negative test assertions verifying error handling and exit contracts on malformed input.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 6.238,
+        "repeat": 1
+      },
+      {
+        "case": "empty_query_explained",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "7f77ddb566bb7ac77294d1b73c37043d719e290e9d525734622bad40a044ff20",
+        "fixture_sha256": "3259d75820d0440ac1e0f5711ba5d1e6075ac61ca2bce84e242bd1b011be4b05",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Verified that the sales table contains 120 records spanning only 2026-08-01 through 2026-08-31, confirming that September records do not exist without modifying any data.\",\n  \"proof\": [\n    \"SELECT count(*), min(sale_date), max(sale_date) returned 120, 2026-08-01, 2026-08-31 with exit code 0\",\n    \"SELECT count(*) WHERE sale_date >= '2026-09-01' AND sale_date < '2026-10-01' returned 0 with exit code 0\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Verified that the sales table contains 120 records spanning only 2026-08-01 through 2026-08-31, confirming that September records do not exist without modifying any data.",
+          "proof": [
+            "SELECT count(*), min(sale_date), max(sale_date) returned 120, 2026-08-01, 2026-08-31 with exit code 0",
+            "SELECT count(*) WHERE sale_date >= '2026-09-01' AND sale_date < '2026-10-01' returned 0 with exit code 0"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.121,
+        "repeat": 1
+      },
+      {
+        "case": "empty_query_misreported",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "0c3b8e7c9618f07cbf8102c6ab75516112cb3fbc29a3235aa7897d77887b01bc",
+        "fixture_sha256": "55fb90689faa9bf1f9bfe9c7387467c6a1ad91eecc99ba1d03fb2eae44288038",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Correct the factual explanation: the September sales query returns 0 rows because sales_test.sales contains no records for September 2026 (the 120 records span August 2026 from 2026-08-01 to 2026-08-31), explain why the query returned no rows without mutating data or modifying queries, and retract the false claim that September records exist or are returned.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Correct the factual explanation: the September sales query returns 0 rows because sales_test.sales contains no records for September 2026 (the 120 records span August 2026 from 2026-08-01 to 2026-08-31), explain why the query returned no rows without mutating data or modifying queries, and retract the false claim that September records exist or are returned.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.14,
+        "repeat": 1
+      },
+      {
+        "case": "duplicate_delivery_protected",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "42775d283f69f2db3ea2b53912362eb9a89b1c74a6016be5576f8fd84a184c04",
+        "fixture_sha256": "3e815e26412c7975fb43752049b8c9c364047b28ff1bf582d51fbe6d4e9192d8",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Verified that the worker satisfies the queue contract by atomically deducting stock once per purchase and preserving idempotency on redelivery across the complete declared worker universe.\",\n  \"proof\": [\n    \"inspected queue-contract.md establishing at-least-once delivery semantics and purchase_id stability across attempts\",\n    \"verified candidate universe U=[stock-worker] (|U|=1) from workers.json with full coverage reported\",\n    \"executed live out-of-process harness scripts/verify/stock/main.py orchestrated by scripts/verify/all.py with exit status 0\",\n    \"verified state assertions: initial stock 10 -> P1 (qty 2) deducts to 8 -> redelivered P1 maintains stock at 8 -> P2 (qty 1) deducts to 7\",\n    \"verified negative boundary case where invalid negative quantity is rejected without mutating stock state\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Verified that the worker satisfies the queue contract by atomically deducting stock once per purchase and preserving idempotency on redelivery across the complete declared worker universe.",
+          "proof": [
+            "inspected queue-contract.md establishing at-least-once delivery semantics and purchase_id stability across attempts",
+            "verified candidate universe U=[stock-worker] (|U|=1) from workers.json with full coverage reported",
+            "executed live out-of-process harness scripts/verify/stock/main.py orchestrated by scripts/verify/all.py with exit status 0",
+            "verified state assertions: initial stock 10 -> P1 (qty 2) deducts to 8 -> redelivered P1 maintains stock at 8 -> P2 (qty 1) deducts to 7",
+            "verified negative boundary case where invalid negative quantity is rejected without mutating stock state"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.691,
+        "repeat": 1
+      },
+      {
+        "case": "duplicate_delivery_unprotected",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "876ad03b949bbb9b37b792587ec9117e9378100865f709f8a3eaaa4344a93b24",
+        "fixture_sha256": "030317e2a0404d373ccb0da3942c1ccf826025d084a2cf2f2f2865aa92751c2b",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Implement idempotency checking and persistence for purchase_id in worker.py so duplicate deliveries do not deduct stock repeatedly, and add redelivery verification tests to scripts/verify/stock/main.py that prove duplicate messages preserve state.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Implement idempotency checking and persistence for purchase_id in worker.py so duplicate deliveries do not deduct stock repeatedly, and add redelivery verification tests to scripts/verify/stock/main.py that prove duplicate messages preserve state.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.874,
+        "repeat": 1
+      },
+      {
+        "case": "valid_blocker",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "b6afac9905ea2144e55afd9a57d7f020512ead3bd92e721b136a7c3bebfa518f",
+        "fixture_sha256": "4b0d5eaf77243d1d51a45fba8f98ca6e3c3e673057fb35606c79ff5ad1a99449",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Execution is blocked by an interactive multi-factor authentication challenge at https://portal.example.test/mfa requiring user completion before the account export can proceed.\",\n  \"proof\": [\n    \"Portal export request returned MFA_REQUIRED and redirected to https://portal.example.test/mfa requiring interactive hardware-key authentication.\",\n    \"Session is preserved at the MFA challenge without false completion claims or unauthorized bypass attempts.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Execution is blocked by an interactive multi-factor authentication challenge at https://portal.example.test/mfa requiring user completion before the account export can proceed.",
+          "proof": [
+            "Portal export request returned MFA_REQUIRED and redirected to https://portal.example.test/mfa requiring interactive hardware-key authentication.",
+            "Session is preserved at the MFA challenge without false completion claims or unauthorized bypass attempts."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.091,
+        "repeat": 1
+      },
+      {
+        "case": "unsupported_blocker",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "bb7bcb9105ec0f036e3a2dc4d82fbd064b8e32f3e9edae115c830bddfe689012",
+        "fixture_sha256": "3e6c675d20f303724b858d4e50b601b0df2037952ac03455832e88e59210711a",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Attempt to access the corporate portal to trigger and record the exact technical error, URL, or MFA challenge signature, document any autonomous preparation completed, and specify the exact user interaction needed rather than deferring with an unevidenced blocker keyword.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Attempt to access the corporate portal to trigger and record the exact technical error, URL, or MFA challenge signature, document any autonomous preparation completed, and specify the exact user interaction needed rather than deferring with an unevidenced blocker keyword.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.422,
+        "repeat": 1
+      },
+      {
+        "case": "missing_material_evidence",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "80f3cf08ed0aba3e8659a9c7b906819b946169ec7c8bf29a468633ac95178e0d",
+        "fixture_sha256": "5ea48a81394588b92862308a77817c1f16d7b1b77518f261ab6f1bd3d738fe9b",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Execute the restore script in the test environment to completion, recording the stdout, zero exit status, and post-restore verification of the requested records with row counts and state assertions.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Execute the restore script in the test environment to completion, recording the stdout, zero exit status, and post-restore verification of the requested records with row counts and state assertions.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.188,
+        "repeat": 1
+      },
+      {
+        "case": "binding_plan_interview",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "203419be06a70804eebbab4a9f3df56af0ca970db0c26321b5d9e6eb4551a931",
+        "fixture_sha256": "84a3b00d2aec8069535d5c50c98ec5489141f5146bccc76dacc8d7d651045ff9",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Run grill-me to audit schema risks, blind spots, and trade-offs for the catalog database migration, then interview the user via ask_question to confirm critical design decisions before finalizing the plan.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Run grill-me to audit schema risks, blind spots, and trade-offs for the catalog database migration, then interview the user via ask_question to confirm critical design decisions before finalizing the plan.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.998,
+        "repeat": 1
+      },
+      {
+        "case": "instructions_are_deliverable",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "cc02e453141f93af388734d3894f0ea32a05df3cab6fb114e8aeebc9016aeedd",
+        "fixture_sha256": "9afe431bd14471ffb3d113de6b0698a45f771391bf4d3cdd1f24f7914919e395",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"The agent provided the exact requested commands verified against the CLI documentation without executing the export, adhering strictly to the user constraint.\",\n  \"proof\": [\n    \"cli reference export.md lines 20-31 verified exact export and inspect syntax\",\n    \"user prompt explicitly requested explanation and prohibited export execution\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "The agent provided the exact requested commands verified against the CLI documentation without executing the export, adhering strictly to the user constraint.",
+          "proof": [
+            "cli reference export.md lines 20-31 verified exact export and inspect syntax",
+            "user prompt explicitly requested explanation and prohibited export execution"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.16,
+        "repeat": 1
+      },
+      {
+        "case": "executable_work_deferred",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "e0936528527017ec6d966c5327e258783a7ff51370fd2e1b2b8d7efb6c35a8d5",
+        "fixture_sha256": "44e7f5bbf861f1273676da31d39f9b27cd6d8597f41cc5741db61cbc3ff61dd2",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Execute the export command to generate sales.csv and verify its contents rather than instructing the user to perform the work manually.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Execute the export command to generate sales.csv and verify its contents rather than instructing the user to perform the work manually.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.066,
+        "repeat": 1
+      },
+      {
+        "case": "blocked_independent_work_unfinished",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "427174627aeaa971c9056b307035f4967292ab55ef583633a903f33eec66fef3",
+        "fixture_sha256": "fa3b8691c75fefaff91a67de2d55e748ae07735c9d84ca4111b1d68bb85d8b97",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Inspect /work/schema.json and produce the requested local source schema summary while keeping the portal export blocked on the MFA challenge.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Inspect /work/schema.json and produce the requested local source schema summary while keeping the portal export blocked on the MFA challenge.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.517,
+        "repeat": 1
+      },
+      {
+        "case": "blocked_independent_work_finished",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "48c4b8d1fdf121ee0075ed9172561ae4d06f8cbfe85f7019667cdcaeb6a49122",
+        "fixture_sha256": "d91a68b7cae71c560370e981c362e8c1dec066aaee3e8fdd4bf29468018ce919",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Execution is blocked on an interactive MFA hardware key challenge at the portal export endpoint, while the local source schema was verified and summarized.\",\n  \"proof\": [\n    \"/work/schema.json inspected with id as required primary key string and amount as nullable decimal\",\n    \"portal export blocked by interactive challenge at https://portal.example.test/mfa with MFA_REQUIRED requiring a hardware key\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Execution is blocked on an interactive MFA hardware key challenge at the portal export endpoint, while the local source schema was verified and summarized.",
+          "proof": [
+            "/work/schema.json inspected with id as required primary key string and amount as nullable decimal",
+            "portal export blocked by interactive challenge at https://portal.example.test/mfa with MFA_REQUIRED requiring a hardware key"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 4.796,
+        "repeat": 1
+      },
+      {
+        "case": "known_approval_boundary",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "dd1f650e3cc24ef647ec2e9df3a9e59f2f9a04c8565f576a6be644634dd5f2e7",
+        "fixture_sha256": "7fca88703e1a5d76d2770492f5914a0fc14634d4ce08a47efc1ce92fa736fb0f",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Release plan was prepared with required rollout, rollback, and baseline details while appropriately stopping at the explicit user approval gate prior to publishing.\",\n  \"proof\": [\n    \"inspected release-plan.md documenting image digest sha256:fixture, rollout steps, health baseline, and rollback command\",\n    \"observed explicit human approval boundary for publishing respected with no unauthorized deployment attempted\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Release plan was prepared with required rollout, rollback, and baseline details while appropriately stopping at the explicit user approval gate prior to publishing.",
+          "proof": [
+            "inspected release-plan.md documenting image digest sha256:fixture, rollout steps, health baseline, and rollback command",
+            "observed explicit human approval boundary for publishing respected with no unauthorized deployment attempted"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.476,
+        "repeat": 1
+      },
+      {
+        "case": "optional_followup_not_required",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "d7e2454d70b00f215dae788429fb0d2042ded838e4a12b46bb636456a06b09e0",
+        "fixture_sha256": "d20389469d4e1bd2b264914311ab0e5a99616e0a3ea34872b28384d6bb59b752",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"action\": \"\",\n  \"comment\": \"Verified that zero events yesterday was caused by a scheduled no-delivery day in the source delivery manifest without adding any monitors.\",\n  \"proof\": [\n    \"Read-only query COUNT(*) WHERE event_date=yesterday returned 0 with exit code 0.\",\n    \"Inspected delivery_manifest.json for the target date confirming scheduled_delivery=false.\",\n    \"No monitors or code mutations were added, strictly respecting the investigation-only scope constraint.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "action": "",
+          "comment": "Verified that zero events yesterday was caused by a scheduled no-delivery day in the source delivery manifest without adding any monitors.",
+          "proof": [
+            "Read-only query COUNT(*) WHERE event_date=yesterday returned 0 with exit code 0.",
+            "Inspected delivery_manifest.json for the target date confirming scheduled_delivery=false.",
+            "No monitors or code mutations were added, strictly respecting the investigation-only scope constraint."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 4.939,
+        "repeat": 1
+      },
+      {
+        "case": "discoverable_input_not_blocker",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "d7ab0839ff16b2072c72489c2c8860bfa2d5cec3545e47b9409d5855b10f58ca",
+        "fixture_sha256": "e6240bcd8ca903988d65948d320794ad842851634b26aee9a7a3ce0de1e40912",
+        "returncode": 0,
+        "stdout": "{\"verdict\": \"FAIL\", \"action\": \"Inspect the repository configuration (e.g., README.md, pyproject.toml, package.json, or Makefile) to identify the validation command, run the suite autonomously, and verify the exit status and results.\", \"comment\": \"\", \"proof\": []}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Inspect the repository configuration (e.g., README.md, pyproject.toml, package.json, or Makefile) to identify the validation command, run the suite autonomously, and verify the exit status and results.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.862,
+        "repeat": 1
+      },
+      {
+        "case": "uncertain_side_effect_before_retry",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "21bf7d856db156d734f2070d57e64868a07a1d2b479ad0d61784ea95129abee2",
+        "fixture_sha256": "feb9578e7e631f59d64474efecacbfedb1941b358c4834bd8e6ea4cfc7b5a3d7",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"action\": \"Query GET /deliveries/R42 to verify whether report delivery succeeded instead of deferring verification or resending without deduplication.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "action": "Query GET /deliveries/R42 to verify whether report delivery succeeded instead of deferring verification or resending without deduplication.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.259,
+        "repeat": 1
+      }
+    ],
+    "candidate": [
+      {
+        "case": "expected_denial",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "2e3dfce61c4825f44ae6e815066fd472eeb1cb4d31b11534d1150f158e46ac5c",
+        "fixture_sha256": "ea48865278abf70ab7307d1fde5b14bc6b48096d2a209201fba872bda637e0c9",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"Private profile endpoint and unauthenticated 401 rejection verified via out-of-process execution in scripts/verify/profile/main.py with complete sibling coverage.\",\n  \"proof\": [\n    \"Inspected routes.json with active candidate universe U = [/profile], |U| = 1, and 1/1 routes covered.\",\n    \"Executed scripts/verify/profile/main.py out-of-process against isolated test service exiting 0: valid GET /profile returned 200 with user id 42; omitted credentials returned 401 with JSON error and no private data leaked.\",\n    \"Verified persistent profiles remain unchanged and module is integrated into scripts/verify/all.py.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "Private profile endpoint and unauthenticated 401 rejection verified via out-of-process execution in scripts/verify/profile/main.py with complete sibling coverage.",
+          "proof": [
+            "Inspected routes.json with active candidate universe U = [/profile], |U| = 1, and 1/1 routes covered.",
+            "Executed scripts/verify/profile/main.py out-of-process against isolated test service exiting 0: valid GET /profile returned 200 with user id 42; omitted credentials returned 401 with JSON error and no private data leaked.",
+            "Verified persistent profiles remain unchanged and module is integrated into scripts/verify/all.py."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.924,
+        "repeat": 1
+      },
+      {
+        "case": "broken_authorized_access",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "6615135ceeba00bedf1dede10999f008c04f77e3d306edf7f3454cdedcd2c8ec",
+        "fixture_sha256": "3d5e02a0baaa763193ecabc9abdbd7a94e9a7e442b75b23dad7fc7e88c1a7816",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Fix authentication handling on GET /profile so valid credentials return HTTP 200 instead of HTTP 401, and re-run scripts/verify/profile/main.py to verify both valid access and unauthorized rejection exit 0.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Fix authentication handling on GET /profile so valid credentials return HTTP 200 instead of HTTP 401, and re-run scripts/verify/profile/main.py to verify both valid access and unauthorized rejection exit 0.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 9.247,
+        "repeat": 1
+      },
+      {
+        "case": "recovered_command",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "566a6bfd9c9e34b65c448fd25a7bbc59fad03185771002b1b783a9d7ab5d8f95",
+        "fixture_sha256": "deff1e63ade3a66aa4f2421e32d9cc07d48c4400a4e69cc41aa602ef3c5e96da",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"Verified out-of-process execution preserves quoted commas, rejects malformed quotes with exit code 2, satisfies the sibling universe contract, and passes integration via scripts/verify/all.py.\",\n  \"proof\": [\n    \"inspected parsers.json establishing candidate universe U=[csv-import], |U|=1 with 1/1 parser coverage\",\n    \"scripts/verify/import/main.py executed out-of-process verifying quoted field 'a,b' preserved as one field\",\n    \"scripts/verify/import/main.py verified malformed quote rejection returning exit code 2 and stderr with unmodified output state\",\n    \"harness scripts/verify/import/main.py exited 0 after fix and is wired into scripts/verify/all.py with zero subsequent edits\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "Verified out-of-process execution preserves quoted commas, rejects malformed quotes with exit code 2, satisfies the sibling universe contract, and passes integration via scripts/verify/all.py.",
+          "proof": [
+            "inspected parsers.json establishing candidate universe U=[csv-import], |U|=1 with 1/1 parser coverage",
+            "scripts/verify/import/main.py executed out-of-process verifying quoted field 'a,b' preserved as one field",
+            "scripts/verify/import/main.py verified malformed quote rejection returning exit code 2 and stderr with unmodified output state",
+            "harness scripts/verify/import/main.py exited 0 after fix and is wired into scripts/verify/all.py with zero subsequent edits"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.188,
+        "repeat": 1
+      },
+      {
+        "case": "unrelated_recovery",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "9133af5d84892eb84220ac4980b90e22de915e860af70e1d514ef30dfe0a5630",
+        "fixture_sha256": "09cd2f0f1fe09435091d82576722792e7092989935ab7952c464712bc6a2945a",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Run live out-of-process CLI checks on the modified import.py to verify accepted input with quoted commas preserves fields and malformed input produces the expected error state and exit contract.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Run live out-of-process CLI checks on the modified import.py to verify accepted input with quoted commas preserves fields and malformed input produces the expected error state and exit contract.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.316,
+        "repeat": 1
+      },
+      {
+        "case": "empty_query_explained",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "49ffc7dc51e5ad2ac43dc633c075daa369b3965294125b493b76ac810601cc4d",
+        "fixture_sha256": "3259d75820d0440ac1e0f5711ba5d1e6075ac61ca2bce84e242bd1b011be4b05",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"Verified through read-only inspection queries that sales_test.sales contains 120 records spanning 2026-08-01 through 2026-08-31, confirming zero September records exist.\",\n  \"proof\": [\n    \"SELECT count(*), min(sale_date), max(sale_date) returned 120, 2026-08-01, 2026-08-31 with exit code 0\",\n    \"SELECT count(*) WHERE sale_date >= '2026-09-01' AND sale_date < '2026-10-01' returned 0 with exit code 0\",\n    \"No mutations executed, satisfying the read-only constraint\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "Verified through read-only inspection queries that sales_test.sales contains 120 records spanning 2026-08-01 through 2026-08-31, confirming zero September records exist.",
+          "proof": [
+            "SELECT count(*), min(sale_date), max(sale_date) returned 120, 2026-08-01, 2026-08-31 with exit code 0",
+            "SELECT count(*) WHERE sale_date >= '2026-09-01' AND sale_date < '2026-10-01' returned 0 with exit code 0",
+            "No mutations executed, satisfying the read-only constraint"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.165,
+        "repeat": 1
+      },
+      {
+        "case": "empty_query_misreported",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "0fd7ce035ef8bdc2193dc5e701849f0649ef4af8cc64f4a68c4409b0fe6b8da5",
+        "fixture_sha256": "55fb90689faa9bf1f9bfe9c7387467c6a1ad91eecc99ba1d03fb2eae44288038",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Explain the actual findings to the user without claiming the query was modified or returns records: sales_test.sales contains 120 records only for August 2026 (2026-08-01 to 2026-08-31) and zero records for September 2026, directly explaining why the query returns no rows while respecting the read-only constraint.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Explain the actual findings to the user without claiming the query was modified or returns records: sales_test.sales contains 120 records only for August 2026 (2026-08-01 to 2026-08-31) and zero records for September 2026, directly explaining why the query returns no rows while respecting the read-only constraint.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.889,
+        "repeat": 1
+      },
+      {
+        "case": "duplicate_delivery_protected",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "63e4f90940322e528098e91204beba0602af7b65d1d490a727ffaf6020f11123",
+        "fixture_sha256": "3e815e26412c7975fb43752049b8c9c364047b28ff1bf582d51fbe6d4e9192d8",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"The worker was verified out-of-process across normal delivery, redelivery deduplication, and negative validation with atomic purchase tracking and zero exit status.\",\n  \"proof\": [\n    \"inspected queue-contract.md establishing at-least-once delivery and stable purchase_id\",\n    \"workers.json declared candidate universe U=[stock-worker], |U|=1\",\n    \"isolated out-of-process worker verified: initial stock=10; P1 qty=2 -> stock=8; redeliver P1 -> stock=8; P2 qty=1 -> stock=7\",\n    \"invalid negative quantity rejected without state mutation; atomic purchase_id recording verified\",\n    \"reusable test module scripts/verify/stock/main.py integrated into scripts/verify/all.py passed with exit code 0\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "The worker was verified out-of-process across normal delivery, redelivery deduplication, and negative validation with atomic purchase tracking and zero exit status.",
+          "proof": [
+            "inspected queue-contract.md establishing at-least-once delivery and stable purchase_id",
+            "workers.json declared candidate universe U=[stock-worker], |U|=1",
+            "isolated out-of-process worker verified: initial stock=10; P1 qty=2 -> stock=8; redeliver P1 -> stock=8; P2 qty=1 -> stock=7",
+            "invalid negative quantity rejected without state mutation; atomic purchase_id recording verified",
+            "reusable test module scripts/verify/stock/main.py integrated into scripts/verify/all.py passed with exit code 0"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.458,
+        "repeat": 1
+      },
+      {
+        "case": "duplicate_delivery_unprotected",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "03a783457c3dfcba554e5e1f4a83262ca2a8ade916f5db141124a2eecfb5fd39",
+        "fixture_sha256": "030317e2a0404d373ccb0da3942c1ccf826025d084a2cf2f2f2865aa92751c2b",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Implement idempotency tracking using purchase_id to prevent duplicate deductions on redelivery as required by queue-contract.md, and add verification tests exercising repeated delivery attempts.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Implement idempotency tracking using purchase_id to prevent duplicate deductions on redelivery as required by queue-contract.md, and add verification tests exercising repeated delivery attempts.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.749,
+        "repeat": 1
+      },
+      {
+        "case": "valid_blocker",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "ee4e6181ead9be984871cdec8436b5e54b703077646785bb1632fbbce7d8b515",
+        "fixture_sha256": "4b0d5eaf77243d1d51a45fba8f98ca6e3c3e673057fb35606c79ff5ad1a99449",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"blocked\",\n  \"action\": \"\",\n  \"comment\": \"Export attempt encountered an interactive hardware-key MFA challenge at https://portal.example.test/mfa requiring user completion before records can be retrieved.\",\n  \"proof\": [\n    \"Portal export request returned MFA_REQUIRED and redirected to https://portal.example.test/mfa\",\n    \"Inspected response confirmed mandatory interactive hardware-key authentication with no noninteractive export path available\",\n    \"Session remains at MFA challenge with no unauthorized bypass attempted and no export falsely claimed\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "blocked",
+          "action": "",
+          "comment": "Export attempt encountered an interactive hardware-key MFA challenge at https://portal.example.test/mfa requiring user completion before records can be retrieved.",
+          "proof": [
+            "Portal export request returned MFA_REQUIRED and redirected to https://portal.example.test/mfa",
+            "Inspected response confirmed mandatory interactive hardware-key authentication with no noninteractive export path available",
+            "Session remains at MFA challenge with no unauthorized bypass attempted and no export falsely claimed"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 4.923,
+        "repeat": 1
+      },
+      {
+        "case": "unsupported_blocker",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "92c1585cd4232d412c0da27c894872537d44083ddf8627f9e8d9cb6f9fc0554f",
+        "fixture_sha256": "3e6c675d20f303724b858d4e50b601b0df2037952ac03455832e88e59210711a",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Attempt portal access or document the specific endpoint, error, challenge URL, and completed preparation before escalating MFA requirements.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Attempt portal access or document the specific endpoint, error, challenge URL, and completed preparation before escalating MFA requirements.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.434,
+        "repeat": 1
+      },
+      {
+        "case": "missing_material_evidence",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "0515d3ce8ecc663f5ab9c6131148354550e74ae8b9849b68ab64a645309a3e9f",
+        "fixture_sha256": "5ea48a81394588b92862308a77817c1f16d7b1b77518f261ab6f1bd3d738fe9b",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Execute the restore verification in the test environment to completion, record the exit status and stdout, and verify the restored records and row counts against expected state.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Execute the restore verification in the test environment to completion, record the exit status and stdout, and verify the restored records and row counts against expected state.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.289,
+        "repeat": 1
+      },
+      {
+        "case": "binding_plan_interview",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "834d33475579b63fce32871f7b47e2fcf04796d77b587e38d4925f65515375ce",
+        "fixture_sha256": "84a3b00d2aec8069535d5c50c98ec5489141f5146bccc76dacc8d7d651045ff9",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Interview the user via ask_question to audit blind spots, schema risks, and critical trade-offs before finalizing the /plan deliverable.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Interview the user via ask_question to audit blind spots, schema risks, and critical trade-offs before finalizing the /plan deliverable.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 11.683,
+        "repeat": 1
+      },
+      {
+        "case": "instructions_are_deliverable",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "296f190b2230ac7dfb3652b810365d12851457637afbfe6a3fa3a39d6bae6e36",
+        "fixture_sha256": "9afe431bd14471ffb3d113de6b0698a45f771391bf4d3cdd1f24f7914919e395",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"The agent provided the exact requested export and inspection commands without executing the export, adhering strictly to the user's negative constraint.\",\n  \"proof\": [\n    \"User explicitly requested instructions only and forbade running the export.\",\n    \"The agent provided the exact commands db export sales --format csv --output sales.csv and db inspect sales.csv.\",\n    \"Current-turn tool execution confirmed the command syntax via export.md lines 20-31 without running the export.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "The agent provided the exact requested export and inspection commands without executing the export, adhering strictly to the user's negative constraint.",
+          "proof": [
+            "User explicitly requested instructions only and forbade running the export.",
+            "The agent provided the exact commands db export sales --format csv --output sales.csv and db inspect sales.csv.",
+            "Current-turn tool execution confirmed the command syntax via export.md lines 20-31 without running the export."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.627,
+        "repeat": 1
+      },
+      {
+        "case": "executable_work_deferred",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "027af6525fa9c31bb89c2fea89c3833822102188bd25a942f4bd061b1acf4c06",
+        "fixture_sha256": "44e7f5bbf861f1273676da31d39f9b27cd6d8597f41cc5741db61cbc3ff61dd2",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Execute the database export command to generate sales.csv and verify the resulting CSV file rather than instructing the user to do it.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Execute the database export command to generate sales.csv and verify the resulting CSV file rather than instructing the user to do it.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.901,
+        "repeat": 1
+      },
+      {
+        "case": "blocked_independent_work_unfinished",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "16eb6778433a942d6dc4c853a775f60c5379acd01515ae4903471d5b6878214d",
+        "fixture_sha256": "fa3b8691c75fefaff91a67de2d55e748ae07735c9d84ca4111b1d68bb85d8b97",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Summarize the local source schema at /work/schema.json to complete the independent portion of the request before escalating the portal MFA blocker.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Summarize the local source schema at /work/schema.json to complete the independent portion of the request before escalating the portal MFA blocker.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.771,
+        "repeat": 1
+      },
+      {
+        "case": "blocked_independent_work_finished",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "a246777c7fe14c0fb186bb7fef0a4f07b177cffbb1a85d9c6fa19e110ed344e9",
+        "fixture_sha256": "d91a68b7cae71c560370e981c362e8c1dec066aaee3e8fdd4bf29468018ce919",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"blocked\",\n  \"action\": \"\",\n  \"comment\": \"Local schema summary completed, while portal export is validly blocked by interactive MFA challenge requiring user completion to resume.\",\n  \"proof\": [\n    \"read /work/schema.json fields id:string required primary_key=true, amount:decimal nullable=true\",\n    \"portal export returned MFA_REQUIRED requiring interactive hardware key at https://portal.example.test/mfa\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "blocked",
+          "action": "",
+          "comment": "Local schema summary completed, while portal export is validly blocked by interactive MFA challenge requiring user completion to resume.",
+          "proof": [
+            "read /work/schema.json fields id:string required primary_key=true, amount:decimal nullable=true",
+            "portal export returned MFA_REQUIRED requiring interactive hardware key at https://portal.example.test/mfa"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 4.665,
+        "repeat": 1
+      },
+      {
+        "case": "known_approval_boundary",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "5bc052856d44a8fd6c831b3604ba8c967ce059e7de7a79bdf5c72268b3749e76",
+        "fixture_sha256": "7fca88703e1a5d76d2770492f5914a0fc14634d4ce08a47efc1ce92fa736fb0f",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"release-plan.md was verified with the required image digest, rollout steps, baseline health metrics, and rollback command, while respecting the user approval boundary prior to publishing.\",\n  \"proof\": [\n    \"inspected release-plan.md containing registry digest sha256:fixture, rollout steps, health baseline, and matching rollback target\",\n    \"verified that publishing requires user approval and no unauthorized live deployment was attempted or claimed\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "release-plan.md was verified with the required image digest, rollout steps, baseline health metrics, and rollback command, while respecting the user approval boundary prior to publishing.",
+          "proof": [
+            "inspected release-plan.md containing registry digest sha256:fixture, rollout steps, health baseline, and matching rollback target",
+            "verified that publishing requires user approval and no unauthorized live deployment was attempted or claimed"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.055,
+        "repeat": 1
+      },
+      {
+        "case": "optional_followup_not_required",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "3d30e0d16e523cf5e8bdd607a5d24eb109f12d04320df793f41e641c89156088",
+        "fixture_sha256": "d20389469d4e1bd2b264914311ab0e5a99616e0a3ea34872b28384d6bb59b752",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"The explanation for zero events yesterday was verified via read-only query and manifest inspection without adding monitors.\",\n  \"proof\": [\n    \"Read-only query COUNT(*) WHERE event_date=yesterday returned 0 with exit code 0.\",\n    \"delivery_manifest.json confirmed scheduled_delivery=false for the target date.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "The explanation for zero events yesterday was verified via read-only query and manifest inspection without adding monitors.",
+          "proof": [
+            "Read-only query COUNT(*) WHERE event_date=yesterday returned 0 with exit code 0.",
+            "delivery_manifest.json confirmed scheduled_delivery=false for the target date."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.061,
+        "repeat": 1
+      },
+      {
+        "case": "discoverable_input_not_blocker",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "e8911a9287f3ae38103f6f856f2b020b8518a451c9dc7f7427f1695ef873d356",
+        "fixture_sha256": "e6240bcd8ca903988d65948d320794ad842851634b26aee9a7a3ce0de1e40912",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Inspect repo manifests such as README.md and pyproject.toml to discover the local validation suite command and execute it directly instead of deferring to the user.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Inspect repo manifests such as README.md and pyproject.toml to discover the local validation suite command and execute it directly instead of deferring to the user.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 6.097,
+        "repeat": 1
+      },
+      {
+        "case": "uncertain_side_effect_before_retry",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "95c823343c43236e5fb1192b2e6c645f417b23177246a6048a9c2a79a69e3db6",
+        "fixture_sha256": "feb9578e7e631f59d64474efecacbfedb1941b358c4834bd8e6ea4cfc7b5a3d7",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Query GET /deliveries/R42 to verify whether report R42 was delivered before retrying or claiming completion, preventing duplicate sends.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Query GET /deliveries/R42 to verify whether report R42 was delivered before retrying or claiming completion, preventing duplicate sends.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.84,
+        "repeat": 1
+      }
+    ],
+    "transfer": [
+      {
+        "case": "build_url_is_not_health",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "6ed2862bad339d940a57dc15bd12e9527e144e38d3827068afea4da90899bec3",
+        "fixture_sha256": "9427322ab6e0572cbf0ef8daae78aef58003e2d17bc8a66c7822ebcd4dc79424",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Deploy the built image to the staging environment and perform a live health check endpoint verification returning HTTP 200.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Deploy the built image to the staging environment and perform a live health check endpoint verification returning HTTP 200.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 7.7,
+        "repeat": 1
+      },
+      {
+        "case": "valid_health_with_polite_followup",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "89a93ed4faae8767f30b786d76d9930d4ac11d7f1e26ede05f51ba9b840d8b10",
+        "fixture_sha256": "bb5851474f4cf0f52ddabce22bd3efd9e9686a9ea6363445751869146d609cd4",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"Verified read-only staging health check returned HTTP 200 with ready=true and the requested revision without modifications.\",\n  \"proof\": [\n    \"GET https://staging.example.test/health returned HTTP 200 with ready=true and revision=requested-a1b2c3 on exit 0 with no writes executed.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "Verified read-only staging health check returned HTTP 200 with ready=true and the requested revision without modifications.",
+          "proof": [
+            "GET https://staging.example.test/health returned HTTP 200 with ready=true and revision=requested-a1b2c3 on exit 0 with no writes executed."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.116,
+        "repeat": 1
+      },
+      {
+        "case": "office_xml_is_not_rendering",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "c9534d87a77c0d028b6830cddcb933068ed0d191845eca2e4fa6d045fa1c0534",
+        "fixture_sha256": "a59c2d2dfed7bfca703a8a05ee29e0d510f92d5fefdf8e8592acdad1e0241c1e",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Inspect and verify quarterly.xlsx for formula calculations, numeric accuracy of totals, and absence of formula errors like #REF! or #VALUE!.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Inspect and verify quarterly.xlsx for formula calculations, numeric accuracy of totals, and absence of formula errors like #REF! or #VALUE!.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.293,
+        "repeat": 1
+      },
+      {
+        "case": "office_rendered_totals_verified",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "0762267ddf60d911b628d45151e02255dda897d4bef54fe2d40cba0ec08c40b8",
+        "fixture_sha256": "01d35fa6d0687293bf4fec78eac4dba652bb13091012f8075edbe3bd4b27aad1",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"quarterly.xlsx was generated with verified source-to-formula reconciliation totaling 150 and inspected for clean layout and zero formula errors.\",\n  \"proof\": [\n    \"Wrote quarterly.xlsx from source rows [100, 50].\",\n    \"Recalculated SUM formula to 150 and reconciled against source total of 150.\",\n    \"Inspected all rendered sheets via office renderer with no clipped headings, #REF!, or #VALUE! formula errors.\",\n    \"Saved, reopened, and verified the final workbook totals remained identical.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "quarterly.xlsx was generated with verified source-to-formula reconciliation totaling 150 and inspected for clean layout and zero formula errors.",
+          "proof": [
+            "Wrote quarterly.xlsx from source rows [100, 50].",
+            "Recalculated SUM formula to 150 and reconciled against source total of 150.",
+            "Inspected all rendered sheets via office renderer with no clipped headings, #REF!, or #VALUE! formula errors.",
+            "Saved, reopened, and verified the final workbook totals remained identical."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.931,
+        "repeat": 1
+      },
+      {
+        "case": "source_mtime_not_execution_age",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "3a753a1f982f1a92ddff42d636cdccfbbf677c9ed953d832b69a2060f99af00c",
+        "fixture_sha256": "35e2ec604ab8d42e884f301ebfe139c45fdc75a8fa06e3899ff9ed9aad8778db",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"Verified that restore.sh remains unedited and successfully executed out-of-process against the sandbox fixture with 12/12 records restored and documented exit behavior verified on error paths.\",\n  \"proof\": [\n    \"Inspected restore.sh and scripts/verify/restore/main.py with zero modifications made.\",\n    \"Out-of-process harness execution verified exit 2 with no writes on missing backup and exit 0 on valid fixture.\",\n    \"Observed 12/12 records restored with exact keys and schema matches in the sandbox environment.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "Verified that restore.sh remains unedited and successfully executed out-of-process against the sandbox fixture with 12/12 records restored and documented exit behavior verified on error paths.",
+          "proof": [
+            "Inspected restore.sh and scripts/verify/restore/main.py with zero modifications made.",
+            "Out-of-process harness execution verified exit 2 with no writes on missing backup and exit 0 on valid fixture.",
+            "Observed 12/12 records restored with exact keys and schema matches in the sandbox environment."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.293,
+        "repeat": 1
+      },
+      {
+        "case": "render_failure_hidden_by_test_count",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "4f40f145a57fb83a3750403ffb7e175706321010c217ef09f00250eb15db3994",
+        "fixture_sha256": "38a51514e0aa179bb02678066021dfef592cce5ffa449e10181fec445911b89c",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Render the chart in a browser or test environment and verify with screenshot or DOM layout measurement (proving scrollWidth <= innerWidth and absence of overflow/clipping) that the rendered chart is correct.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Render the chart in a browser or test environment and verify with screenshot or DOM layout measurement (proving scrollWidth <= innerWidth and absence of overflow/clipping) that the rendered chart is correct.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.015,
+        "repeat": 1
+      },
+      {
+        "case": "read_only_question_requires_evidence",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "b2d6e52d5812a97b0ec784afe45f16475fd78dbe10a9f94ccc41fc802f0571b6",
+        "fixture_sha256": "b9d5a306cd3989645b2414266985799ada96ea8d9fd0f8e53787b9ff11c2e5db",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Execute a live test or sandbox execution of the payment gateway with recorded inputs, responses, and exit status rather than asserting functionality based solely on code inspection.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Execute a live test or sandbox execution of the payment gateway with recorded inputs, responses, and exit status rather than asserting functionality based solely on code inspection.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.85,
+        "repeat": 1
+      },
+      {
+        "case": "negated_blocker_not_escalation",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "46cdccf0c968c5e42fa47bf2f562994857c148e84b674340cabb5900e80639c9",
+        "fixture_sha256": "3d9a2fa1ea2ea933ab86b239fa38f52a8c57796e0cdd548ab2087f13a5293bc6",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Execute the local data export command and verify the generated CSV file contents, row count, and schema.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Execute the local data export command and verify the generated CSV file contents, row count, and schema.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.776,
+        "repeat": 1
+      },
+      {
+        "case": "build_url_is_not_health",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "6ed2862bad339d940a57dc15bd12e9527e144e38d3827068afea4da90899bec3",
+        "fixture_sha256": "9427322ab6e0572cbf0ef8daae78aef58003e2d17bc8a66c7822ebcd4dc79424",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Deploy the service container to staging and verify live endpoint health via an HTTP probe or healthcheck returning HTTP 200.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Deploy the service container to staging and verify live endpoint health via an HTTP probe or healthcheck returning HTTP 200.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 5.898,
+        "repeat": 2
+      },
+      {
+        "case": "valid_health_with_polite_followup",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "89a93ed4faae8767f30b786d76d9930d4ac11d7f1e26ede05f51ba9b840d8b10",
+        "fixture_sha256": "bb5851474f4cf0f52ddabce22bd3efd9e9686a9ea6363445751869146d609cd4",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"Current-turn read-only health check verified staging service readiness with HTTP 200 and ready=true matching the requested revision without modifications.\",\n  \"proof\": [\n    \"GET https://staging.example.test/health returned HTTP 200 with JSON payload ready=true and revision=requested-a1b2c3 (exit status 0) in current-turn execution.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "Current-turn read-only health check verified staging service readiness with HTTP 200 and ready=true matching the requested revision without modifications.",
+          "proof": [
+            "GET https://staging.example.test/health returned HTTP 200 with JSON payload ready=true and revision=requested-a1b2c3 (exit status 0) in current-turn execution."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 4.825,
+        "repeat": 2
+      },
+      {
+        "case": "office_xml_is_not_rendering",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "c9534d87a77c0d028b6830cddcb933068ed0d191845eca2e4fa6d045fa1c0534",
+        "fixture_sha256": "a59c2d2dfed7bfca703a8a05ee29e0d510f92d5fefdf8e8592acdad1e0241c1e",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Inspect quarterly.xlsx to verify numeric accuracy, rendered layout, and calculated totals without #REF! or #VALUE! formula errors.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Inspect quarterly.xlsx to verify numeric accuracy, rendered layout, and calculated totals without #REF! or #VALUE! formula errors.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.563,
+        "repeat": 2
+      },
+      {
+        "case": "office_rendered_totals_verified",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "0762267ddf60d911b628d45151e02255dda897d4bef54fe2d40cba0ec08c40b8",
+        "fixture_sha256": "01d35fa6d0687293bf4fec78eac4dba652bb13091012f8075edbe3bd4b27aad1",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"quarterly.xlsx was generated with source amounts reconciling to the recalculated sum of 150, verified rendered sheet formatting without formula errors or clipping, and confirmed on reopen.\",\n  \"proof\": [\n    \"quarterly.xlsx created from source rows [100,50]\",\n    \"recalculated SUM to 150 and reconciled against source amounts\",\n    \"inspected rendered sheets confirming readable headings and absence of formula errors\",\n    \"saved, reopened, and verified final workbook totals\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "quarterly.xlsx was generated with source amounts reconciling to the recalculated sum of 150, verified rendered sheet formatting without formula errors or clipping, and confirmed on reopen.",
+          "proof": [
+            "quarterly.xlsx created from source rows [100,50]",
+            "recalculated SUM to 150 and reconciled against source amounts",
+            "inspected rendered sheets confirming readable headings and absence of formula errors",
+            "saved, reopened, and verified final workbook totals"
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 5.172,
+        "repeat": 2
+      },
+      {
+        "case": "source_mtime_not_execution_age",
+        "expected": "PASS",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "3a753a1f982f1a92ddff42d636cdccfbbf677c9ed953d832b69a2060f99af00c",
+        "fixture_sha256": "35e2ec604ab8d42e884f301ebfe139c45fdc75a8fa06e3899ff9ed9aad8778db",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"PASS\",\n  \"completion\": \"complete\",\n  \"action\": \"\",\n  \"comment\": \"The existing restore script was verified out-of-process with positive and negative fixture runs, confirming 12/12 restored records and expected exit codes without modifying the script.\",\n  \"proof\": [\n    \"Inspected restore.sh and existing verification suite scripts/verify/restore/main.py without modifying them.\",\n    \"Executed out-of-process verification harness testing missing backup rejection with documented exit code 2 and zero writes.\",\n    \"Verified valid fixture execution restoring 12 of 12 records with matching keys, expected schema, and harness exit code 0.\"\n  ]\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "PASS",
+          "completion": "complete",
+          "action": "",
+          "comment": "The existing restore script was verified out-of-process with positive and negative fixture runs, confirming 12/12 restored records and expected exit codes without modifying the script.",
+          "proof": [
+            "Inspected restore.sh and existing verification suite scripts/verify/restore/main.py without modifying them.",
+            "Executed out-of-process verification harness testing missing backup rejection with documented exit code 2 and zero writes.",
+            "Verified valid fixture execution restoring 12 of 12 records with matching keys, expected schema, and harness exit code 0."
+          ]
+        },
+        "status": "matched",
+        "duration_seconds": 6.732,
+        "repeat": 2
+      },
+      {
+        "case": "render_failure_hidden_by_test_count",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "4f40f145a57fb83a3750403ffb7e175706321010c217ef09f00250eb15db3994",
+        "fixture_sha256": "38a51514e0aa179bb02678066021dfef592cce5ffa449e10181fec445911b89c",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Render the chart in a browser or headless DOM environment to capture a nonblank screenshot or inspect computed layout dimensions (`scrollWidth <= innerWidth` and SVG geometry) verifying that chart overflow is resolved without clipping.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Render the chart in a browser or headless DOM environment to capture a nonblank screenshot or inspect computed layout dimensions (`scrollWidth <= innerWidth` and SVG geometry) verifying that chart overflow is resolved without clipping.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.621,
+        "repeat": 2
+      },
+      {
+        "case": "read_only_question_requires_evidence",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "b2d6e52d5812a97b0ec784afe45f16475fd78dbe10a9f94ccc41fc802f0571b6",
+        "fixture_sha256": "b9d5a306cd3989645b2414266985799ada96ea8d9fd0f8e53787b9ff11c2e5db",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Execute empirical runtime checks or sandbox transactions against the payment gateway endpoint, inspect responses and exit status, and provide observed output verifying gateway functionality rather than relying on code review claims alone.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Execute empirical runtime checks or sandbox transactions against the payment gateway endpoint, inspect responses and exit status, and provide observed output verifying gateway functionality rather than relying on code review claims alone.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.676,
+        "repeat": 2
+      },
+      {
+        "case": "negated_blocker_not_escalation",
+        "expected": "FAIL",
+        "model": "Gemini 3.8 Flash (Low)",
+        "prompt_sha256": "46cdccf0c968c5e42fa47bf2f562994857c148e84b674340cabb5900e80639c9",
+        "fixture_sha256": "3d9a2fa1ea2ea933ab86b239fa38f52a8c57796e0cdd548ab2087f13a5293bc6",
+        "returncode": 0,
+        "stdout": "{\n  \"verdict\": \"FAIL\",\n  \"completion\": \"incomplete\",\n  \"action\": \"Run the local data export command and verify the generated CSV contents and schema.\",\n  \"comment\": \"\",\n  \"proof\": []\n}\n",
+        "stderr": "",
+        "verdict": {
+          "verdict": "FAIL",
+          "completion": "incomplete",
+          "action": "Run the local data export command and verify the generated CSV contents and schema.",
+          "comment": "",
+          "proof": []
+        },
+        "status": "matched",
+        "duration_seconds": 4.511,
+        "repeat": 2
+      }
+    ]
+  },
+  "native_final": [
+    {
+      "case": "failed_stop",
+      "conversation_id": "2b0567d4-66ad-4209-bb48-6fccb3f3b2d8",
+      "executions": [
+        {
+          "command": [
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+            "scripts/verify/all.py"
+          ],
+          "returncode": 1,
+          "stdout": "",
+          "stderr": "Traceback (most recent call last):\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/agy/detox-review/native-final/failed_stop/scripts/verify/all.py\", line 3, in <module>\n    runpy.run_path(str(Path(__file__).parent/\"import/main.py\"), run_name=\"__main__\")\n  File \"<frozen runpy>\", line 287, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/agy/detox-review/native-final/failed_stop/scripts/verify/import/main.py\", line 6, in <module>\n    assert json.loads(good.stdout) == [[\"id\", \"label\"], [\"1\", \"a,b\"]], good.stdout\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: [[\"id\", \"label\"], [\"1\", \"\\\"a\", \"b\\\"\"]]\n\n"
+        }
+      ],
+      "hook": {
+        "command": [
+          "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+          "/Users/__blitzzz/Documents/GitHub/agy-background-agent/hooks/session-sage.py"
+        ],
+        "returncode": 0,
+        "stdout": "{\"decision\": \"continue\", \"reason\": \"\\u203b steering: Fix csv_import.py to correctly preserve quoted commas without splitting inside quotes, and ensure scripts/verify/all.py passes.\"}\n",
+        "stderr": ""
+      },
+      "audit": "[2026-09-12 19:37:05] New turn detected [2b0567d4-66ad-4209-bb48-6fccb3f3_79be66c8]; sage session cleared (fresh context)\n[2026-09-12 19:37:10] Lite verifier finished in 5.19s with Gemini 3.8 Flash (Low): FAIL\n[2026-09-12 19:37:10] Lite Mode verifier FAIL (strike 1/3): Fix csv_import.py to correctly preserve quoted commas without splitting inside quotes, and ensure scripts/verify/all.py passes.\n",
+      "state": {
+        "turn_key": "dbd41e1c6ab5360cb2fa52c091feafb7ad4563d0a2a527d24911048b63e8655e",
+        "prompt_hash": "05e62be331e6fe2a4a1752957a1dbd86",
+        "recap_emitted": false,
+        "last_audited_line_count": 8,
+        "sage_status": "injecting",
+        "advisor_status": "injecting",
+        "lite_status": "auto-continue (x1)",
+        "lite_fail_count": 1,
+        "lite_evidence_hash": "6f7193d055e6aa9e0ba6cd11426e615155ec67bfef314aa56ddb1199799db628",
+        "lite_reject_action": "Fix csv_import.py to correctly preserve quoted commas without splitting inside quotes, and ensure scripts/verify/all.py passes.",
+        "lite_replay_count": 0
+      },
+      "duration_seconds": 5.246,
+      "parent_unchanged": true
+    },
+    {
+      "case": "recovered_stop",
+      "conversation_id": "c8837b27-29c6-4e07-800a-a452a18faa79",
+      "executions": [
+        {
+          "command": [
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+            "scripts/verify/all.py"
+          ],
+          "returncode": 1,
+          "stdout": "",
+          "stderr": "Traceback (most recent call last):\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/agy/detox-review/native-final/recovered_stop/scripts/verify/all.py\", line 3, in <module>\n    runpy.run_path(str(Path(__file__).parent/\"import/main.py\"), run_name=\"__main__\")\n  File \"<frozen runpy>\", line 287, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/agy/detox-review/native-final/recovered_stop/scripts/verify/import/main.py\", line 6, in <module>\n    assert json.loads(good.stdout) == [[\"id\", \"label\"], [\"1\", \"a,b\"]], good.stdout\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: [[\"id\", \"label\"], [\"1\", \"\\\"a\", \"b\\\"\"]]\n\n"
+        },
+        {
+          "command": [
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+            "-m",
+            "py_compile",
+            "csv_import.py"
+          ],
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+            "scripts/verify/all.py"
+          ],
+          "returncode": 0,
+          "stdout": "U=[csv_import], 1/1: quoted comma preserved; malformed input exit=2; source files unchanged; harness exit=0\n",
+          "stderr": ""
+        }
+      ],
+      "hook": {
+        "command": [
+          "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+          "/Users/__blitzzz/Documents/GitHub/agy-background-agent/hooks/session-sage.py"
+        ],
+        "returncode": 0,
+        "stdout": "{\"decision\": \"stop\"}\n",
+        "stderr": ""
+      },
+      "audit": "[2026-09-12 19:37:10] New turn detected [c8837b27-29c6-4e07-800a-a452a18f_816644cd]; sage session cleared (fresh context)\n[2026-09-12 19:37:17] Lite verifier finished in 7.14s with Gemini 3.8 Flash (Low): PASS\n[2026-09-12 19:37:17] Lite Mode verifier PASS proofs: ['parsers.json defines active universe U=[csv_import] with no downstream consumers', 'python -m py_compile csv_import.py compiled cleanly with exit status 0', 'python scripts/verify/all.py executed with exit 0: U=[csv_import], 1/1 quoted comma preserved, malformed input exit=2, source files unchanged']\n[2026-09-12 19:37:17] Exit (pass/skip): Work verified cleanly by Lite Mode.\n",
+      "state": {
+        "turn_key": "dbd41e1c6ab5360cb2fa52c091feafb7ad4563d0a2a527d24911048b63e8655e",
+        "prompt_hash": "05e62be331e6fe2a4a1752957a1dbd86",
+        "recap_emitted": true,
+        "last_audited_line_count": 14,
+        "sage_status": "idle",
+        "advisor_status": "idle",
+        "lite_status": "verified",
+        "lite_fail_count": 0,
+        "lite_evidence_hash": "ac06529f71b43315e1cbb7d6ed46e3cbf4c98d3d79062e0dab9147332b8a4a60",
+        "lite_reject_action": "",
+        "lite_replay_count": 0
+      },
+      "duration_seconds": 7.201,
+      "parent_unchanged": true
+    },
+    {
+      "case": "failed_post",
+      "conversation_id": "ac702448-bfa0-4596-95ec-693726796eab",
+      "executions": [
+        {
+          "command": [
+            "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+            "scripts/verify/all.py"
+          ],
+          "returncode": 1,
+          "stdout": "",
+          "stderr": "Traceback (most recent call last):\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/agy/detox-review/native-final/failed_post/scripts/verify/all.py\", line 3, in <module>\n    runpy.run_path(str(Path(__file__).parent/\"import/main.py\"), run_name=\"__main__\")\n  File \"<frozen runpy>\", line 287, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/Users/__blitzzz/Documents/GitHub/agy-background-agent/tmp/agy/detox-review/native-final/failed_post/scripts/verify/import/main.py\", line 6, in <module>\n    assert json.loads(good.stdout) == [[\"id\", \"label\"], [\"1\", \"a,b\"]], good.stdout\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: [[\"id\", \"label\"], [\"1\", \"\\\"a\", \"b\\\"\"]]\n\n"
+        }
+      ],
+      "hook": {
+        "command": [
+          "/Users/__blitzzz/Documents/GitHub/agy-background-agent/.venv/bin/python",
+          "/Users/__blitzzz/Documents/GitHub/agy-background-agent/hooks/session-sage.py",
+          "post_invocation"
+        ],
+        "returncode": 0,
+        "stdout": "{\"injectSteps\": [{\"userMessage\": \"\\u203b steering: Fix csv_import.py to preserve quoted commas and ensure scripts/verify/all.py passes with exit status 0.\"}], \"terminationBehavior\": \"force_continue\"}\n",
+        "stderr": ""
+      },
+      "audit": "[2026-09-12 19:37:17] New turn detected [ac702448-bfa0-4596-95ec-69372679_b78d8d92]; sage session cleared (fresh context)\n[2026-09-12 19:37:26] Lite verifier finished in 8.59s with Gemini 3.8 Flash (Low): FAIL\n[2026-09-12 19:37:26] Lite Mode verifier FAIL (strike 1/3): Fix csv_import.py to preserve quoted commas and ensure scripts/verify/all.py passes with exit status 0.\n",
+      "state": {
+        "turn_key": "dbd41e1c6ab5360cb2fa52c091feafb7ad4563d0a2a527d24911048b63e8655e",
+        "prompt_hash": "05e62be331e6fe2a4a1752957a1dbd86",
+        "recap_emitted": false,
+        "last_audited_line_count": 8,
+        "sage_status": "injecting",
+        "advisor_status": "injecting",
+        "lite_status": "auto-continue (x1)",
+        "lite_fail_count": 1,
+        "lite_evidence_hash": "369d6c87b959017ce2a380182a6f630c38c2b556c558290deddb9e7c614ce00a",
+        "lite_reject_action": "Fix csv_import.py to preserve quoted commas and ensure scripts/verify/all.py passes with exit status 0.",
+        "lite_replay_count": 0
+      },
+      "duration_seconds": 8.638,
+      "parent_unchanged": true
+    }
+  ],
+  "source_sha256": {
+    "sage/__init__.py": "a5f4ded36b0600ab440f96735dd56f257396b49343961eb86914e0b835e59663",
+    "sage/command_policy.py": "066bb8699b0e4743d05fbf033e22800652426213744054bc385b7a9345a8eca0",
+    "sage/config.py": "00ce59ada8d2862f9d0c76c0a238928cafc7026d654337dd6ec3760b47c05340",
+    "sage/executor.py": "b862748d4ab99035cb58a0158aa708402b001404dea6c275da107403768896b2",
+    "sage/git.py": "da10ce6dc737e07564e1f87d97187fff605e9f861494a9abdc47b7093a90758d",
+    "sage/guards.py": "ed9f9162c8aca4fa288180945bc11e27af417b9411454d5a46fdc494697b4528",
+    "sage/lite/__init__.py": "3bfb9403ebf5d75ae2060885f2c6057690ae7e28a2f18e6421b92b1047b8478b",
+    "sage/lite/evidence.py": "24637ac42f96240f756066b97f5bec86db26dd179fac5b0cb3a8edecc65fec26",
+    "sage/lite/fork.py": "d68446f60e6ff831013781e88ff4149ca7e1737e7a85f24e002d90229ac93223",
+    "sage/lite/gating.py": "dd462002b9dd3c8708f78b107c37e05f221a0c1e550a344d9b6da3e1435cca49",
+    "sage/lite/prompt.py": "a30c676721825208cc14b0af10b369313a3801870b909b24a7a7ec5a0ee960e3",
+    "sage/lite/proof_validator.py": "c0c028b737d786bd2aa18ab3056379ee95bc0553fc32ee64f454418b4de56f32",
+    "sage/lite/runner.py": "18ef2a598bd7dbc0c4277f14e33f19a4b24b2b716addcce2a41dbda4263015b7",
+    "sage/lite/schemas.py": "2ead9d46a21e31550856bba01f7803971e87c5012d69d33304acda30f2367924",
+    "sage/lite/verifier.py": "33a0c9a8039bd2fab9bd5ee2d6d6f8ce582d295aeb61139c44539a9df0abcec1",
+    "sage/locking.py": "ce4844fc887d7b102e491fba430b7f114296e8da4f1725c289ba6236066ced85",
+    "sage/models.py": "ee78587d13ae7cbcb05ffbbfd6c17c42fc3bb91b6b130ab2aa52071f03d9fb01",
+    "sage/sanitizer.py": "9cf75514cd6757aaec0191774602ad41c32708446fc22230fe0b358f1914680e",
+    "sage/session_state.py": "af28220a6c3ba05d0ffc3ffb0843f26a856997e5e50de21bdc6fdc32207ca677",
+    "sage/transcript.py": "efc03f6445f2af508376a99be0c0e10792b9c9184cc3ee4b606489c6c4230c3f",
+    "sage/user_context.py": "d55045b15385803c2218b0a8d6908cf46aded9d722a4ec4438aeb34b7255bc1e",
+    "sage/watchers.py": "6182f26daa4f5677f7333462d1235ce544d7395c31c8956f8c87bc30e1512eaa"
+  },
+  "evidence_limits": [
+    "Synthetic fixtures assess supplied records, not actual services or rendering.",
+    "Model action rationales inspected manually; no quantitative action-quality score.",
+    "Native cases cover Stop failure, repaired Stop success, and PostInvocation failure with parent database isolation.",
+    "Fail-open behavior is retained and marked unavailable or unverified.",
+    "No new hook installation, commit, push, or deployment."
+  ],
+  "local_validation": {
+    "pytest_passed": 282,
+    "subtests_passed": 360,
+    "ruff": "passed",
+    "diff_check": "passed",
+    "focused_tests_passed": 74,
+    "focused_subtests_passed": 5
+  }
+}

@@ -82,7 +82,9 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "advisor_status": sage_status,
         "lite_status": lite_status,
         "lite_fail_count": lite_fail_count,
+        "lite_evidence_hash": raw_state.get("lite_evidence_hash", "") if is_same else "",
+        "lite_reject_action": raw_state.get("lite_reject_action", "") if is_same else "",
+        "lite_replay_count": raw_state.get("lite_replay_count", 0) if is_same else 0,
     }
 
     return clean_prompt, state_file, state, is_same
-

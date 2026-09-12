@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from sage.lite.prompt import JUDGMENT_GUIDANCE, build_lite_verifier_prompt
-from sage.lite.verifier import generate_contextual_reject_action
+from sage.lite.verifier import run_lite_verification
 from scripts.verify.prompt.verify_adversarial import load_cases, score_output
 from scripts.verify.prompt.verify_live import evaluate_case
 
@@ -22,25 +22,6 @@ def test_current_evidence_is_preserved_without_inventing_clean_exit():
     assert prompt.count(JUDGMENT_GUIDANCE.strip()) == 1
 
 
-def test_judgment_reaches_rejection_synthesis_without_losing_failure_evidence(monkeypatch):
-    monkeypatch.delenv("AGY_LITE_MOCK_VERDICT", raising=False)
-    result = subprocess.CompletedProcess([], 0, "Rerun the restore path after the change.", "")
-    with patch("sage.lite.verifier.ensure_isolated_home", return_value="/tmp/test-home"), patch(
-        "sage.lite.verifier.subprocess.run", return_value=result,
-    ) as execute:
-        action = generate_contextual_reject_action(
-            "fixture", "Verify restore", "Fixed now", "Restore state not verified",
-            turn_execution_summary="restore exit 1; edit restore.sh; lint exit 0",
-            most_recent_terminal_cmd={"command": "lint restore.sh", "output": "exit 0"},
-        )
-    command = execute.call_args.args[0]
-    prompt = command[command.index("-p") + 1]
-    assert JUDGMENT_GUIDANCE.strip() in prompt
-    assert "restore exit 1; edit restore.sh; lint exit 0" in prompt
-    assert "Most recent terminal command: `lint restore.sh`" in prompt
-    assert "Restore state not verified" in prompt
-    assert "do NOT prescribe re-running that exact check" not in prompt
-    assert action == result.stdout
 
 
 @pytest.mark.parametrize("raw", ["", "not json", "{}", '{"verdict":"MAYBE"}', "[]"])
@@ -61,6 +42,24 @@ def test_evaluation_counts_false_positives_and_missed_failures_separately():
 def test_evaluation_rejects_empty_proof_or_missing_corrective_action():
     assert score_output(json.dumps({"verdict": "PASS", "action": "", "comment": "Done", "proof": []}), "PASS")[1] == "unsupported_pass"
     assert score_output(json.dumps({"verdict": "FAIL", "action": "", "comment": "", "proof": []}), "FAIL")[1] == "invalid_fail"
+
+
+def test_evaluation_rejects_completion_state_that_runtime_would_reject():
+    output = {"verdict": "FAIL", "completion": "complete", "action": "Check export", "comment": "", "proof": []}
+    assert score_output(json.dumps(output), "FAIL")[1] == "invalid_completion"
+
+
+def test_evaluation_accepts_fenced_json_supported_by_runtime():
+    output = {"verdict": "FAIL", "completion": "incomplete", "action": "Verify spreadsheet totals", "comment": "", "proof": []}
+    assert score_output("```json\n" + json.dumps(output) + "\n```", "FAIL")[1] == "matched"
+
+
+def test_evaluation_fails_wrong_completion_classification():
+    case = dict(load_cases()[0], expected="PASS", expected_completion="blocked")
+    stdout = json.dumps({"verdict": "PASS", "completion": "complete", "action": "", "comment": "Done", "proof": ["checked"]})
+    with patch("scripts.verify.prompt.verify_live.subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout, "")):
+        record = evaluate_case(case, build_lite_verifier_prompt, "test-model", 1, {}, "/tmp")
+    assert not record["completion_matches"] and record["status"] == "completion_mismatch"
 
 
 def test_evaluation_checks_process_status_and_hides_expected_label():

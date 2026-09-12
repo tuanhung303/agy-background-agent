@@ -57,6 +57,7 @@ def fail_safe_exit(reason=""):
 def emit_continue_response(message, is_post=None):
     post = is_post if is_post is not None else is_post_invocation()
     release_lock()
+    message = format_hook_message("steering", message)
     steps = [{"userMessage": message}] + get_pending_inbox_steps()
     payload = {"injectSteps": steps, "terminationBehavior": "force_continue"} if post else {"decision": "continue", "reason": message}
     print(json.dumps(payload))
@@ -220,4 +221,3 @@ def evaluate_turn_triggers(total_tool_calls, user_ts, sensitive_matches=None):
     if not (is_test or is_heavy or is_long or is_sens):
         fail_safe_exit(f"Conditions not met: turn_dur={turn_duration:.1f}s (<{TURN_DURATION_THRESHOLD}s), tool_calls={total_tool_calls} (<{TOOL_CALL_THRESHOLD})")
     return turn_duration
-

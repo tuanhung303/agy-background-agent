@@ -79,7 +79,7 @@ class TestLiteCLIIntegration(unittest.TestCase):
         self.assertEqual(data["terminationBehavior"], "force_continue")
         self.assertNotIn("decision", data, "PostInvocation protojson must not contain 'decision'")
         self.assertNotIn("reason", data, "PostInvocation protojson must not contain 'reason'")
-        self.assertEqual(data["injectSteps"][0]["userMessage"], "Write a regression test now.")
+        self.assertEqual(data["injectSteps"][0]["userMessage"], "※ steering: Write a regression test now.")
 
     def test_cli_post_invocation_pass_recap(self):
         """CLI out-of-process test: PostInvocation PASS returns clean stop with empty injectSteps."""
@@ -93,7 +93,7 @@ class TestLiteCLIIntegration(unittest.TestCase):
         env = dict(
             os.environ,
             HOME=self.test_dir,
-            AGY_LITE_MOCK_VERDICT="PASS:verified browser screenshot at /tmp/test.png.",
+            AGY_LITE_MOCK_VERDICT="PASS:CLI execution produced the expected records.",
             AGY_STOP_AUDIT_TEST="1",
         )
         res = subprocess.run(
@@ -109,8 +109,8 @@ class TestLiteCLIIntegration(unittest.TestCase):
         self.assertEqual(data["injectSteps"], [])
         self.assertNotIn("decision", data, "PostInvocation protojson must not contain 'decision'")
 
-    def test_cli_post_invocation_disqualified_proof_overridden_to_fail(self):
-        """CLI out-of-process test: PostInvocation PASS with only unit tests is overridden to FAIL and forces continue."""
+    def test_cli_mocked_bad_proof_is_unavailable_without_scripted_steering(self):
+        """CLI out-of-process test: An invalid mocked PASS has no model-generated steering to inject."""
         hook_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "hooks", "session-sage.py"))
         cid = f"{self.conv_id}_disq"
         payload = {
@@ -122,7 +122,7 @@ class TestLiteCLIIntegration(unittest.TestCase):
         env = dict(
             os.environ,
             HOME=self.test_dir,
-            AGY_LITE_MOCK_VERDICT="PASS:all unit tests passed with 37/37 pre-push tests.",
+            AGY_LITE_MOCK_VERDICT="PASS:Captured screenshot at /nonexistent-stop-fixture/missing.png.",
             AGY_STOP_AUDIT_TEST="1",
         )
         res = subprocess.run(
@@ -135,10 +135,9 @@ class TestLiteCLIIntegration(unittest.TestCase):
         self.assertEqual(res.returncode, 0, f"Hook failed with stderr: {res.stderr}")
         data = json.loads(res.stdout.strip())
         self.assertIn("injectSteps", data)
-        self.assertEqual(data["terminationBehavior"], "force_continue")
-        injected_msg = data["injectSteps"][0]["userMessage"]
-        self.assertTrue(len(injected_msg) > 10)
-        self.assertTrue(any(word in injected_msg.lower() for word in ["run", "test", "verification", "execute", "proof"]))
+        self.assertEqual(data["injectSteps"], [])
+        with open(f"/tmp/agy_sage_{safe_id(cid)}.json") as state_file:
+            self.assertEqual(json.load(state_file)["lite_status"], "unavailable")
 
     def test_cli_stop_hook_fail_decision(self):
         """CLI out-of-process test: Stop hook FAIL returns strict protojson continue decision & reason."""
@@ -167,7 +166,7 @@ class TestLiteCLIIntegration(unittest.TestCase):
         self.assertIn("decision", data)
         self.assertIn("reason", data)
         self.assertEqual(data["decision"], "continue")
-        self.assertEqual(data["reason"], "Please add failure injection test.")
+        self.assertEqual(data["reason"], "※ steering: Please add failure injection test.")
         self.assertNotIn("injectSteps", data, "Stop hook protojson must not contain 'injectSteps'")
         self.assertNotIn("terminationBehavior", data, "Stop hook protojson must not contain 'terminationBehavior'")
 
