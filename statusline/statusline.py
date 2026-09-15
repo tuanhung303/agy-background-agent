@@ -17,6 +17,30 @@ if _REPO_DIR not in sys.path:
 
 DEFAULT_EFFECTIVE_MAX_CTX = 250_000
 
+PASTEL_CONTEXT_STAGES = [
+    (0.0, (137, 180, 250)),   # pastel sky blue
+    (30.0, (148, 226, 213)),  # pastel teal
+    (50.0, (166, 227, 161)),  # pastel soft green
+    (70.0, (249, 226, 175)),  # pastel warm yellow
+    (85.0, (250, 179, 135)),  # pastel peach / orange
+    (92.0, (243, 139, 168)),  # pastel rose / coral red
+]
+
+
+def get_context_color(ctx_pct):
+    pct = max(0.0, min(100.0, float(ctx_pct)))
+    for i in range(len(PASTEL_CONTEXT_STAGES) - 1):
+        p1, c1 = PASTEL_CONTEXT_STAGES[i]
+        p2, c2 = PASTEL_CONTEXT_STAGES[i + 1]
+        if p1 <= pct <= p2:
+            t = (pct - p1) / (p2 - p1)
+            r = int(c1[0] + t * (c2[0] - c1[0]))
+            g = int(c1[1] + t * (c2[1] - c1[1]))
+            b = int(c1[2] + t * (c2[2] - c1[2]))
+            return f"\033[1;38;2;{r};{g};{b}m"
+    r, g, b = PASTEL_CONTEXT_STAGES[-1][1]
+    return f"\033[1;38;2;{r};{g};{b}m"
+
 
 def format_tokens(num):
     if not num:
@@ -272,8 +296,38 @@ def render_statusline(data):
 
     model_display = clean_model_name(raw_model)
 
-    # 2. Active Subagents & Lite Review Status (Left)
-    left_segments = [f"\033[1;34m{model_display}\033[0m"]
+    # 2. Context Window & Saturation Color
+    cw = data.get("context_window") if isinstance(data.get("context_window"), dict) else (data.get("context") if isinstance(data.get("context"), dict) else {})
+    cur_usage = cw.get("current_usage") if isinstance(cw.get("current_usage"), dict) else {}
+
+    # The effective compaction limit for agy CLI runtime is 250k tokens.
+    max_ctx = get_effective_max_context()
+
+    if cur_usage:
+        cur_ctx = (
+            cur_usage.get("input_tokens", 0)
+            + cur_usage.get("cache_read_input_tokens", 0)
+            + cur_usage.get("cache_creation_input_tokens", 0)
+            + cur_usage.get("output_tokens", 0)
+        )
+    elif cw.get("used_percentage") is not None and cw.get("context_window_size"):
+        reported_max = cw.get("context_window_size", 1_048_576)
+        cur_ctx = int(reported_max * (cw.get("used_percentage") / 100.0))
+    elif cw.get("total_input_tokens") is not None:
+        cur_ctx = cw.get("total_input_tokens", 0)
+    elif cw.get("input_tokens") is not None:
+        cur_ctx = cw.get("input_tokens", 0) + cw.get("output_tokens", 0)
+    else:
+        cur_ctx = cw.get("total_input_tokens", 0)
+
+    ck_count = get_checkpoint_count(data)
+    ck_str = f"\033[90m[\033[0m\033[35m{ck_count}\033[0m\033[90m]\033[0m" if ck_count > 0 else ""
+
+    ctx_pct = (cur_ctx / max_ctx * 100) if max_ctx > 0 else 0
+    model_color = get_context_color(ctx_pct)
+
+    # 3. Model Info, Checkpoint, Active Subagents & Lite Review Status (Left)
+    left_segments = [f"{model_color}{model_display}\033[0m{ck_str}"]
     conv_id = (
         data.get("conversation_id")
         or data.get("session_id")
@@ -312,37 +366,6 @@ def render_statusline(data):
     active_count = len(active_agents)
     if active_count > 0:
         left_segments.append(f"\033[1;35magents:{active_count}\033[0m")
-
-    # 3. Context Window (Right) & Checkpoint Count
-    cw = data.get("context_window") if isinstance(data.get("context_window"), dict) else (data.get("context") if isinstance(data.get("context"), dict) else {})
-    cur_usage = cw.get("current_usage") if isinstance(cw.get("current_usage"), dict) else {}
-
-    # The effective compaction limit for agy CLI runtime is 250k tokens.
-    max_ctx = get_effective_max_context()
-
-    if cur_usage:
-        cur_ctx = (
-            cur_usage.get("input_tokens", 0)
-            + cur_usage.get("cache_read_input_tokens", 0)
-            + cur_usage.get("cache_creation_input_tokens", 0)
-            + cur_usage.get("output_tokens", 0)
-        )
-    elif cw.get("used_percentage") is not None and cw.get("context_window_size"):
-        reported_max = cw.get("context_window_size", 1_048_576)
-        cur_ctx = int(reported_max * (cw.get("used_percentage") / 100.0))
-    elif cw.get("total_input_tokens") is not None:
-        cur_ctx = cw.get("total_input_tokens", 0)
-    elif cw.get("input_tokens") is not None:
-        cur_ctx = cw.get("input_tokens", 0) + cw.get("output_tokens", 0)
-    else:
-        cur_ctx = cw.get("total_input_tokens", 0)
-
-    ck_count = get_checkpoint_count(data)
-    ck_str = f"\033[90m[\033[0m\033[35m{ck_count}\033[0m\033[90m]\033[0m" if ck_count > 0 else ""
-
-    ctx_pct = (cur_ctx / max_ctx * 100) if max_ctx > 0 else 0
-    ctx_color = "\033[36m" if ctx_pct < 70 else "\033[33m" if ctx_pct < 85 else "\033[31m"
-    ctx_str = f"\033[90mctx:\033[0m{ctx_color}{format_tokens(cur_ctx)}/{format_tokens(max_ctx)}\033[0m{ck_str}"
 
     # 4. 5h Quota % and Countdown (Right)
     quota_data = data.get("quota") if isinstance(data.get("quota"), dict) else {}
@@ -388,7 +411,7 @@ def render_statusline(data):
     right_segments = []
     if adv_badges:
         right_segments.extend(adv_badges)
-    right_segments.extend([ctx_str, quota_5h_str])
+    right_segments.append(quota_5h_str)
     if quota_weekly_str:
         right_segments.append(quota_weekly_str)
 

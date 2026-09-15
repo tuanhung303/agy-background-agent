@@ -8,10 +8,12 @@ from unittest.mock import patch
 
 from statusline.statusline import (
     DEFAULT_EFFECTIVE_MAX_CTX,
+    PASTEL_CONTEXT_STAGES,
     calculate_seconds_left,
     clean_model_name,
     format_countdown,
     format_tokens,
+    get_context_color,
     get_effective_max_context,
     is_agent_active,
     render_statusline,
@@ -67,8 +69,19 @@ class TestStatusline(unittest.TestCase):
         with patch.dict(os.environ, {"AGY_MAX_CONTEXT_TOKENS": "invalid"}):
             self.assertEqual(get_effective_max_context(), 250_000)
 
-    def test_render_statusline_context_window_ceiling_250k(self):
-        data = {
+    def test_get_context_color_smooth_stages(self):
+        # Anchor checks
+        self.assertEqual(get_context_color(0), "\033[1;38;2;137;180;250m")
+        self.assertEqual(get_context_color(30), "\033[1;38;2;148;226;213m")
+        self.assertEqual(get_context_color(50), "\033[1;38;2;166;227;161m")
+        self.assertEqual(get_context_color(70), "\033[1;38;2;249;226;175m")
+        self.assertEqual(get_context_color(85), "\033[1;38;2;250;179;135m")
+        self.assertEqual(get_context_color(92), "\033[1;38;2;243;139;168m")
+        self.assertEqual(get_context_color(100), "\033[1;38;2;243;139;168m")
+
+    def test_render_statusline_context_window_saturation_colors(self):
+        # 1. Critical context (88.4%): interpolated color between peach and rose
+        data_critical = {
             "model": "Gemini 3.7 Flash (High)",
             "context_window": {
                 "total_input_tokens": 210597,
@@ -88,15 +101,34 @@ class TestStatusline(unittest.TestCase):
             },
             "terminal_width": 100,
         }
+        output_crit = render_statusline(data_critical)
+        expected_color_crit = get_context_color(220672 / 250000 * 100)
+        self.assertNotIn("ctx:", output_crit)
+        self.assertNotIn("/250k", output_crit)
+        self.assertIn(f"{expected_color_crit}3.7 flash [h]\033[0m", output_crit)
+        self.assertIn("25%", output_crit)
 
-        output = render_statusline(data)
-        # Should render 221k / 250k instead of 1.0M
-        self.assertIn("221k/250k", output)
-        self.assertNotIn("/1.0M", output)
-        self.assertIn("3.7 flash [h]", output)
-        self.assertIn("25%", output)
+        # 2. Warning context (180k / 250k = 72%): interpolated near warm yellow
+        data_warn = {
+            "model": "Gemini 3.7 Flash (High)",
+            "context_window": {"total_input_tokens": 180000},
+            "terminal_width": 100,
+        }
+        output_warn = render_statusline(data_warn)
+        expected_color_warn = get_context_color(180000 / 250000 * 100)
+        self.assertIn(f"{expected_color_warn}3.7 flash [h]\033[0m", output_warn)
 
-    def test_render_statusline_checkpoint_cp_badge(self):
+        # 3. Normal context (50k / 250k = 20%): interpolated between sky blue and teal
+        data_normal = {
+            "model": "Gemini 3.7 Flash (High)",
+            "context_window": {"total_input_tokens": 50000},
+            "terminal_width": 100,
+        }
+        output_norm = render_statusline(data_normal)
+        expected_color_norm = get_context_color(50000 / 250000 * 100)
+        self.assertIn(f"{expected_color_norm}3.7 flash [h]\033[0m", output_norm)
+
+    def test_render_statusline_checkpoint_badge(self):
         import re
         data = {
             "model": "Gemini 3.7 Flash (High)",
@@ -105,7 +137,8 @@ class TestStatusline(unittest.TestCase):
         }
         output = render_statusline(data)
         plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
-        self.assertIn("ctx:50k/250k[3]", plain)
+        self.assertIn("3.7 flash [h][3]", plain)
+        self.assertNotIn("ctx:", plain)
         self.assertNotIn("cp[3]", plain)
 
     def test_render_statusline_fallback(self):
@@ -114,11 +147,9 @@ class TestStatusline(unittest.TestCase):
         with patch("sage.config.LITE_MODE_ENABLED", False):
             output = render_statusline({})
             plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
-            self.assertIn("0/250k", plain)
             self.assertIn("0%", plain)
             self.assertIn("sage:idle", plain)
-            self.assertNotIn("str[", plain)
-            self.assertNotIn("rcp[", plain)
+            self.assertNotIn("ctx:", plain)
 
     def test_render_statusline_lite_mode_hides_sage_idle(self):
         import re
@@ -126,7 +157,6 @@ class TestStatusline(unittest.TestCase):
         with patch("sage.config.LITE_MODE_ENABLED", True):
             output = render_statusline({})
             plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
-            self.assertIn("0/250k", plain)
             self.assertIn("0%", plain)
             self.assertNotIn("sage:idle", plain)
 
