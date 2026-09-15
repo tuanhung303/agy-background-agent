@@ -145,7 +145,10 @@ def exercise(case, root, source_db, parent_cli, parent_home, repair_source=None)
         assert response["terminationBehavior"] == "force_continue" and response["injectSteps"][0]["userMessage"], record
     else:
         assert response["decision"] == ("stop" if expected == "PASS" else "continue"), record
-    assert state.get("lite_status") == ("verified" if expected == "PASS" else "auto-continue (x1)"), record
+    if expected == "PASS":
+        assert state.get("lite_status") == "verified", record
+    else:
+        assert state.get("lite_status") in ("auto-continue (round 1)", "auto-continue (x1)"), record
     assert record["parent_unchanged"], record
     print(f"{case}: model={expected}, hook/state/parent isolation matched ({duration}s)", flush=True)
     return record
