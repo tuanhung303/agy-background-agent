@@ -54,10 +54,19 @@ def run_lite_verification(
     turn_execution_summary: Optional[str] = None,
     image_manifest: Optional[list] = None,
     turn_provenance: Optional[dict] = None,
+    review_context: Optional[str] = None,
+    no_progress_count: int = 0,
 ) -> LiteVerdict:
     """Return a grounded verdict; every injected corrective action comes from the model."""
     mock_value = os.environ.get("AGY_LITE_MOCK_VERDICT", "").strip()
     if mock_value:
+        if mock_value.startswith("{") and mock_value.endswith("}"):
+            import json as _json
+            try:
+                data = _json.loads(mock_value)
+                return LiteVerdict.from_dict(data)
+            except Exception:
+                return _unavailable()
         kind, _, content = mock_value.partition(":")
         data = {"verdict": kind, "action": content if kind == "FAIL" else "",
                 "comment": content if kind == "PASS" else "", "proof": [content] if kind == "PASS" and content else []}
@@ -77,6 +86,8 @@ def run_lite_verification(
                 user_prompt, last_agent_output, turn_execution_summary=turn_execution_summary,
                 image_manifest=image_manifest, turn_provenance=turn_provenance,
                 integrity_diagnostic=diagnostic,
+                review_context=review_context,
+                no_progress_count=no_progress_count,
             )
             verdict = _execute_verdict(prompt, fork_conv_id, deadline, cwd)
             if verdict.verdict == "FAIL" or verdict.completion == "unavailable":

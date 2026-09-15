@@ -72,6 +72,9 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
     sage_status = (raw_state.get("sage_status") or raw_state.get("advisor_status", "hold")) if is_same else "hold"
     lite_status = str(raw_state.get("lite_status", "")) if is_same else ""
     lite_fail_count = int(raw_state.get("lite_fail_count", 0)) if is_same else 0
+    lite_total_rounds = int(raw_state.get("lite_total_rounds", 0)) if is_same else 0
+    lite_no_progress_count = int(raw_state.get("lite_no_progress_count", 0)) if is_same else 0
+    lite_unresolved_findings = raw_state.get("lite_unresolved_findings", []) if is_same else []
 
     state = {
         "turn_key": turn_key,
@@ -82,9 +85,13 @@ def load_and_sync_session_state(conv_id: str, transcript_path: str, raw_user_pro
         "advisor_status": sage_status,
         "lite_status": lite_status,
         "lite_fail_count": lite_fail_count,
+        "lite_total_rounds": lite_total_rounds,
+        "lite_no_progress_count": lite_no_progress_count,
         "lite_evidence_hash": raw_state.get("lite_evidence_hash", "") if is_same else "",
+        "lite_review_fingerprint": raw_state.get("lite_review_fingerprint", "") if is_same else "",
         "lite_reject_action": raw_state.get("lite_reject_action", "") if is_same else "",
         "lite_replay_count": raw_state.get("lite_replay_count", 0) if is_same else 0,
+        "lite_unresolved_findings": lite_unresolved_findings if isinstance(lite_unresolved_findings, list) else [],
     }
 
     return clean_prompt, state_file, state, is_same

@@ -32,7 +32,7 @@ def score_output(stdout, expected):
     if not isinstance(result, dict) or result.get("verdict") not in ("PASS", "FAIL"):
         return result, "invalid_verdict"
     completion = result.get("completion")
-    allowed = ("complete", "blocked") if result["verdict"] == "PASS" else ("incomplete",)
+    allowed = ("complete", "blocked") if result["verdict"] == "PASS" else ("incomplete", "stalled")
     if completion is not None and completion not in allowed:
         return result, "invalid_completion"
     if not all(isinstance(result.get(key), str) for key in ("action", "comment")):

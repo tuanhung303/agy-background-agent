@@ -10,7 +10,10 @@ class LiteVerdict:
     comment: str = ""
     proof: List[str] = field(default_factory=list)
     update_knowledge: bool = False
-    completion: Literal["complete", "blocked", "incomplete", "unavailable"] = "complete"
+    completion: Literal["complete", "blocked", "incomplete", "stalled", "unavailable"] = "complete"
+    progress_observed: bool = False
+    progress_summary: str = ""
+    unresolved_findings: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -20,6 +23,9 @@ class LiteVerdict:
             "proof": self.proof,
             "update_knowledge": self.update_knowledge,
             "completion": self.completion,
+            "progress_observed": self.progress_observed,
+            "progress_summary": self.progress_summary,
+            "unresolved_findings": self.unresolved_findings,
         }
 
     @classmethod
@@ -30,11 +36,38 @@ class LiteVerdict:
         verdict = data["verdict"]
         if verdict == "FAIL":
             action = data.get("action")
-            if not isinstance(action, str) or not action.strip() or data.get("completion", "incomplete") != "incomplete":
-                raise ValueError("FAIL requires a corrective action and incomplete completion")
-            # Preserve an explicit rejection even if the model adds explanatory
-            # fields contrary to the requested output format.
-            return cls(verdict="FAIL", action=action.strip(), completion="incomplete")
+            raw_comp = data.get("completion", "incomplete")
+            if not isinstance(raw_comp, str) or raw_comp.strip().lower() not in ("incomplete", "stalled"):
+                completion = "incomplete"
+            else:
+                completion = raw_comp.strip().lower()
+            if not isinstance(action, str) or not action.strip():
+                raise ValueError("FAIL requires a corrective action")
+
+            raw_progress = data.get("progress_observed")
+            if raw_progress is None:
+                raw_progress = data.get("progress")
+            if isinstance(raw_progress, bool):
+                progress_observed = raw_progress
+            elif isinstance(raw_progress, str):
+                progress_observed = raw_progress.strip().lower() in ("true", "1", "yes", "on", "enable", "enabled")
+            elif isinstance(raw_progress, (int, float)):
+                progress_observed = bool(raw_progress)
+            else:
+                progress_observed = False
+
+            progress_summary = str(data.get("progress_summary") or "").strip()
+            raw_unres = data.get("unresolved_findings", [])
+            unresolved_findings = [str(x).strip() for x in raw_unres if str(x).strip()] if isinstance(raw_unres, list) else []
+
+            return cls(
+                verdict="FAIL",
+                action=action.strip(),
+                completion=completion,
+                progress_observed=progress_observed,
+                progress_summary=progress_summary,
+                unresolved_findings=unresolved_findings,
+            )
         if not all(isinstance(data.get(key, ""), str) for key in ("action", "comment")):
             raise ValueError("Verdict action and comment must be strings")
         action = data.get("action", "").strip()
