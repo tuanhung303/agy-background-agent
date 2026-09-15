@@ -10,6 +10,7 @@ from sage.lite.evidence import (
     READ_TOOLS,
     WRITE_TOOLS,
     clean_tool_output_snippet,
+    detect_visual_verification_gap,
     extract_command_from_args,
     extract_image_from_args,
     extract_path_from_args,
@@ -222,6 +223,13 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
             image_files.add(match)
 
     tool_exec_summary = "\n".join(tool_summary_lines) if tool_summary_lines else "(No tool calls executed in current turn)"
+    visual_diagnostic = detect_visual_verification_gap(
+        written_files=written_files,
+        user_prompt=true_user_prompt,
+        executed_commands=executed_commands,
+        inspected_files=inspected_files,
+        has_mutation=has_mutation,
+    )
     return {
         "has_mutation": has_mutation,
         "mutation_reason": mutation_reason,
@@ -239,6 +247,7 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
         "tool_executions_summary": tool_exec_summary,
         "has_asked_question": has_asked_question,
         "most_recent_terminal_cmd": most_recent_terminal_cmd,
+        "visual_verification_diagnostic": visual_diagnostic,
     }
 
 

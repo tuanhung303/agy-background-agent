@@ -63,6 +63,74 @@ IMAGE_PATH_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+VISUAL_DELIVERABLE_EXTENSIONS: Tuple[str, ...] = (
+    ".html", ".htm", ".pptx", ".ppt", ".pdf", ".css",
+)
+
+VISUAL_DELIVERABLE_KEYWORDS: Tuple[str, ...] = (
+    "slide", "deck", "presentation", "layout", "theme", "blitzz-design",
+    "powerpoint", "hld deck", "dashboard",
+)
+
+VISUAL_RENDER_COMMANDS: Tuple[str, ...] = (
+    "soffice", "libreoffice", "pdftoppm", "officecli", "playwright",
+    "puppeteer", "shot-scraper", "chromium", "chrome", "wkhtmltopdf",
+    "weasyprint", "validate-html-layout",
+)
+
+
+def _is_actual_render_command(cmd: str) -> bool:
+    cmd_lower = cmd.lower()
+    if any(p in cmd_lower for p in ('echo "no ', "echo 'no ", "which ", "--version", "import playwright;")):
+        return False
+    patterns = (
+        r"pdftoppm\s+",
+        r"soffice\s+.*--convert-to",
+        r"libreoffice\s+.*--convert-to",
+        r"playwright\s+screenshot",
+        r"shot-scraper\s+",
+        r"validate-html-layout",
+        r"officecli\s+render",
+    )
+    return any(re.search(p, cmd_lower) for p in patterns)
+
+
+def _is_preview_image(path: str) -> bool:
+    p_lower = path.lower()
+    if not p_lower.endswith((".png", ".jpg", ".jpeg", ".webp")):
+        return False
+    if "/icons/" in p_lower or "/assets/icons" in p_lower:
+        return False
+    return True
+
+
+def detect_visual_verification_gap(
+    written_files: Set[str],
+    user_prompt: str,
+    executed_commands: List[str],
+    inspected_files: Set[str],
+    has_mutation: bool,
+) -> Optional[str]:
+    """Detects when visual presentation/layout artifacts were modified without rendering inspection."""
+    visual_files = {f for f in written_files if f.lower().endswith(VISUAL_DELIVERABLE_EXTENSIONS)}
+    prompt_lower = (user_prompt or "").lower()
+    has_visual_request = any(kw in prompt_lower for kw in VISUAL_DELIVERABLE_KEYWORDS)
+    if not visual_files and not (has_visual_request and has_mutation):
+        return None
+
+    has_render_cmd = any(_is_actual_render_command(c) for c in executed_commands)
+    has_image_inspect = any(_is_preview_image(f) for f in inspected_files)
+    if has_render_cmd or has_image_inspect:
+        return None
+
+    targets = sorted(list(visual_files)) if visual_files else ["visual layout / presentation artifacts"]
+    return (
+        f"Visual deliverables were modified or requested ({targets}), but NO visual rendering, "
+        "headless browser capture, or image preview tool (e.g., soffice, pdftoppm, playwright, officecli) "
+        "was executed to inspect the rendered layout. Text-based regex, AST parsing, and programmatic "
+        "shape-counting (such as python-pptx shape loops) DO NOT verify visual layout or formatting correctness."
+    )
+
 
 def normalize_tool_args(tool_args: Any, tool_name: str = "") -> Dict[str, Any]:
     """Normalizes string or dictionary tool arguments, parsing JSON or raw command strings."""

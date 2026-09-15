@@ -92,7 +92,10 @@ def run_lite_verification(
             verdict = _execute_verdict(prompt, fork_conv_id, deadline, cwd)
             if verdict.verdict == "FAIL" or verdict.completion == "unavailable":
                 return verdict
-            valid, reason = validate_empirical_proof(verdict.proof)
+            if verdict.verdict == "PASS" and turn_provenance and turn_provenance.get("visual_verification_diagnostic"):
+                valid, reason = False, "Unrendered visual deliverable: " + str(turn_provenance["visual_verification_diagnostic"])
+            else:
+                valid, reason = validate_empirical_proof(verdict.proof)
             if valid:
                 return verdict
             log_audit(f"Lite verifier proof contradiction: {reason}")
