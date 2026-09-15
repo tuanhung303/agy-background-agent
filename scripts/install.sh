@@ -30,9 +30,8 @@ if [[ ! -f "$STATUSLINE_SRC" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$PROMPT_SRC" ]]; then
-  echo "Error: Sage prompt file not found at $PROMPT_SRC" >&2
-  exit 1
+if [[ -f "$PROMPT_SRC" ]]; then
+  chmod +x "$PROMPT_SRC" 2>/dev/null || true
 fi
 
 chmod +x "$SAGE_SRC" "$ENFORCE_SRC" "$TIMER_SRC" "$STATUSLINE_SRC"
@@ -57,9 +56,11 @@ ln -sf "$ENFORCE_SRC" "$HOME/.gemini/config/hooks/sage-enforce.py"
 echo "✓ Symlinked sage-enforce.py"
 
 # 3. sage prompt symlink (and legacy advisor_prompt compatibility link)
-ln -sf "$PROMPT_SRC" "$HOME/.config/agy/sage_prompt.md"
-ln -sf "$PROMPT_SRC" "$HOME/.config/agy/advisor_prompt.md"
-echo "✓ Symlinked sage_prompt.md (with advisor_prompt.md compatibility link)"
+if [[ -f "$PROMPT_SRC" ]]; then
+  ln -sf "$PROMPT_SRC" "$HOME/.config/agy/sage_prompt.md"
+  ln -sf "$PROMPT_SRC" "$HOME/.config/agy/advisor_prompt.md"
+  echo "✓ Symlinked sage_prompt.md (with advisor_prompt.md compatibility link)"
+fi
 
 # 4. command-timer symlinks
 ln -sf "$TIMER_SRC" "$HOME/.config/agy/command-timer.py"
@@ -145,5 +146,5 @@ PYEOF
 echo "✓ Verified and updated hooks.json configuration"
 
 echo "Verifying symlink destinations:"
-ls -l "$HOME/.config/agy/session-sage.py" "$HOME/.gemini/config/hooks/session-sage.py" "$HOME/.config/agy/sage-enforce.py" "$HOME/.gemini/config/hooks/sage-enforce.py" "$HOME/.config/agy/session-advisor.py" "$HOME/.gemini/config/hooks/command-timer.py" "$HOME/.config/agy/statusline.py" "$HOME/.config/agy/sage_prompt.md" "$HOME/.config/agy/advisor_prompt.md"
+ls -l "$HOME/.config/agy/session-sage.py" "$HOME/.gemini/config/hooks/session-sage.py" "$HOME/.config/agy/sage-enforce.py" "$HOME/.gemini/config/hooks/sage-enforce.py" "$HOME/.config/agy/session-advisor.py" "$HOME/.gemini/config/hooks/command-timer.py" "$HOME/.config/agy/statusline.py"
 echo "Installation complete."
