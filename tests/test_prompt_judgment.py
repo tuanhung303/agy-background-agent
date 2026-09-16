@@ -22,6 +22,14 @@ def test_current_evidence_is_preserved_without_inventing_clean_exit():
     assert prompt.count(JUDGMENT_GUIDANCE.strip()) == 1
 
 
+def test_verifier_prompt_includes_adversarial_challenge_strategies():
+    prompt = build_lite_verifier_prompt("Review dashboard and calculate metrics", "Done")
+    assert "Clean-room verification for UI, charts, and visual surfaces" in prompt
+    assert "Independent reconciliation for data pipelines, SQL, and computed metrics" in prompt
+    assert "Differential testing for algorithmic logic and state refactoring" in prompt
+
+
+
 
 
 @pytest.mark.parametrize("raw", ["", "not json", "{}", '{"verdict":"MAYBE"}', "[]"])
