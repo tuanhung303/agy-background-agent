@@ -133,13 +133,110 @@ def read_stdin_json() -> Dict[str, Any]:
         return {}
 
 
-def classify_duration(dur: float) -> Tuple[str, Optional[str]]:
+def classify_command_guidance(cmd: str, dur: float) -> Tuple[str, Optional[str], Optional[str]]:
+    """Classifies execution duration using command intent, pattern heuristics, and anti-pattern detection.
+
+    Returns:
+        (tier, note, tip)
+    """
+    if dur > 900.0:
+        return (
+            "FORBIDDEN_EXCEEDED_LIMIT",
+            f"Command exceeded 15 minutes limit ({dur:.1f}s). Running synchronous blocking commands >15m is forbidden.",
+            "Use background execution (WaitMsBeforeAsync) or split the task into independent steps.",
+        )
+
+    c = cmd.strip() if cmd else ""
+
+    # 1. Search operations (find, grep, rg, fd)
+    if re.search(r"\b(grep|rg|find|fd|locate|ack)\b", c):
+        if dur <= 5.0:
+            return "OK", None, None
+        tier = "SEARCH_SLOW_UNINDEXED" if dur <= 20.0 else "SEARCH_HEAVY_SCAN"
+        note = f"Search took {dur:.1f}s (> 5s). Broad file scan detected."
+        if re.search(r"\bgrep\s+-[a-zA-Z]*r", c) and not re.search(r"--exclude(-dir)?", c):
+            tip = "Use Antigravity native tool grep_search or add --exclude-dir={.git,node_modules,.venv,dist,target}."
+        elif re.search(r"\bfind\s+", c) and not re.search(r"-maxdepth|-prune", c):
+            tip = "Use Antigravity native tool find_by_name or add -maxdepth 3 and directory pruning."
+        else:
+            tip = "Prefer native tools grep_search or find_by_name (auto-capped at 50 results and respect .gitignore)."
+        return tier, note, tip
+
+    # 2. Test execution (pytest, vitest, cargo test, go test)
+    if re.search(r"\b(pytest|vitest|jest|cargo\s+test|go\s+test)\b", c) or re.search(r"\b(npm|pnpm|yarn)\s+test\b", c):
+        if dur <= 15.0:
+            return "OK", None, None
+        tier = "TEST_SUITE_UNSCOPED" if dur <= 45.0 else "TEST_SUITE_LONG_RUNNING"
+        note = f"Test execution took {dur:.1f}s (> 15s)."
+        if re.search(r"\bpytest\b", c) and not re.search(r"tests?/|\.py|-k\b", c):
+            tip = "Scope pytest to specific test file or use -k <expression> and -x (--fail-fast)."
+        else:
+            tip = "Scope tests to target files or offload to background (WaitMsBeforeAsync: 1000)."
+        return tier, note, tip
+
+    # 3. Build & Package management (npm, pip, cargo build, docker)
+    if (
+        re.search(r"\b(npm|pnpm|yarn)\s+(install|i|ci|build|run\s+build)\b", c)
+        or re.search(r"\b(pip|pip3|uv\s+pip)\s+install\b", c)
+        or re.search(r"\b(cargo|go)\s+build\b", c)
+        or re.search(r"\bdocker\s+(build|compose)\b", c)
+    ):
+        if dur <= 30.0:
+            return "OK", None, None
+        tier = "BUILD_CONSIDER_BACKGROUND" if dur <= 90.0 else "BUILD_HEAVY_BACKGROUND_RECOMMENDED"
+        note = f"Build/package install took {dur:.1f}s (> 30s)."
+        if re.search(r"\bpip3?\s+install\b", c):
+            tip = "Use 'uv pip install' for faster resolution or offload to background (WaitMsBeforeAsync: 1000)."
+        else:
+            tip = "Offload long-running builds/installs to background (WaitMsBeforeAsync: 1000) or check caching."
+        return tier, note, tip
+
+    # 4. Git operations (git log, git diff)
+    if re.search(r"\bgit\s+(log|diff|status|show|branch)\b", c):
+        if dur <= 5.0:
+            return "OK", None, None
+        tier = "GIT_UNPAGED_OR_UNSCOPED" if dur <= 25.0 else "GIT_HEAVY_DIFF"
+        note = f"Git operation took {dur:.1f}s (> 5s)."
+        if re.search(r"\bgit\s+log\b", c) and not re.search(r"-(n\b|\d+|max-count)", c):
+            tip = "Pass -n 20 or --oneline to limit git log output size."
+        elif re.search(r"\bgit\s+diff\b", c) and not re.search(r"--stat|--name-only", c):
+            tip = "Pass specific file paths or --stat to avoid massive diff output."
+        else:
+            tip = "Limit git query scope or specify paths."
+        return tier, note, tip
+
+    # 5. Network operations (curl, wget, git clone)
+    if re.search(r"\b(curl|wget|git\s+clone|rsync|scp)\b", c):
+        if dur <= 10.0:
+            return "OK", None, None
+        tier = "NETWORK_TIMEOUT_RECOMMENDED" if dur <= 30.0 else "NETWORK_SLOW_OR_BLOCKING"
+        note = f"Network operation took {dur:.1f}s (> 10s)."
+        if re.search(r"\bcurl\b", c) and not re.search(r"--max-time|-m\b", c):
+            tip = "Add --max-time 15 or --connect-timeout 5 to prevent hanging requests."
+        elif re.search(r"\bgit\s+clone\b", c) and not re.search(r"--depth\b", c):
+            tip = "Use --depth 1 for shallow clone to reduce download overhead."
+        else:
+            tip = "Check network connection or specify timeout flags."
+        return tier, note, tip
+
+    # 6. General commands / fallback
     for max_sec, tier, template in TIERS:
         if dur <= max_sec:
-            guidance = template.format(dur=dur) if template else None
-            return tier, guidance
+            note = template.format(dur=dur) if template else None
+            return tier, note, "Optimize command arguments, filtering, or scoping." if note else None
+
     tier, template = TIERS[-1][1], TIERS[-1][2]
-    return tier, template.format(dur=dur) if template else None
+    note = template.format(dur=dur) if template else None
+    return tier, note, "Use background execution or split the task."
+
+
+def classify_duration(dur: float, cmd: str = "") -> Tuple[str, Optional[str]]:
+    """Backward-compatible duration classification returning (tier, guidance)."""
+    tier, note, tip = classify_command_guidance(cmd, dur)
+    if not note:
+        return tier, None
+    guidance = f"{note} Tip: {tip}" if tip and ("Tip:" not in note) else note
+    return tier, guidance
 
 
 def _state_matches_call(state: Dict[str, Any], step_idx: Any) -> bool:
@@ -215,10 +312,10 @@ def handle_post_tool(payload: Dict[str, Any]) -> None:
             except Exception as exc:
                 sys.stderr.write(f"[command_timer] parse state error: {exc}\n")
 
-        tier, guidance = classify_duration(dur)
+        tier, note, tip = classify_command_guidance(cmd, dur)
 
         # If non-OK tier, store bounded feedback
-        if guidance:
+        if note:
             feedback_file = get_feedback_file(conv_id)
             feedback_list: List[Dict[str, Any]] = []
             if feedback_file.exists():
@@ -233,10 +330,13 @@ def handle_post_tool(payload: Dict[str, Any]) -> None:
             if len(feedback_list) >= MAX_FEEDBACK_ITEMS:
                 feedback_list = feedback_list[-(MAX_FEEDBACK_ITEMS - 1):]
 
+            guidance = f"{note} Tip: {tip}" if tip and ("Tip:" not in note) else note
             feedback_list.append({
                 "command": cmd,
                 "duration": round(dur, 2),
                 "tier": tier,
+                "note": note,
+                "tip": tip,
                 "guidance": guidance,
                 "error": str(error) if error else None,
                 "timestampMono": now_mono,
@@ -276,26 +376,46 @@ def handle_pre_invocation(payload: Dict[str, Any]) -> None:
             try:
                 items = json.loads(feedback_file.read_text(encoding="utf-8"))
                 if isinstance(items, list) and items:
-                    messages: List[str] = []
-                    for item in items:
+                    if len(items) == 1:
+                        item = items[0]
                         tier = item.get("tier", "INFO")
                         cmd = item.get("command", "")
                         dur = item.get("duration", 0.0)
                         guidance = item.get("guidance", "")
-                        prefix = "⚠️" if "IMPROVE" in tier or "FILTER" in tier else ("🚨" if "FORBIDDEN" in tier else "💡")
-                        messages.append(
+                        prefix = (
+                            "⚠️"
+                            if (
+                                "IMPROVE" in tier
+                                or "FILTER" in tier
+                                or "UNSCOPED" in tier
+                                or "SLOW" in tier
+                                or "TIMEOUT" in tier
+                            )
+                            else ("🚨" if "FORBIDDEN" in tier else "💡")
+                        )
+                        combined_msg = (
                             f"{prefix} [Command Timer - {tier}]\n"
                             f"- Command: `{cmd}`\n"
                             f"- Duration: {dur}s\n"
                             f"- Note: {guidance}"
                         )
-                    if messages:
-                        combined_msg = "\n\n".join(messages)
-                        if len(combined_msg) > MAX_INJECTED_CHARS:
-                            combined_msg = combined_msg[:MAX_INJECTED_CHARS - 40] + "\n... [Additional feedback truncated]"
-                        inject_steps.append({
-                            "ephemeralMessage": combined_msg
-                        })
+                    else:
+                        lines = [f"⚠️ [Command Timer - {len(items)} Slow Commands Detected]"]
+                        for i, item in enumerate(items, 1):
+                            tier = item.get("tier", "INFO")
+                            cmd = item.get("command", "")
+                            dur = item.get("duration", 0.0)
+                            tip = item.get("tip") or item.get("guidance", "")
+                            lines.append(f"{i}. `{cmd}` ({dur}s) - {tier}")
+                            if tip:
+                                lines.append(f"   Tip: {tip}")
+                        combined_msg = "\n".join(lines)
+
+                    if len(combined_msg) > MAX_INJECTED_CHARS:
+                        combined_msg = combined_msg[:MAX_INJECTED_CHARS - 40] + "\n... [Additional feedback truncated]"
+                    inject_steps.append({
+                        "ephemeralMessage": combined_msg
+                    })
             except Exception as exc:
                 sys.stderr.write(f"[command_timer] pre_invocation read feedback error: {exc}\n")
             finally:

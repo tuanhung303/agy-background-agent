@@ -123,6 +123,91 @@ class TestCommandTimer(unittest.TestCase):
         self.assertIn("IMPROVE_NEXT_TIME", steps[0]["ephemeralMessage"])
         self.assertIn("10s - 30s", steps[0]["ephemeralMessage"])
 
+    def test_intent_aware_classification_and_rewrites(self):
+        command_timer = _load_command_timer()
+
+        # 1. Search anti-patterns
+        tier, note, tip = command_timer.classify_command_guidance("grep -r 'needle' .", 8.0)
+        self.assertEqual(tier, "SEARCH_SLOW_UNINDEXED")
+        self.assertIn("grep_search", tip)
+        self.assertIn("--exclude-dir", tip)
+
+        tier, note, tip = command_timer.classify_command_guidance("find . -name '*.py'", 12.0)
+        self.assertEqual(tier, "SEARCH_SLOW_UNINDEXED")
+        self.assertIn("find_by_name", tip)
+        self.assertIn("-maxdepth", tip)
+
+        # 2. Test runner unscoped vs OK
+        tier, note, tip = command_timer.classify_command_guidance("pytest", 20.0)
+        self.assertEqual(tier, "TEST_SUITE_UNSCOPED")
+        self.assertIn("-k", tip)
+
+        tier, note, tip = command_timer.classify_command_guidance("pytest tests/test_foo.py", 10.0)
+        self.assertEqual(tier, "OK")
+        self.assertIsNone(note)
+
+        # 3. Build & Package install: <= 30s is OK, > 30s suggests background/uv
+        tier, note, tip = command_timer.classify_command_guidance("npm install", 25.0)
+        self.assertEqual(tier, "OK")
+        self.assertIsNone(note)
+
+        tier, note, tip = command_timer.classify_command_guidance("npm install", 45.0)
+        self.assertEqual(tier, "BUILD_CONSIDER_BACKGROUND")
+        self.assertIn("WaitMsBeforeAsync", tip)
+
+        tier, note, tip = command_timer.classify_command_guidance("pip install torch", 35.0)
+        self.assertEqual(tier, "BUILD_CONSIDER_BACKGROUND")
+        self.assertIn("uv pip install", tip)
+
+        # 4. Git unbounded operations
+        tier, note, tip = command_timer.classify_command_guidance("git log", 8.0)
+        self.assertEqual(tier, "GIT_UNPAGED_OR_UNSCOPED")
+        self.assertIn("-n 20", tip)
+
+        # 5. Network operations
+        tier, note, tip = command_timer.classify_command_guidance("curl https://example.com", 15.0)
+        self.assertEqual(tier, "NETWORK_TIMEOUT_RECOMMENDED")
+        self.assertIn("--max-time", tip)
+
+        # 6. Exceeded limit
+        tier, note, tip = command_timer.classify_command_guidance("npm run long-build", 950.0)
+        self.assertEqual(tier, "FORBIDDEN_EXCEEDED_LIMIT")
+
+    def test_multi_command_grouped_pre_invocation(self):
+        command_timer = _load_command_timer()
+        feedback_file = command_timer.get_feedback_file(self.conv_id)
+
+        feedback_items = [
+            {
+                "command": "grep -r 'todo' .",
+                "duration": 12.5,
+                "tier": "SEARCH_SLOW_UNINDEXED",
+                "note": "Search took 12.5s (> 5s).",
+                "tip": "Use Antigravity native tool grep_search",
+                "guidance": "Search took 12.5s. Tip: Use Antigravity native tool grep_search",
+            },
+            {
+                "command": "git log",
+                "duration": 9.2,
+                "tier": "GIT_UNPAGED_OR_UNSCOPED",
+                "note": "Git operation took 9.2s (> 5s).",
+                "tip": "Pass -n 20 or --oneline to limit git log",
+                "guidance": "Git operation took 9.2s. Tip: Pass -n 20",
+            },
+        ]
+        feedback_file.write_text(json.dumps(feedback_items), encoding="utf-8")
+
+        invoc = self.run_hook("pre_invocation", {"conversationId": self.conv_id})
+        steps = invoc.get("injectSteps", [])
+        self.assertEqual(len(steps), 1)
+
+        msg = steps[0]["ephemeralMessage"]
+        self.assertIn("2 Slow Commands Detected", msg)
+        self.assertIn("1. `grep -r 'todo' .` (12.5s) - SEARCH_SLOW_UNINDEXED", msg)
+        self.assertIn("Tip: Use Antigravity native tool grep_search", msg)
+        self.assertIn("2. `git log` (9.2s) - GIT_UNPAGED_OR_UNSCOPED", msg)
+        self.assertIn("Tip: Pass -n 20", msg)
+
 
 if __name__ == "__main__":
     unittest.main()
