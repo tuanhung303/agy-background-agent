@@ -10,7 +10,7 @@ class LiteVerdict:
     comment: str = ""
     proof: List[str] = field(default_factory=list)
     update_knowledge: bool = False
-    completion: Literal["complete", "blocked", "incomplete", "stalled", "unavailable"] = "complete"
+    completion: Literal["complete", "blocked", "incomplete", "stalled", "unavailable", "timed_out"] = "complete"
     progress_observed: bool = False
     progress_summary: str = ""
     unresolved_findings: List[str] = field(default_factory=list)

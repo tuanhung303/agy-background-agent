@@ -62,8 +62,11 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     if get_active_external_panes(transcript_path):
         fail_safe_exit("Active external panes streaming")
 
+    ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths") or []
+    workspace_root = resolve_workspace_root(ws_paths)
+
     # 4. Mutation gating check & turn provenance distillation
-    turn_provenance = extract_turn_execution_provenance(steps)
+    turn_provenance = extract_turn_execution_provenance(steps, workspace_root=workspace_root)
     has_mutation = turn_provenance["has_mutation"]
     reason = turn_provenance["mutation_reason"]
     true_user_prompt = turn_provenance["true_user_prompt"]
@@ -72,9 +75,6 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     # Load session state for circuit breaker & statusline
     _, state_file, state, _ = load_and_sync_session_state(conv_id, transcript_path, true_user_prompt)
     fail_count = int(state.get("lite_fail_count", 0))
-
-    ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths") or []
-    workspace_root = resolve_workspace_root(ws_paths)
 
     persistent_cfg = _safe_bool_multi(("AGY_LITE_PERSISTENT_MODE", "AGY_STOP_AUDIT_PERSISTENT_MODE", "AGY_PERSISTENT_REVIEW"), LITE_PERSISTENT_MODE)
     review_record_path = resolve_review_record_path(
@@ -162,9 +162,10 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
             verifier_output=verdict.action,
         )
 
-    if verdict.completion == "unavailable":
-        save_session_state(state_file, state, sage_status="idle", lite_status="unavailable")
-        fail_safe_exit("Lite Mode verifier unavailable; work has not been verified.")
+    if verdict.completion in ("unavailable", "timed_out"):
+        status_label = "timed_out" if verdict.completion == "timed_out" else "unavailable"
+        save_session_state(state_file, state, sage_status="idle", lite_status=status_label)
+        fail_safe_exit(f"Lite Mode verifier {status_label}; work has not been verified.")
         return
 
     if verdict.completion == "stalled":

@@ -10,6 +10,7 @@ from sage.lite.evidence import (
     READ_TOOLS,
     WRITE_TOOLS,
     clean_tool_output_snippet,
+    detect_blast_radius_gap,
     detect_visual_verification_gap,
     extract_command_from_args,
     extract_image_from_args,
@@ -67,7 +68,7 @@ def is_mutating_tool_call(tool_name: str, tool_args: Any) -> bool:
 _clean_tool_output_snippet = clean_tool_output_snippet
 
 
-def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, Any]:
+def extract_turn_execution_provenance(steps: List[Dict[str, Any]], workspace_root: str = "") -> Dict[str, Any]:
     """Extracts mutations, timestamps, tool calls, tool outputs, and provenance artifacts for the current turn."""
     empty_res = {
         "has_mutation": False,
@@ -86,6 +87,8 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
         "tool_executions_summary": "(No tool calls executed in current turn)",
         "has_asked_question": False,
         "most_recent_terminal_cmd": None,
+        "visual_verification_diagnostic": None,
+        "blast_radius_diagnostic": None,
     }
     if not steps or not isinstance(steps, list):
         return empty_res
@@ -230,6 +233,12 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
         inspected_files=inspected_files,
         has_mutation=has_mutation,
     )
+    blast_diagnostic = detect_blast_radius_gap(
+        written_files=written_files,
+        inspected_files=inspected_files,
+        executed_commands=executed_commands,
+        workspace_root=workspace_root,
+    )
     return {
         "has_mutation": has_mutation,
         "mutation_reason": mutation_reason,
@@ -248,6 +257,7 @@ def extract_turn_execution_provenance(steps: List[Dict[str, Any]]) -> Dict[str, 
         "has_asked_question": has_asked_question,
         "most_recent_terminal_cmd": most_recent_terminal_cmd,
         "visual_verification_diagnostic": visual_diagnostic,
+        "blast_radius_diagnostic": blast_diagnostic,
     }
 
 

@@ -27,6 +27,7 @@ def test_verifier_prompt_includes_adversarial_challenge_strategies():
     assert "Clean-room verification for UI, charts, and visual surfaces" in prompt
     assert "Independent reconciliation for data pipelines, SQL, and computed metrics" in prompt
     assert "Differential testing for algorithmic logic and state refactoring" in prompt
+    assert "Blast radius and downstream consumer verification" in prompt
 
 
 

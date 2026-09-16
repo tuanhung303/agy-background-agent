@@ -4,6 +4,11 @@ import os
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from sage.lite.blast_radius import (
+    detect_blast_radius_gap,
+    find_direct_workspace_consumers,
+)
+
 WRITE_TOOLS: Set[str] = {
     "write_to_file",
     "replace_file_content",

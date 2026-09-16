@@ -52,7 +52,7 @@ def test_exhausted_models_are_unavailable_and_do_not_extend_timeout(monkeypatch)
     monkeypatch.setattr(verifier.subprocess, "run", run)
     result = verifier.run_lite_verification("parent", "fork", "Export", "Done", timeout=10)
     assert run.call_args.kwargs["timeout"] == 0.75
-    assert result.completion == "unavailable" and not result.proof
+    assert result.completion == "timed_out" and not result.proof
 
 
 @pytest.fixture

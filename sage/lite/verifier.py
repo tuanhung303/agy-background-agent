@@ -13,25 +13,33 @@ from sage.lite.schemas import LiteVerdict
 from sage.locking import log_audit
 
 
-def _unavailable() -> LiteVerdict:
+def _unavailable(reason: str = "unavailable") -> LiteVerdict:
     """Represent a failed audit without inventing corrective instructions."""
-    return LiteVerdict(verdict="PASS", completion="unavailable")
+    return LiteVerdict(verdict="PASS", completion=reason)
 
 
 def _execute_verdict(prompt: str, fork_conv_id: str, deadline: float, cwd: Optional[str]) -> LiteVerdict:
     """Run the configured model candidates within one deadline and parse the verdict."""
     agy_bin = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
     env = dict(os.environ, AGY_STOP_AUDIT_ACTIVE="1", HOME=ensure_isolated_home())
-    for model in LITE_MODEL_CANDIDATES:
+    candidates = list(LITE_MODEL_CANDIDATES)
+    timed_out = False
+    for idx, model in enumerate(candidates):
         remaining = deadline - time.monotonic()
         if remaining <= 0.5:
+            timed_out = True
+            break
+        has_fallback = idx < len(candidates) - 1
+        call_timeout = min(remaining, max(12.0, remaining - 10.0)) if has_fallback else remaining
+        if call_timeout <= 0.5:
+            timed_out = True
             break
         command = [agy_bin, "--conversation", fork_conv_id, "-p", prompt,
                    "--model", model, "--disable-slash-commands"]
         started = time.monotonic()
         try:
             result = subprocess.run(command, input="", capture_output=True, text=True,
-                                    timeout=remaining, env=env, cwd=cwd if cwd and os.path.isdir(cwd) else None)
+                                    timeout=call_timeout, env=env, cwd=cwd if cwd and os.path.isdir(cwd) else None)
             if result.returncode != 0 or not result.stdout.strip():
                 log_audit(f"Lite verifier candidate '{model}' returned code {result.returncode}")
                 continue
@@ -39,9 +47,15 @@ def _execute_verdict(prompt: str, fork_conv_id: str, deadline: float, cwd: Optio
             verdict = LiteVerdict.from_dict(data)
             log_audit(f"Lite verifier finished in {time.monotonic() - started:.2f}s with {model}: {verdict.verdict}")
             return verdict
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            log_audit(f"Lite verifier candidate '{model}' timed out after {call_timeout:.1f}s")
         except (subprocess.SubprocessError, OSError, ValueError, TypeError) as exc:
             log_audit(f"Lite verifier candidate '{model}' unavailable: {exc}")
-    return _unavailable()
+    if timed_out or time.monotonic() >= deadline:
+        log_audit("Lite verifier timed out across configured candidates")
+        return _unavailable("timed_out")
+    return _unavailable("unavailable")
 
 
 def run_lite_verification(
@@ -90,7 +104,7 @@ def run_lite_verification(
                 no_progress_count=no_progress_count,
             )
             verdict = _execute_verdict(prompt, fork_conv_id, deadline, cwd)
-            if verdict.verdict == "FAIL" or verdict.completion == "unavailable":
+            if verdict.verdict == "FAIL" or verdict.completion in ("unavailable", "timed_out"):
                 return verdict
             if verdict.verdict == "PASS" and turn_provenance and turn_provenance.get("visual_verification_diagnostic"):
                 valid, reason = False, "Unrendered visual deliverable: " + str(turn_provenance["visual_verification_diagnostic"])
@@ -100,7 +114,12 @@ def run_lite_verification(
                 return verdict
             log_audit(f"Lite verifier proof contradiction: {reason}")
             diagnostic = {"previous_proof": verdict.proof, "observed_contradiction": reason}
+    except subprocess.TimeoutExpired:
+        log_audit("Lite verifier execution timed out")
+        return _unavailable("timed_out")
     except (OSError, ValueError, TypeError) as exc:
         log_audit(f"Lite verifier execution unavailable: {exc}")
+    if time.monotonic() >= deadline:
+        return _unavailable("timed_out")
     log_audit("Lite verifier unavailable; no fabricated steering or completion emitted")
-    return _unavailable()
+    return _unavailable("unavailable")
