@@ -10,12 +10,13 @@ import json
 import os
 import sys
 
-# Resolve real script location even when invoked via symlinks
+# Resolve real script location even when invoked via symlinks or copied into ~/.config/agy/
 _HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
 _REPO_DIR = os.path.abspath(os.path.join(_HOOK_DIR, ".."))
 
-if _REPO_DIR not in sys.path:
-    sys.path.insert(0, _REPO_DIR)
+for _p in (_HOOK_DIR, _REPO_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 
 # Hot unplug: when AGY_SAGE_DISABLED is set in the agy process environment
