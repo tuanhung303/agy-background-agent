@@ -12,9 +12,12 @@ from statusline.statusline import (
     calculate_seconds_left,
     clean_model_name,
     format_countdown,
+    format_session_badge,
     format_tokens,
     get_context_color,
     get_effective_max_context,
+    get_session_id,
+    get_short_session_id,
     is_agent_active,
     render_statusline,
 )
@@ -241,6 +244,46 @@ class TestStatusline(unittest.TestCase):
         finally:
             if os.path.exists(state_file):
                 os.remove(state_file)
+
+    def test_get_session_id_and_short_id(self):
+        # 1. Direct fields
+        self.assertEqual(get_session_id({"conversation_id": "d6a2ce6e-1234"}), "d6a2ce6e-1234")
+        self.assertEqual(get_session_id({"sessionId": "feed-beef-9999"}), "feed-beef-9999")
+        self.assertEqual(get_short_session_id({"conversation_id": "d6a2ce6e-1234"}, length=6), "d6a2ce")
+        self.assertEqual(get_short_session_id({"conversation_id": "d6a2ce6e-1234"}, length=4), "d6a2")
+        self.assertEqual(format_session_badge({"conversation_id": "d6a2ce6e-1234"}, length=6), "\033[90m#d6a2ce\033[0m")
+
+        # 2. Transcript path fallback
+        tp_data = {"transcript_path": "/Users/test/.gemini/antigravity-cli/brain/c47c5627-abcd/transcript.jsonl"}
+        self.assertEqual(get_short_session_id(tp_data, length=6), "c47c56")
+
+        # 3. Environment fallback
+        with patch.dict(os.environ, {"ANTIGRAVITY_CONVERSATION_ID": "8e8901cf-9999"}, clear=False):
+            self.assertEqual(get_short_session_id({}, length=6), "8e8901")
+
+        # 4. Empty returns empty string
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(get_short_session_id({}), "")
+            self.assertEqual(format_session_badge({}), "")
+
+    def test_render_statusline_session_id_right_aligned(self):
+        import re
+
+        data = {
+            "model": "Gemini 3.8 Flash (High)",
+            "terminal_width": 80,
+            "quota": {
+                "5h": {"remaining_fraction": 0.8, "reset_in_seconds": 3600}
+            },
+            "conversation_id": "d6a2ce6e-c530-4280-bce0-f3d1123ead71"
+        }
+        output = render_statusline(data)
+        plain = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", output)
+
+        # Session ID must be at the end of the line
+        self.assertTrue(plain.rstrip().endswith("#d6a2ce"))
+        self.assertIn("20%[1h]", plain)
+        self.assertIn("3.8 flash [h]", plain)
 
 
 if __name__ == "__main__":

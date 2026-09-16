@@ -188,6 +188,47 @@ def safe_id(val):
     return f"{re.sub(r'[^a-zA-Z0-9_-]', '_', val_str)[:32]}_{hashlib.sha256(val_str.encode('utf-8')).hexdigest()[:8]}"
 
 
+def get_session_id(data):
+    if not isinstance(data, dict):
+        data = {}
+    conv_id = (
+        data.get("conversation_id")
+        or data.get("session_id")
+        or data.get("conversationId")
+        or data.get("sessionId")
+        or data.get("thread_id")
+        or data.get("threadId")
+    )
+    if not conv_id:
+        tp = data.get("transcript_path") or data.get("transcriptPath")
+        if tp:
+            m = re.search(r"/brain/([^/]+)/", str(tp))
+            if m:
+                conv_id = m.group(1)
+    if not conv_id:
+        conv_id = (
+            os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
+            or os.environ.get("AGY_CONVERSATION_ID")
+            or os.environ.get("SESSION_ID")
+        )
+    return str(conv_id).strip() if conv_id else ""
+
+
+def get_short_session_id(data, length=6):
+    sid = get_session_id(data)
+    if not sid:
+        return ""
+    clean = re.sub(r"[^a-zA-Z0-9]", "", sid)
+    return clean[:length]
+
+
+def format_session_badge(data, length=6):
+    short_sid = get_short_session_id(data, length=length)
+    if not short_sid:
+        return ""
+    return f"\033[90m#{short_sid}\033[0m"
+
+
 def get_sage_steer_badges(data):
     conv_id = (
         data.get("conversation_id")
@@ -328,12 +369,7 @@ def render_statusline(data):
 
     # 3. Model Info, Checkpoint, Active Subagents & Lite Review Status (Left)
     left_segments = [f"{model_color}{model_display}\033[0m{ck_str}"]
-    conv_id = (
-        data.get("conversation_id")
-        or data.get("session_id")
-        or data.get("conversationId")
-        or data.get("sessionId")
-    )
+    conv_id = get_session_id(data)
     if conv_id:
         sf = f"/tmp/agy_sage_{safe_id(conv_id)}.json"
         lf = f"/tmp/agy_advisor_{safe_id(conv_id)}.json"
@@ -414,6 +450,9 @@ def render_statusline(data):
     right_segments.append(quota_5h_str)
     if quota_weekly_str:
         right_segments.append(quota_weekly_str)
+    sid_badge = format_session_badge(data, length=6)
+    if sid_badge:
+        right_segments.append(sid_badge)
 
     # Terminal Width & Padding
     term_width = (
