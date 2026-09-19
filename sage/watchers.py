@@ -33,6 +33,19 @@ PANE_IDLE_PROMPT_RE = re.compile(r"(?:^|\n)[^\S\n]*(?:❯|\$|%|#|➜|>)\s*(?:\n|
 _PANE_SEND_RE = re.compile(r"terminal\s+send\b", re.I)
 _PANE_CLOSE_RE = re.compile(r"terminal\s+close\b", re.I)
 
+TIMER_DESC_RE = re.compile(r"^timer:\s*(\d+(?:\.\d+)?)\s*s?", re.IGNORECASE)
+TIMER_GRACE_SECONDS = 15.0
+
+
+def _parse_timer_duration(desc: str) -> float:
+    m = TIMER_DESC_RE.search(str(desc or "").strip())
+    if m:
+        try:
+            return float(m.group(1))
+        except (ValueError, TypeError):
+            pass
+    return 60.0
+
 
 def _parse_iso_ts(ts_str):
     if not ts_str:
@@ -166,14 +179,24 @@ def get_active_background_tasks(steps, conv_id=None, parse_ts_func=None, max_age
             m_desc = re.search(r"Task Description:\s*([^\n]+)", content, re.I)
             if m_id and not (conv_id and "/" in m_id.group(1).strip() and m_id.group(1).strip().split("/")[0] != conv_id):
                 desc = m_desc.group(1).strip() if m_desc else "background task"
-                if desc.lower().startswith("timer:"):
-                    continue
                 raw_tid = m_id.group(1).strip()
                 dt = parse_ts(ts_str) if ts_str else None
                 tid = raw_tid if (not conv_id or "/" in raw_tid) else f"{conv_id}/{raw_tid}"
                 age = max(0.0, (now_dt - dt).total_seconds()) if dt else 0.0
+
+                is_timer = desc.lower().startswith("timer:")
+                timer_duration = _parse_timer_duration(desc) if is_timer else None
+                if is_timer and age > (timer_duration + TIMER_GRACE_SECONDS):
+                    continue
+
                 if not tasks.get(tid) or age > tasks[tid].get("age_seconds", 0.0):
-                    tasks[tid] = {"task_id": tid, "description": desc, "age_seconds": age}
+                    tasks[tid] = {
+                        "task_id": tid,
+                        "description": desc,
+                        "age_seconds": age,
+                        "is_timer": is_timer,
+                        "timer_duration": timer_duration,
+                    }
         if stype in ("GENERIC", "SYSTEM_MESSAGE") or (stype == "USER_INPUT" and ("sender=" in content or "[Message]" in content)):
             # Status-aware completion. Two traps both observed live (2026-08-27
             # premature recap while ServiceNow queries streamed):
@@ -204,3 +227,18 @@ def get_active_background_tasks(steps, conv_id=None, parse_ts_func=None, max_age
         and tid.split("/")[-1] not in completed_ids
         and (not max_age or t.get("age_seconds", 0.0) <= max_age)
     ]
+
+
+def get_active_external_dispatches(steps, max_age=1800.0, parse_ts_func=None):
+    from sage.dispatches import get_active_external_dispatches as _dispatches
+    return _dispatches(steps, max_age=max_age, parse_ts_func=parse_ts_func)
+
+
+def has_active_external_dispatches(steps, max_age=1800.0, parse_ts_func=None):
+    from sage.dispatches import has_active_external_dispatches as _has_dispatches
+    return _has_dispatches(steps, max_age=max_age, parse_ts_func=parse_ts_func)
+
+
+def get_stalled_background_tasks(steps, transcript_path=None, conv_id=None):
+    from sage.dispatches import get_stalled_background_tasks as _stalled
+    return _stalled(steps, transcript_path=transcript_path, conv_id=conv_id)

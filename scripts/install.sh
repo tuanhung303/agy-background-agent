@@ -181,6 +181,21 @@ with open(hooks_path, "w", encoding="utf-8") as f:
 PYEOF
 echo "✓ Verified and updated hooks.json configuration"
 
+# 8. Git hooks for automatic post-commit and post-merge sync
+GIT_DIR="$(git -C "$REPO_DIR" rev-parse --git-dir 2>/dev/null || true)"
+if [[ -n "$GIT_DIR" && -d "$GIT_DIR/hooks" ]]; then
+  if [[ -f "$REPO_DIR/scripts/git-hooks/post-commit" ]]; then
+    cp -p "$REPO_DIR/scripts/git-hooks/post-commit" "$GIT_DIR/hooks/post-commit"
+    chmod +x "$GIT_DIR/hooks/post-commit"
+    echo "✓ Installed git post-commit hook"
+  fi
+  if [[ -f "$REPO_DIR/scripts/git-hooks/post-merge" ]]; then
+    cp -p "$REPO_DIR/scripts/git-hooks/post-merge" "$GIT_DIR/hooks/post-merge"
+    chmod +x "$GIT_DIR/hooks/post-merge"
+    echo "✓ Installed git post-merge hook"
+  fi
+fi
+
 echo "Verifying installation targets:"
 ls -l "$HOME/.config/agy/session-sage.py" "$HOME/.gemini/config/hooks/session-sage.py" "$HOME/.config/agy/sage-enforce.py" "$HOME/.gemini/config/hooks/sage-enforce.py" "$HOME/.config/agy/session-advisor.py" "$HOME/.gemini/config/hooks/command-timer.py" "$HOME/.config/agy/statusline.py"
 echo "Installation complete."

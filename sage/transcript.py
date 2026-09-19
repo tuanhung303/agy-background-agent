@@ -217,8 +217,24 @@ def has_active_background_tasks(transcript_path, conv_id=None, max_age=None):
     return bool(get_active_background_tasks(transcript_path, conv_id, max_age=max_age))
 
 
+def get_active_external_dispatches(transcript_path, max_age=1800.0):
+    from sage.watchers import get_active_external_dispatches as _dispatches
+    return _dispatches(_read_transcript_steps(transcript_path), max_age=max_age, parse_ts_func=_parse_ts)
+
+
+def has_active_external_dispatches(transcript_path, max_age=1800.0):
+    return bool(get_active_external_dispatches(transcript_path, max_age=max_age))
+
+
+def get_stalled_background_tasks(transcript_path, conv_id=None):
+    from sage.watchers import get_stalled_background_tasks as _stalled
+    return _stalled(_read_transcript_steps(transcript_path), transcript_path=transcript_path, conv_id=conv_id)
+
+
 def is_post_invocation_completion_candidate(transcript_path, conv_id=None):
-    if has_active_subagents(transcript_path, conv_id) or has_active_background_tasks(transcript_path, conv_id):
+    if (has_active_subagents(transcript_path, conv_id)
+            or has_active_background_tasks(transcript_path, conv_id)
+            or has_active_external_dispatches(transcript_path)):
         return False
     steps = _read_transcript_steps(transcript_path)
     latest_idx = next((i for i in range(len(steps) - 1, -1, -1) if steps[i].get("type") == "PLANNER_RESPONSE"), -1)

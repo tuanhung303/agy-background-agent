@@ -25,7 +25,9 @@ from sage.locking import acquire_conversation_lock, log_audit
 from sage.session_state import load_and_sync_session_state, save_session_state
 from sage.transcript import (
     _read_transcript_steps, get_active_background_tasks,
-    get_active_external_panes, get_transcript_path,
+    get_active_external_dispatches, get_active_external_panes,
+    get_stalled_background_tasks, get_transcript_path,
+    has_active_external_dispatches, has_active_subagents,
     is_post_invocation_completion_candidate,
 )
 
@@ -56,11 +58,36 @@ def run_lite_stop_audit(raw_payload: Optional[str] = None) -> None:
     if payload.get("fullyIdle") is False or payload.get("fully_idle") is False:
         fail_safe_exit("Runtime reports active background work")
 
+    # A. Intervene immediately on interactive prompt stalls (e.g. npx/npm prompts waiting for stdin)
+    stalled_tasks = get_stalled_background_tasks(transcript_path, conv_id=conv_id)
+    if stalled_tasks:
+        st = stalled_tasks[0]
+        tid = st["task_id"]
+        prompt_str = st["stall_prompt"]
+        desc = st["description"]
+        emit_continue_response(
+            f"Background task '{tid}' ('{desc}') is blocked waiting for interactive stdin input: {prompt_str!r}. "
+            f"Background tasks cannot read stdin interactively. "
+            f"Either send input using manage_task(Action='send_input', TaskId='{tid}', Input='y'), "
+            f"or kill the task and re-run with non-interactive flags (e.g. 'npx -y', '--yes', or 'CI=1')."
+        )
+        return
+
+    # B. Active background tasks (including active unexpired schedule timers)
     if get_active_background_tasks(transcript_path, conv_id):
         fail_safe_exit("Active background tasks running")
 
+    # C. Active subagents (prevents premature stop audit during delegation)
+    if has_active_subagents(transcript_path, conv_id):
+        fail_safe_exit("Active subagents running")
+
+    # D. Active worker terminal panes
     if get_active_external_panes(transcript_path):
         fail_safe_exit("Active external panes streaming")
+
+    # E. Active external detached CLI dispatches (e.g. codex/astra/claude via dispatch-common.sh)
+    if has_active_external_dispatches(transcript_path):
+        fail_safe_exit("Active external dispatches running")
 
     ws_paths = payload.get("workspacePaths") or payload.get("workspace_paths") or []
     workspace_root = resolve_workspace_root(ws_paths)

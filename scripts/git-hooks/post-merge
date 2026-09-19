@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Git post-merge hook to sync hooks and sage package to ~/.config/agy and ~/.gemini/config/hooks
+set -euo pipefail
+
+REPO_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if [[ -x "$REPO_DIR/scripts/sync.sh" ]]; then
+  echo "agy-background-agent: syncing changes to AGY after merge..."
+  "$REPO_DIR/scripts/sync.sh"
+fi
